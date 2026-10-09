@@ -259,7 +259,7 @@ class JourneyService : Service() {
                 when {
                     skip -> Phase.Wait(phase.leg)
                     fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) -> Phase.Wait(phase.leg)
-                    // Near the line is not on the bus: you may live by it or walk along it.
+                    // Near the line is not on the bus: the walk to the stop may run beside it.
                     fix != null && riding.onBus(fix, leg) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
