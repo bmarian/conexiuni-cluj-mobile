@@ -16,10 +16,6 @@
     <string name="follow_waiting">Looking for the bus…</string>
     <string name="follow_ended">The bus has left %1$s.</string>
     <string name="follow_no_bus">No more departures to follow.</string>
-    <string name="follow_from_watch">%1$s · from your watch</string>
-    <string name="follow_on_watch_too">%1$s · also on your watch</string>
-    <string name="follow_on_watch">On your watch</string>
-    <string name="follow_also_on_watch">Also on your watch</string>
     <string name="eta_minutes" translatable="false">%1$d min</string>
     <string name="now">now</string>
     <string name="more_options">More options</string>
@@ -46,11 +42,6 @@
         <item quantity="one">%d stop left</item>
         <item quantity="other">%d stops left</item>
     </plurals>
-    <string name="remind_leave">Remind me</string>
-    <string name="remind_set">I\'ll remind you at %1$s</string>
-    <string name="remind_leave_now_title">Time to leave</string>
-    <string name="remind_leave_now_body">%1$s from %2$s at %3$s</string>
-    <string name="remind_too_late">Leave now: the bus is in %1$s</string>
     <string name="shortcut_search">Search</string>
     <string name="shortcut_search_long">Search lines, stops and places</string>
     <string name="shortcut_plan">Plan a trip</string>
@@ -67,8 +58,8 @@
     <string name="add_widget">Add departures widget</string>
     <string name="journey_line_here">%1$s is here</string>
     <string name="widget_loading">Loading…</string>
-    <string name="at_stop_setting_title">Departures at a favourite stop</string>
-    <string name="at_stop_setting_body">A quiet notification with the next buses when you arrive at one. Needs your location all the time.</string>
+    <string name="at_stop_setting_title">Favourite stops</string>
+    <string name="at_stop_setting_body">Show the next buses when you arrive at a favourite stop.</string>
     <string name="at_stop_channel">At a favourite stop</string>
     <string name="at_stop_title">At %1$s</string>
     <string name="at_stop_background_needed">Choose “Allow all the time” for location</string>
@@ -77,7 +68,7 @@
     <string name="onboard_location_title">Your location</string>
     <string name="onboard_location_body">To show the stops near you, plan trips from where you are, and tell you where to get off. It stays on your phone.</string>
     <string name="onboard_notifications_title">Notifications</string>
-    <string name="onboard_notifications_body">For a bus you follow, a trip under way, a reminder to leave, and changes to the lines you follow.</string>
+    <string name="onboard_notifications_body">For a bus you follow, a trip under way, and changes to the lines you follow.</string>
     <string name="onboard_watch_title">Your watch</string>
     <string name="onboard_watch_connected">Your watch has Conexiuni Cluj: favourites sync on their own, and a bus you follow shows on both.</string>
     <string name="onboard_watch_none">Have favourites on the website or the watch? Copy them over with a code.</string>
@@ -90,12 +81,6 @@
     <string name="watch_connected">Connected to %1$s</string>
     <string name="watch_missing_app">%1$s is connected, but doesn\'t have Conexiuni Cluj yet</string>
     <string name="watch_none">No watch connected</string>
-    <string name="w_dynamic_color">Wallpaper colours</string>
-    <string name="w_dynamic_color_desc">Take the colours of your wallpaper, like other Android apps</string>
-    <string name="remind_inexact">Android may send it a few minutes late.</string>
-    <string name="remind_allow_exact">Allow exact</string>
-    <string name="nearby_title">Nearby</string>
-    <string name="nearby_none">No buses in the next while</string>
     <string name="directions">Directions</string>
     <string name="save">Save</string>
     <string name="saved">Saved</string>
@@ -109,12 +94,6 @@
     <string name="nav_recenter">Re-centre</string>
     <string name="nav_overview">See the whole trip</string>
     <string name="nav_resume">Navigate</string>
-    <string name="remind_title">Remind me to leave</string>
-    <string name="remind_none">No bus left to catch here soon: leave now or pick a later time.</string>
-    <string name="remind_leave_by">Leave by %1$s</string>
-    <string name="remind_bus_at">Bus at %1$s</string>
-    <string name="remind_how_early">Remind me</string>
-    <string name="remind_on_time">On time</string>
-    <string name="remind_confirm">Set reminder</string>
-    <string name="remind_pending">Reminder at %1$s</string>
+    <string name="nav_get_on_at">Get on at %1$s</string>
+    <string name="nav_change_at">Change at %1$s</string>
 </resources>

@@ -74,6 +74,12 @@ object WearLink {
         scope.launch { catchUpFavorites(app) }
     }
 
+    /** Checks again whether the watch app is in reach: "Open on watch" only shows when it is. */
+    fun refreshReach(context: Context) {
+        val app = context.applicationContext
+        scope.launch { mutableWatch.value = peers(app).isNotEmpty() || relayed }
+    }
+
     // A phone that never had a watch has no data layer at all; that's just no one to talk to.
     private suspend fun peers(context: Context): Set<Node> = runCatching {
         Wearable.getCapabilityClient(context).getCapability(CAPABILITY, CapabilityClient.FILTER_REACHABLE).await().nodes

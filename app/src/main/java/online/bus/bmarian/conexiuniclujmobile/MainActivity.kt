@@ -33,7 +33,6 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) take(intent)
         setContent {
             val mode by Services.settings.theme.collectAsStateWithLifecycle()
-            val dynamic by Services.settings.dynamicColor.collectAsStateWithLifecycle()
             val dark = when (mode) {
                 ThemeMode.Dark -> true
                 ThemeMode.Light -> false
@@ -44,10 +43,15 @@ class MainActivity : ComponentActivity() {
                 else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
             }
-            ConexiuniTheme(dark, dynamic) {
+            ConexiuniTheme(dark) {
                 AppShell(dark = dark, links = links)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        WearLink.refreshReach(this)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -55,8 +55,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -74,7 +74,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
@@ -111,6 +114,9 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
 import online.bus.bmarian.conexiuniclujmobile.widget.WidgetPinning
+
+// How long an opening stop waits for its favourite lines' routes before going to the stop alone.
+private const val FRAME_WAIT_MS = 2_000L
 
 @Composable
 fun stopViewModel(stopId: Int): StopViewModel = viewModel(key = "stop-$stopId") { StopViewModel(stopId) }
@@ -151,16 +157,28 @@ fun StopScreen(stopId: Int) {
     DisposableEffect(owner) {
         map.claim(owner)
         map.selectedStopId = stopId
+        // This page frames the map itself, once; buses coming and going later leave it be.
+        map.fitNewShapes = false
         onDispose { map.release(owner) }
     }
-    // Opening a stop, from search, a favourite, a link or a notification, brings the map to it.
-    val allStops by Services.repository.stops.collectAsStateWithLifecycle()
+    // Opening a stop, from the map, search, a favourite, a link or a notification, brings the map
+    // to it in one move: with its favourite lines' routes when they come in time, else the stop.
     var centred by rememberSaveable(stopId) { mutableStateOf(false) }
-    LaunchedEffect(allStops.isNotEmpty()) {
+    LaunchedEffect(Unit) {
         if (centred) return@LaunchedEffect
-        val stop = allStops.firstOrNull { it.stopId == stopId } ?: return@LaunchedEffect
+        val stop = Services.repository.stops.first { it.isNotEmpty() }.firstOrNull { it.stopId == stopId } ?: return@LaunchedEffect
+        val routes = if (!Services.settings.autoFitMap.value) null else withTimeoutOrNull(FRAME_WAIT_MS) {
+            val ui = vm.ui.filterNotNull().first()
+            if (ui.departures.none(vm::isDepartureFavorite)) null
+            else vm.mapLayer.first { it.shapes.isNotEmpty() }.shapes
+        }
         centred = true
-        map.flyTo(stop.lat, stop.lon)
+        if (routes.isNullOrEmpty()) {
+            map.flyTo(stop.lat, stop.lon)
+        } else {
+            map.showShapes(routes)
+            map.fitShapes()
+        }
     }
     LaunchedEffect(layer) {
         map.showShapes(layer.shapes)
@@ -190,6 +208,7 @@ fun StopScreen(stopId: Int) {
     val scope = rememberCoroutineScope()
     val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val allStops by Services.repository.stops.collectAsStateWithLifecycle()
     val here = remember(allStops, stopId) { allStops.find { it.stopId == stopId } }
     val menu = buildList {
         add(MenuAction(stringResource(R.string.add_to_home), Icons.Rounded.AddToHomeScreen) { Shortcuts.pinStop(context, stopId, name.orEmpty()) })

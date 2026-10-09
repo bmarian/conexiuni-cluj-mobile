@@ -42,23 +42,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
-import online.bus.bmarian.conexiuniclujmobile.ui.SectionLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.dragHandle
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.FollowingCard
@@ -68,15 +62,14 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.moved
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberReorderState
 import online.bus.bmarian.conexiuniclujmobile.ui.reorderItem
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 private class RouteChip(val route: Route, val destination: String, val name: String)
 
 private fun planKey(p: FavoritePlan) = "${p.lat}_${p.lon}_${p.originLat ?: ""}_${p.originLon ?: ""}"
 
 /**
- * Home in the sheet: the trip or bus you're on, buses near you, then your favourites and recent
- * places. Search lives in the bar over the map.
+ * Home in the sheet: the trip or bus you're on, then your favourites and recent places. Search
+ * lives in the bar over the map.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -84,7 +77,6 @@ fun HomeScreen() {
     val context = LocalContext.current
     val nav = LocalNavigator.current
     val map = LocalMap.current
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val repository = Services.repository
     val routes by repository.routes.collectAsStateWithLifecycle()
     val stops by repository.stops.collectAsStateWithLifecycle()
@@ -95,10 +87,6 @@ fun HomeScreen() {
     val online by Services.online.collectAsStateWithLifecycle()
     val following by FollowManager.state.collectAsStateWithLifecycle()
     val journey by JourneyManager.state.collectAsStateWithLifecycle()
-    val watchInReach by WearLink.watchInReach.collectAsStateWithLifecycle()
-    val nearby: NearbyViewModel = viewModel()
-    val nearbyUi by nearby.ui.collectAsStateWithLifecycle()
-    LaunchedEffect(nearby) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { nearby.live() } }
 
     val listState = rememberLazyListState()
 
@@ -143,7 +131,6 @@ fun HomeScreen() {
             item(key = "journey") {
                 JourneyCard(
                     trip,
-                    watch = watchInReach,
                     onNext = { JourneyManager.next(context) },
                     onEnd = { JourneyManager.stop(context) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
@@ -155,7 +142,6 @@ fun HomeScreen() {
             item(key = "following") {
                 FollowingCard(
                     follow,
-                    watch = watchInReach,
                     onOpen = { nav.stop(follow.followed.stopId) },
                     onStop = { FollowManager.stop(context) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
@@ -163,15 +149,9 @@ fun HomeScreen() {
             }
         }
 
-        nearbyUi?.let { ui -> nearbySection(ui, onStop = nav::stop) }
-
-        if (hasFavorites || (online && recents.isNotEmpty())) {
-            item(key = "favorites-label") {
-                SectionLabel(stringResource(R.string.w_favorites), Modifier.padding(top = 12.dp), icon = Icons.Rounded.Favorite, iconTint = Palette.Rose)
-            }
-        }
+        // No "Favourites" over these: each kind has its own label.
         if (chips.isNotEmpty()) {
-            item(key = "routes-label") { SubLabel(stringResource(R.string.w_favorite_routes)) }
+            item(key = "routes-label") { SubLabel(stringResource(R.string.w_favorite_routes), Modifier.padding(top = 12.dp)) }
             item(key = "routes") {
                 FlowRow(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -193,7 +173,7 @@ fun HomeScreen() {
             }
         }
         if (favoriteStops.isNotEmpty()) {
-            item(key = "stops-label") { SubLabel(stringResource(R.string.w_favorite_stops), Modifier.padding(top = 8.dp)) }
+            item(key = "stops-label") { SubLabel(stringResource(R.string.w_favorite_stops), Modifier.padding(top = if (chips.isEmpty()) 12.dp else 8.dp)) }
             item(key = "stops") {
                 Column {
                     for (stop in favoriteStops) key(stop.stopId) {
@@ -212,7 +192,7 @@ fun HomeScreen() {
             }
         }
         if (online && favoritePlans.isNotEmpty()) {
-            item(key = "plans-label") { SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = 8.dp)) }
+            item(key = "plans-label") { SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = if (chips.isEmpty() && favoriteStops.isEmpty()) 12.dp else 8.dp)) }
             item(key = "plans") {
                 Column {
                     for (plan in favoritePlans) key(planKey(plan)) {
@@ -233,7 +213,7 @@ fun HomeScreen() {
             }
         }
         if (online && recents.isNotEmpty()) {
-            item(key = "recents-label") { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = 8.dp)) }
+            item(key = "recents-label") { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = if (hasFavorites) 8.dp else 12.dp)) }
             items(recents, key = { "recent-${planKey(it)}" }) { plan ->
                 FavoriteRow(
                     modifier = Modifier.animateItem(),

@@ -63,9 +63,8 @@ class FollowService : Service() {
         current = state
         ended = false
 
-        val watch = WearLink.watchInReach.value
         ServiceCompat.startForeground(
-            this, FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state, watch),
+            this, FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
         // The watch shows it before the first countdown is worked out.
@@ -157,7 +156,7 @@ class FollowService : Service() {
         FollowManager.mutableState.value = state
         WearLink.sendState(this, state.toSync())
         getSystemService(NotificationManager::class.java)
-            .notify(FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state, WearLink.watchInReach.value))
+            .notify(FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state))
     }
 
     private fun end(state: FollowState, reason: String) {

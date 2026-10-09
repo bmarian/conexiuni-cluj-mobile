@@ -51,11 +51,6 @@ import kotlin.math.roundToInt
 
 private const val TICK_MS = 5_000L
 private const val STOP_INFO_REFRESH_MS = 120_000L
-// Close enough to count as at the stop, and far enough from it to count as on the bus.
-private const val AT_STOP_M = 40.0
-private const val LEFT_STOP_M = 150.0
-// How far from the line's stops a position can be and still say which stop the bus is at.
-private const val ON_LINE_M = 300.0
 private const val ARRIVED_M = 50.0
 // Nobody's trip lasts this long; a forgotten journey shouldn't drain the battery.
 private const val GIVE_UP_MS = 4 * 60 * 60_000L
@@ -90,6 +85,7 @@ class JourneyService : Service() {
     private var lastDepartureMinutes: Int? = null
     private var walkEndStartedAt = 0L
     private var walkStartM = 0.0
+    private val riding = RidingCheck()
     private val legIndex = MutableStateFlow(0)
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -109,6 +105,7 @@ class JourneyService : Service() {
             alerted = false
             ended = false
             rideStop = 0
+            riding.reset()
             legIndex.value = 0
         }
         val located = UserLocation.permitted(this)
@@ -148,7 +145,9 @@ class JourneyService : Service() {
         val client = LocationServices.getFusedLocationProviderClient(this@JourneyService)
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
-                result.lastLocation?.let { trySend(Fix(it.latitude, it.longitude, it.accuracy, it.bearing.takeIf { _ -> it.hasBearing() })) }
+                result.lastLocation?.let {
+                    trySend(Fix(it.latitude, it.longitude, it.accuracy, it.bearing.takeIf { _ -> it.hasBearing() }, it.speed.takeIf { _ -> it.hasSpeed() }))
+                }
             }
         }
         client.requestLocationUpdates(
@@ -214,6 +213,7 @@ class JourneyService : Service() {
         if (phase != before) {
             stepIndex++
             alerted = false
+            riding.reset()
             if (phase is Phase.Ride && before !is Phase.Ride) {
                 rideStop = 0
                 rideStartedAt = nowMs
@@ -228,6 +228,9 @@ class JourneyService : Service() {
         val sync = described.copy(
             progress = (progress.doneMinutes / progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f),
             etaAt = arrivalAt(progress, departure, nowMs),
+            lat = fix?.lat?.let { Math.round(it * 1e5) / 1e5 },
+            lon = fix?.lon?.let { Math.round(it * 1e5) / 1e5 },
+            bearing = fix?.bearing,
         )
         if (sync.alert && !alerted) {
             alerted = true
@@ -255,8 +258,9 @@ class JourneyService : Service() {
                 val leg = journey.legs[phase.leg]
                 when {
                     skip -> Phase.Wait(phase.leg)
-                    fix != null && boarded(fix, leg) -> Phase.Ride(phase.leg)
                     fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) -> Phase.Wait(phase.leg)
+                    // Near the line is not on the bus: you may live by it or walk along it.
+                    fix != null && riding.onBus(fix, leg) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
                 }
@@ -265,7 +269,7 @@ class JourneyService : Service() {
                 val leg = journey.legs[phase.leg]
                 when {
                     skip -> Phase.Ride(phase.leg)
-                    fix != null && boarded(fix, leg) -> Phase.Ride(phase.leg)
+                    fix != null && (leftOnBus(fix, leg) || riding.onBus(fix, leg)) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
                 }
@@ -297,10 +301,6 @@ class JourneyService : Service() {
         }
     }
 
-    // On the bus: away from the boarding stop and at a later stop of the line.
-    private fun boarded(fix: Fix, leg: JourneyLeg): Boolean =
-        distanceTo(fix, leg.boarding) > LEFT_STOP_M && (nearestStop(fix, leg) ?: 0) >= 1
-
     // The bus came and went: its countdown reached zero and the next one is further off.
     private fun busLeft(departure: StopDeparture?): Boolean {
         val minutes = departure?.nextTimes?.firstOrNull()?.minutes
@@ -308,13 +308,6 @@ class JourneyService : Service() {
         lastDepartureMinutes = minutes
         return left
     }
-
-    private fun nearestStop(fix: Fix, leg: JourneyLeg): Int? {
-        val (index, meters) = leg.stops.mapIndexed { i, s -> i to distanceTo(fix, s) }.minByOrNull { it.second } ?: return null
-        return index.takeIf { meters <= ON_LINE_M }
-    }
-
-    private fun distanceTo(fix: Fix, stop: JourneyStop) = haversineMeters(fix.lat, fix.lon, stop.lat, stop.lon)
 
     /**
      * When you get there: what is left of the trip, and while the bus is still to come, its

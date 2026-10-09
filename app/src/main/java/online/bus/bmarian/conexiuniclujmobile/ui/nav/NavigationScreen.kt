@@ -9,28 +9,46 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Arrangement
+import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
-import androidx.compose.material.icons.rounded.SubdirectoryArrowRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Route
+import androidx.compose.material.icons.rounded.SubdirectoryArrowRight
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
@@ -49,12 +67,15 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -65,6 +86,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -73,6 +95,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -100,6 +123,10 @@ import online.bus.bmarian.conexiuniclujmobile.logic.indexVehicles
 import online.bus.bmarian.conexiuniclujmobile.ui.CREDITS
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
+import online.bus.bmarian.conexiuniclujmobile.ui.Rail
+import online.bus.bmarian.conexiuniclujmobile.ui.SheetSpring
+import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
+import online.bus.bmarian.conexiuniclujmobile.ui.TimelineRow
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapColors
@@ -324,43 +351,193 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        // The steps drawer: when you get there and how far you've come always show; pull it up
+        // (or tap it) for every step of the trip, the one you're on marked.
+        val drawerMax = height * 0.72f
+        val navBar = WindowInsets.navigationBars.getBottom(density).toFloat()
+        var headerPx by remember { mutableFloatStateOf(0f) }
+        val drawer = remember { AnchoredDraggableState(NavDrawer.Closed) }
+        val scope = rememberCoroutineScope()
+        LaunchedEffect(headerPx, drawerMax, navBar) {
+            if (headerPx <= 0f) return@LaunchedEffect
+            panelHeight = headerPx + navBar
+            drawer.updateAnchors(
+                DraggableAnchors {
+                    NavDrawer.Open at 0f
+                    NavDrawer.Closed at (drawerMax - headerPx - navBar).coerceAtLeast(0f)
+                },
+            )
+        }
+        BackHandler(enabled = drawer.targetValue == NavDrawer.Open) { scope.launch { drawer.animateTo(NavDrawer.Closed, SheetSpring) } }
         Surface(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { panelHeight = it.height.toFloat() },
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(with(density) { drawerMax.toDp() })
+                .offset { IntOffset(0, (drawer.offset.takeUnless { it.isNaN() } ?: (drawerMax - headerPx - navBar)).roundToInt()) }
+                .anchoredDraggable(
+                    drawer,
+                    Orientation.Vertical,
+                    flingBehavior = AnchoredDraggableDefaults.flingBehavior(drawer, animationSpec = SheetSpring),
+                ),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 8.dp,
         ) {
-            Column(Modifier.navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FilledIconButton(
-                        onClick = { JourneyManager.stop(context) },
-                        modifier = Modifier.size(48.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                    ) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.journey_end)) }
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val eta = sync.etaAt
-                        val left = eta?.let { ((it - clockMs) / 60_000.0).let { m -> Math.round(m).toInt().coerceAtLeast(0) } }
-                        Text(
-                            left?.let { stringResource(R.string.eta_minutes, it) } ?: "—",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = liveColor(),
-                        )
-                        val clock = eta?.let { DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(it).atZone(CLUJ_ZONE)) }
-                        Text(
-                            listOfNotNull(clock?.let { stringResource(R.string.nav_arrive_at, it) }, trip?.destination?.name).joinToString(" · "),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+            Column {
+                Column(
+                    Modifier.fillMaxWidth()
+                        .onSizeChanged { headerPx = it.height.toFloat() }
+                        .clickable(interactionSource = null, indication = null) {
+                            scope.launch { drawer.animateTo(if (drawer.targetValue == NavDrawer.Open) NavDrawer.Closed else NavDrawer.Open, SheetSpring) }
+                        }
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(
+                        Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(36.dp, 4.dp)
+                            .clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        FilledIconButton(
+                            onClick = { JourneyManager.stop(context) },
+                            modifier = Modifier.size(48.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
+                        ) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.journey_end)) }
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            val eta = sync.etaAt
+                            val left = eta?.let { ((it - clockMs) / 60_000.0).let { m -> Math.round(m).toInt().coerceAtLeast(0) } }
+                            Text(
+                                left?.let { stringResource(R.string.eta_minutes, it) } ?: "—",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = liveColor(),
+                            )
+                            val clock = eta?.let { DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(it).atZone(CLUJ_ZONE)) }
+                            Text(
+                                listOfNotNull(clock?.let { stringResource(R.string.nav_arrive_at, it) }, trip?.destination?.name).joinToString(" · "),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        FilledTonalButton(onClick = { JourneyManager.next(context) }) { Text(stringResource(R.string.journey_next)) }
                     }
-                    FilledTonalButton(onClick = { JourneyManager.next(context) }) { Text(stringResource(R.string.journey_next)) }
+                    if (trip != null) TripProgress(trip, sync.progress ?: 0f)
                 }
-                if (trip != null) TripProgress(trip, sync.progress ?: 0f)
+                if (trip != null) {
+                    NavSteps(trip, sync, open = drawer.targetValue == NavDrawer.Open, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+private enum class NavDrawer { Closed, Open }
+
+/** One row of the trip's steps: what it says, how it is drawn, and which stop it stands for. */
+private class StepRow(
+    val title: String,
+    val subtitle: String?,
+    val top: Rail?,
+    val bottom: Rail?,
+    val dot: TimelineDot,
+    val color: Color,
+    val compact: Boolean = false,
+    val lines: List<Pair<String, String>> = emptyList(),
+)
+
+/**
+ * Every step of the trip top to bottom, on the same timeline as the planner: the walks dotted,
+ * the rides in their colours with every stop, the one you're on marked and the ones behind you
+ * greyed.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifier: Modifier) {
+    val walkTo = stringResource(R.string.journey_walk_to, "%s")
+    val getOn = stringResource(R.string.nav_get_on_at, "%s")
+    val changeAt = stringResource(R.string.nav_change_at, "%s")
+    val getOff = stringResource(R.string.journey_get_off_at, "%s")
+    val start = MaterialTheme.colorScheme.tertiary
+    val end = MaterialTheme.colorScheme.primary
+    val (rows, current) = remember(journey, sync.stepType, sync.legIndex, sync.stopsLeft, sync.totalStops, walkTo, getOn, getOff, changeAt) {
+        val rows = mutableListOf<StepRow>()
+        var current = 0
+        journey.legs.forEachIndexed { i, leg ->
+            val color = routeColor(leg.colors.firstOrNull() ?: "#64748b")
+            val walkRow = rows.size
+            // A change at the same stop is no walk.
+            val previous = journey.legs.getOrNull(i - 1)?.alighting
+            val sameStop = previous != null && haversineMeters(previous.lat, previous.lon, leg.boarding.lat, leg.boarding.lon) < 40
+            rows += StepRow(
+                (if (sameStop) changeAt else walkTo).format(leg.boarding.name), null,
+                top = if (i == 0) null else Rail.Walk, bottom = Rail.Walk,
+                dot = if (i == 0) TimelineDot.Station else TimelineDot.None,
+                color = start,
+            )
+            val boardRow = rows.size
+            leg.stops.forEachIndexed { j, stop ->
+                rows += when (j) {
+                    0 -> StepRow(
+                        getOn.format(stop.name), null, Rail.Walk, Rail.Ride(color), TimelineDot.Station, color,
+                        lines = leg.lines.zip(leg.colors),
+                    )
+                    leg.stops.lastIndex -> StepRow(
+                        getOff.format(stop.name), null, Rail.Ride(color),
+                        if (i == journey.legs.lastIndex && journey.endsAtStop) null else Rail.Walk,
+                        TimelineDot.Station, color,
+                    )
+                    else -> StepRow(stop.name, null, Rail.Ride(color), Rail.Ride(color), TimelineDot.Stop, color, compact = true)
+                }
+            }
+            if (i == sync.legIndex) {
+                current = when (sync.stepType) {
+                    StepType.WALK -> walkRow
+                    StepType.WAIT -> boardRow
+                    StepType.RIDE -> boardRow + ((sync.totalStops ?: 0) - (sync.stopsLeft ?: 0)).coerceIn(0, leg.stops.lastIndex)
+                    else -> current
+                }
+            }
+        }
+        if (!journey.endsAtStop) {
+            val walkEnd = rows.size
+            rows += StepRow(walkTo.format(journey.destination.name), null, Rail.Walk, Rail.Walk, TimelineDot.None, end)
+            rows += StepRow(journey.destination.name, null, Rail.Walk, null, TimelineDot.Station, end)
+            if (sync.stepType == StepType.WALK_END) current = walkEnd
+        }
+        if (sync.stepType == StepType.ARRIVED) current = rows.lastIndex
+        rows to current
+    }
+    val list = rememberLazyListState()
+    // Opened: the step you're on in view, with the one before it for context.
+    LaunchedEffect(open, current) { if (open) list.animateScrollToItem((current - 1).coerceAtLeast(0)) }
+    LazyColumn(modifier.fillMaxWidth(), state = list, contentPadding = PaddingValues(bottom = 24.dp)) {
+        itemsIndexed(rows) { i, row ->
+            val here = i == current
+            TimelineRow(
+                top = row.top,
+                bottom = row.bottom,
+                dot = row.dot,
+                color = row.color,
+                compact = row.compact,
+                dimmed = i < current,
+                modifier = if (here) Modifier.background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)) else Modifier,
+            ) {
+                Text(
+                    row.title,
+                    style = if (row.compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleSmall,
+                    fontWeight = if (here) FontWeight.Bold else null,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (row.lines.isNotEmpty()) {
+                    FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        row.lines.forEach { (line, color) -> LineBadge(line, color, height = 22.dp, minWidth = 30.dp, corner = 6.dp) }
+                    }
+                }
+                row.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }

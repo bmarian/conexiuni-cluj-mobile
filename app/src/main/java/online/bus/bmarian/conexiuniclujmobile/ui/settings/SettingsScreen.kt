@@ -41,7 +41,6 @@ import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Newspaper
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -123,7 +122,6 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val settings = Services.settings
     val locale by settings.locale.collectAsStateWithLifecycle()
     val weather by settings.showWeather.collectAsStateWithLifecycle()
-    val dynamicColor by settings.dynamicColor.collectAsStateWithLifecycle()
     val theme by settings.theme.collectAsStateWithLifecycle()
     val news by settings.showNews.collectAsStateWithLifecycle()
     val extras by settings.showVehicleExtras.collectAsStateWithLifecycle()
@@ -216,7 +214,6 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
 
             Section(stringResource(R.string.w_display))
             ThemeRow(theme, settings::setTheme)
-            Toggle(Icons.Rounded.Palette, stringResource(R.string.w_dynamic_color), stringResource(R.string.w_dynamic_color_desc), dynamicColor, onChange = settings::setDynamicColor)
             Toggle(Icons.Rounded.Cloud, stringResource(R.string.w_weather), stringResource(R.string.w_weather_desc), weather, onChange = settings::setShowWeather)
             Toggle(Icons.Rounded.Newspaper, stringResource(R.string.w_news), stringResource(R.string.w_news_desc), news, onChange = settings::setShowNews)
             Toggle(Icons.Rounded.Accessible, stringResource(R.string.w_vehicle_extras), stringResource(R.string.w_vehicle_extras_desc), extras, onChange = settings::setShowVehicleExtras)

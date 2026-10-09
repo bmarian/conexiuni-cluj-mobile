@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -108,7 +107,7 @@ suspend fun openOnWatch(context: Context, path: String) {
 
 /** The followed bus on top of Home, like Maps' trip in progress. */
 @Composable
-fun FollowingCard(state: FollowState, watch: Boolean, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
+fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val followed = state.followed
     val now = rememberNow()
     Card(
@@ -123,19 +122,9 @@ fun FollowingCard(state: FollowState, watch: Boolean, onOpen: () -> Unit, onStop
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(
-                        if (state.remote) Icons.Rounded.Watch else Icons.Rounded.NotificationsActive,
-                        null,
-                        Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    val where = when {
-                        state.remote -> stringResource(R.string.follow_on_watch)
-                        watch -> stringResource(R.string.follow_also_on_watch)
-                        else -> null
-                    }
+                    Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     Text(
-                        listOfNotNull(stringResource(R.string.following), where).joinToString(" · "),
+                        stringResource(R.string.following),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
@@ -168,7 +157,7 @@ fun FollowingCard(state: FollowState, watch: Boolean, onOpen: () -> Unit, onStop
 
 /** The journey under way, on top of Home: the step, the countdown, Next and End. */
 @Composable
-fun JourneyCard(state: JourneySync, watch: Boolean, onNext: () -> Unit, onEnd: () -> Unit, modifier: Modifier = Modifier, onOpen: (() -> Unit)? = null) {
+fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modifier: Modifier = Modifier, onOpen: (() -> Unit)? = null) {
     val now = rememberNow()
     Card(
         onClick = { onOpen?.invoke() },
@@ -179,10 +168,7 @@ fun JourneyCard(state: JourneySync, watch: Boolean, onNext: () -> Unit, onEnd: (
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Rounded.Navigation, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
                 Text(
-                    listOfNotNull(
-                        stringResource(R.string.journey_to, state.title),
-                        if (watch) stringResource(R.string.follow_also_on_watch) else null,
-                    ).joinToString(" · "),
+                    stringResource(R.string.journey_to, state.title),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                     maxLines = 1,

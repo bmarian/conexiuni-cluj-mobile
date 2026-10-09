@@ -1,8 +1,5 @@
 package online.bus.bmarian.conexiuniclujmobile
 
-import online.bus.bmarian.conexiuniclujmobile.data.Stop
-import online.bus.bmarian.conexiuniclujmobile.data.Fix
-import online.bus.bmarian.conexiuniclujmobile.ui.home.nearestStops
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.buildScene
@@ -81,16 +78,5 @@ class MapSceneTest {
         assertEquals(0.0, headingBetween(350.0, 10.0, 0.5), 1e-9)
         assertEquals(355.0, headingBetween(10.0, 340.0, 0.5), 1e-9)
         assertEquals(90.0, headingBetween(0.0, 180.0, 0.5), 1e-9)
-    }
-
-    @Test
-    fun nearbyKeepsTheClosestWithinAWalk() {
-        val stops = listOf(
-            Stop(1, "Far", 46.80, 23.60),
-            Stop(2, "Near", 46.7701, 23.6001),
-            Stop(3, "Close", 46.7710, 23.6000),
-        )
-        val near = nearestStops(stops, Fix(46.77, 23.60, 5f))
-        assertEquals(listOf(2, 3), near.map { it.first.stopId })
     }
 }

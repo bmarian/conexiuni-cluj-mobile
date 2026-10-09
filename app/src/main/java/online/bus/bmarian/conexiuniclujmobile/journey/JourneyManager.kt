@@ -76,6 +76,10 @@ data class JourneySync(
     // When you get there, and how much of the trip is behind you (0 to 1).
     val etaAt: Long? = null,
     val progress: Float? = null,
+    // Where the phone is, for the watch's map when the watch has no position of its own.
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val bearing: Float? = null,
 )
 
 /** What a step is, for screens that draw it rather than read it out. */

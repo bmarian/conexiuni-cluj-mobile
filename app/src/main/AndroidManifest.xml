@@ -16,11 +16,9 @@
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- A journey follows you along the trip, so it can say which stop is next. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <!-- Only when "Departures at a favourite stop" is turned on in Settings. -->
+    <!-- Only when "Favourite stops" is turned on in Settings. -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- "Remind me to leave" on the minute; asked for when first needed, inexact without it. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".App"
@@ -53,16 +51,6 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Step-by-step public transport trip guidance the user started" />
         </service>
-        <receiver
-            android:name=".journey.LeaveReminderReceiver"
-            android:exported="false" />
-        <receiver
-            android:name=".journey.ExactAlarmPermissionReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
-            </intent-filter>
-        </receiver>
         <receiver
             android:name=".journey.JourneyActionReceiver"
             android:exported="false" />

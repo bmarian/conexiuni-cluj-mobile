@@ -15,10 +15,6 @@
     <string name="follow_waiting">Se caută autobuzul…</string>
     <string name="follow_ended">Autobuzul a plecat din %1$s.</string>
     <string name="follow_no_bus">Nu mai sunt plecări de urmărit.</string>
-    <string name="follow_from_watch">%1$s · de pe ceas</string>
-    <string name="follow_on_watch_too">%1$s · și pe ceas</string>
-    <string name="follow_on_watch">Pe ceas</string>
-    <string name="follow_also_on_watch">Și pe ceas</string>
     <string name="now">acum</string>
     <string name="more_options">Mai multe opțiuni</string>
     <string name="open_on_watch">Deschide pe ceas</string>
@@ -45,11 +41,6 @@
         <item quantity="few">Mai sunt %d stații</item>
         <item quantity="other">Mai sunt %d de stații</item>
     </plurals>
-    <string name="remind_leave">Amintește-mi</string>
-    <string name="remind_set">Îți amintesc la %1$s</string>
-    <string name="remind_leave_now_title">E timpul să pleci</string>
-    <string name="remind_leave_now_body">%1$s din %2$s la %3$s</string>
-    <string name="remind_too_late">Pleacă acum: autobuzul vine în %1$s</string>
     <string name="shortcut_search">Caută</string>
     <string name="shortcut_search_long">Caută linii, stații și locuri</string>
     <string name="shortcut_plan">Planifică o călătorie</string>
@@ -66,8 +57,8 @@
     <string name="add_widget">Adaugă widgetul cu plecări</string>
     <string name="journey_line_here">%1$s a sosit</string>
     <string name="widget_loading">Se încarcă…</string>
-    <string name="at_stop_setting_title">Plecări într-o stație favorită</string>
-    <string name="at_stop_setting_body">O notificare discretă cu următoarele autobuze când ajungi într-una. Are nevoie de locație tot timpul.</string>
+    <string name="at_stop_setting_title">Stații favorite</string>
+    <string name="at_stop_setting_body">Afișează următoarele autobuze când ajungi într-o stație favorită.</string>
     <string name="at_stop_channel">Într-o stație favorită</string>
     <string name="at_stop_title">În %1$s</string>
     <string name="at_stop_background_needed">Alege „Permite tot timpul” pentru locație</string>
@@ -76,7 +67,7 @@
     <string name="onboard_location_title">Locația ta</string>
     <string name="onboard_location_body">Pentru stațiile din jur, călătorii planificate de unde ești și ca să știi unde să cobori. Rămâne pe telefon.</string>
     <string name="onboard_notifications_title">Notificări</string>
-    <string name="onboard_notifications_body">Pentru autobuzul urmărit, călătoria în desfășurare, un memento să pleci și schimbările liniilor urmărite.</string>
+    <string name="onboard_notifications_body">Pentru autobuzul urmărit, călătoria în desfășurare și schimbările liniilor urmărite.</string>
     <string name="onboard_watch_title">Ceasul tău</string>
     <string name="onboard_watch_connected">Ceasul tău are Conexiuni Cluj: favoritele se sincronizează singure, iar autobuzul urmărit apare pe amândouă.</string>
     <string name="onboard_watch_none">Ai favorite pe site sau pe ceas? Copiază-le cu un cod.</string>
@@ -89,12 +80,6 @@
     <string name="watch_connected">Conectat la %1$s</string>
     <string name="watch_missing_app">%1$s e conectat, dar nu are încă Conexiuni Cluj</string>
     <string name="watch_none">Niciun ceas conectat</string>
-    <string name="w_dynamic_color">Culorile imaginii de fundal</string>
-    <string name="w_dynamic_color_desc">Ia culorile imaginii de fundal, ca alte aplicații Android</string>
-    <string name="remind_inexact">Android o poate trimite cu câteva minute întârziere.</string>
-    <string name="remind_allow_exact">Permite ora exactă</string>
-    <string name="nearby_title">În apropiere</string>
-    <string name="nearby_none">Niciun autobuz în curând</string>
     <string name="directions">Direcții</string>
     <string name="save">Salvează</string>
     <string name="saved">Salvat</string>
@@ -108,12 +93,6 @@
     <string name="nav_recenter">Recentrează</string>
     <string name="nav_overview">Vezi toată călătoria</string>
     <string name="nav_resume">Navighează</string>
-    <string name="remind_title">Amintește-mi să plec</string>
-    <string name="remind_none">Niciun autobuz de prins în curând: pleacă acum sau alege o oră mai târzie.</string>
-    <string name="remind_leave_by">Pleacă până la %1$s</string>
-    <string name="remind_bus_at">Autobuzul la %1$s</string>
-    <string name="remind_how_early">Amintește-mi</string>
-    <string name="remind_on_time">La timp</string>
-    <string name="remind_confirm">Setează amintirea</string>
-    <string name="remind_pending">Amintire la %1$s</string>
+    <string name="nav_get_on_at">Urcă la %1$s</string>
+    <string name="nav_change_at">Schimbă la %1$s</string>
 </resources>

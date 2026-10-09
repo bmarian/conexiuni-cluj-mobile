@@ -56,18 +56,14 @@ object FollowNotifications {
         }
     }
 
-    fun ongoing(context: Context, state: FollowState, watch: Boolean): Notification {
+    fun ongoing(context: Context, state: FollowState): Notification {
         ensureChannels(context)
         val followed = state.followed
         val minutes = state.minutes
         val arrival = state.arrivalAt
         val nowMs = System.currentTimeMillis()
         val text = if (minutes == null) context.getString(R.string.follow_waiting) else arrivingText(context, minutes, nowMs)
-        val where = when {
-            state.remote -> context.getString(R.string.follow_from_watch, followed.stopName)
-            watch -> context.getString(R.string.follow_on_watch_too, followed.stopName)
-            else -> followed.stopName
-        }
+        val where = followed.stopName
         val color = routeColor(followed.color).toArgb()
         val builder = Notification.Builder(context, FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
@@ -164,7 +160,7 @@ object FollowNotifications {
 
     /** The watch's follow, shown here. Updates come every few seconds while it runs. */
     fun showMirror(context: Context, state: FollowState) {
-        val notification = ongoing(context, state, watch = false)
+        val notification = ongoing(context, state)
         // Nobody to update it if the watch goes out of reach: it goes once the bus should have come.
         val left = (state.arrivalAt ?: System.currentTimeMillis()) - System.currentTimeMillis()
         val timed = Notification.Builder.recoverBuilder(context, notification)

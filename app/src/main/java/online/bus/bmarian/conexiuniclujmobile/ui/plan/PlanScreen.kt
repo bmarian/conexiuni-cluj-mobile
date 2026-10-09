@@ -7,7 +7,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,14 +22,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -38,7 +34,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsBus
@@ -67,18 +62,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.VerticalDivider
@@ -96,9 +82,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -116,16 +100,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import kotlin.math.max
-import kotlin.math.roundToInt
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
-import online.bus.bmarian.conexiuniclujmobile.data.Route
-import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
-import online.bus.bmarian.conexiuniclujmobile.journey.LeaveReminder
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.PlannedTimeEntry
 import online.bus.bmarian.conexiuniclujmobile.logic.Planner
@@ -138,7 +117,10 @@ import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.LoadingRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
+import online.bus.bmarian.conexiuniclujmobile.ui.Rail
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
+import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
+import online.bus.bmarian.conexiuniclujmobile.ui.TimelineRow
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapPin
@@ -262,57 +244,6 @@ fun PlanScreen(query: PlanQuery) {
         withNotifications { JourneyManager.start(context, journey) }
     }
 
-    val planPath = "/plan?" + vm.currentQuery().encode()
-    var reminding by rememberSaveable { mutableStateOf(false) }
-    // The reminder set for this plan, shown as a chip that cancels it.
-    var pending by remember { mutableStateOf(LeaveReminder.pending(context)) }
-    val routes by Services.repository.routes.collectAsStateWithLifecycle()
-    val routesById = remember(routes) { routes.associateBy { it.routeId } }
-
-    fun remindToLeave(plan: RichPlan, departIn: Double, leadMinutes: Int) {
-        val leaveIn = departIn - plan.walkStartMeters / WALK_SPEED - 1 - leadMinutes
-        val nowMs = System.currentTimeMillis()
-        val clock = DateTimeFormatter.ofPattern("HH:mm")
-        val departAt = Instant.ofEpochMilli(nowMs + (departIn * 60_000).toLong()).atZone(CLUJ_ZONE)
-        if (leaveIn < 1) {
-            Services.settings.showToast(resources.getString(R.string.remind_too_late, resources.getString(R.string.eta_minutes, departIn.roundToInt().coerceAtLeast(0))))
-            return
-        }
-        val atMs = nowMs + (leaveIn * 60_000).toLong()
-        val leg = plan.legs.first()
-        val lines = leg.routeIds.joinToString(" / ") { id -> routesById[id]?.shortName ?: "$id" }
-        val body = resources.getString(R.string.remind_leave_now_body, lines, vm.stopName(leg.startStopId), clock.format(departAt))
-        withNotifications {
-            LeaveReminder.schedule(context, atMs, body, planPath)
-            pending = LeaveReminder.pending(context)
-            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-            val title = resources.getString(R.string.remind_set, clock.format(Instant.ofEpochMilli(atMs).atZone(CLUJ_ZONE)))
-            if (LeaveReminder.canBeExact(context)) {
-                Services.settings.showToast(title, body, resources.getString(R.string.w_cancel)) {
-                    LeaveReminder.cancel(context)
-                    pending = null
-                }
-            } else {
-                // Without exact alarms Android may run it late; once allowed, it is set again exactly.
-                Services.settings.showToast(title, resources.getString(R.string.remind_inexact), resources.getString(R.string.remind_allow_exact)) {
-                    LeaveReminder.askExact(context)
-                }
-            }
-        }
-    }
-
-    if (reminding && selectedPlan != null) {
-        RemindSheet(
-            plan = selectedPlan,
-            firstLive = liveEta.takeIf { mode == TimeMode.Now },
-            routesById = routesById,
-            onDismiss = { reminding = false },
-        ) { departIn, lead ->
-            reminding = false
-            remindToLeave(selectedPlan, departIn, lead)
-        }
-    }
-
     val listState = rememberLazyListState()
     Column(Modifier.fillMaxSize()) {
     SheetTopBar(favoriteLabel ?: destName.ifEmpty { null }, listState.pastHeader())
@@ -361,8 +292,13 @@ fun PlanScreen(query: PlanQuery) {
         }
         if (!renaming && validCoords) {
             item(key = "actions") {
+                // Maps' Start, first in the row: a trip leaving now, with a bus to catch.
+                val startable = selectedPlan?.takeIf { !calculating && mode == TimeMode.Now && it.legs.isNotEmpty() && it.nextTimes.isNotEmpty() }
                 ActionChips(
                     listOfNotNull(
+                        startable?.let { plan ->
+                            ChipAction(stringResource(R.string.journey_start), Icons.Rounded.Navigation, primary = true) { startJourney(plan) }
+                        },
                         ChipAction(
                             stringResource(if (isFavorite) R.string.saved else R.string.save),
                             if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
@@ -384,30 +320,6 @@ fun PlanScreen(query: PlanQuery) {
 
         if (selectedPlan != null && !calculating) {
             item { TripSummary(selectedPlan, mode, liveEta, clockMs) }
-            if (selectedPlan.legs.isNotEmpty() && selectedPlan.nextTimes.isNotEmpty()) {
-                item {
-                    TripActions(
-                        canStart = mode == TimeMode.Now,
-                        onStart = { startJourney(selectedPlan) },
-                        onRemind = { reminding = true },
-                    )
-                }
-                pending?.takeIf { it.second == planPath }?.let { (at, _) ->
-                    item(key = "reminder") {
-                        InputChip(
-                            selected = true,
-                            onClick = {
-                                LeaveReminder.cancel(context)
-                                pending = null
-                            },
-                            label = { Text(stringResource(R.string.remind_pending, DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(at).atZone(CLUJ_ZONE)))) },
-                            leadingIcon = { Icon(Icons.Rounded.Alarm, null, Modifier.size(18.dp)) },
-                            trailingIcon = { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.w_cancel), Modifier.size(18.dp)) },
-                            modifier = Modifier.padding(horizontal = 16.dp).animateItem(),
-                        )
-                    }
-                }
-            }
         }
 
         item {
@@ -418,6 +330,8 @@ fun PlanScreen(query: PlanQuery) {
                 Column(Modifier.padding(vertical = 8.dp)) {
                     EndpointRow(
                         dot = MaterialTheme.colorScheme.tertiary,
+                        top = null,
+                        bottom = if (selectedPlan != null) Rail.Walk else null,
                         label = stringResource(R.string.w_plan_from),
                         value = origin?.name ?: if (me != null) stringResource(R.string.w_plan_origin_current_location) else stringResource(R.string.w_plan_origin_unknown),
                         enabled = true,
@@ -432,6 +346,8 @@ fun PlanScreen(query: PlanQuery) {
 
                     EndpointRow(
                         dot = MaterialTheme.colorScheme.primary,
+                        top = if (selectedPlan != null) Rail.Walk else null,
+                        bottom = null,
                         label = stringResource(R.string.w_plan_to),
                         value = destName.ifEmpty { "—" },
                         enabled = online,
@@ -490,25 +406,6 @@ fun PlanScreen(query: PlanQuery) {
         }
         item { Spacer(Modifier.height(32.dp)) }
     }
-    }
-}
-
-@Composable
-private fun TripActions(canStart: Boolean, onStart: () -> Unit, onRemind: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        if (canStart) {
-            Button(onClick = onStart, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Rounded.Navigation, null, Modifier.size(18.dp))
-                Text(stringResource(R.string.journey_start), Modifier.padding(start = 8.dp))
-            }
-        }
-        OutlinedButton(onClick = onRemind, modifier = Modifier.weight(1f)) {
-            Icon(Icons.Rounded.Alarm, null, Modifier.size(18.dp))
-            Text(stringResource(R.string.remind_leave), Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
     }
 }
 
@@ -584,19 +481,18 @@ private fun Stat(value: String, label: String, live: Boolean = false) {
 }
 
 @Composable
-private fun EndpointRow(dot: Color, label: String, value: String, enabled: Boolean, searching: Boolean, onOpen: () -> Unit) {
+private fun EndpointRow(dot: Color, top: Rail?, bottom: Rail?, label: String, value: String, enabled: Boolean, searching: Boolean, onOpen: () -> Unit) {
     if (searching) return
-    Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onOpen).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    TimelineRow(
+        top = top,
+        bottom = bottom,
+        dot = TimelineDot.Station,
+        color = dot,
+        modifier = Modifier.clickable(enabled = enabled, onClick = onOpen).alpha(if (enabled) 1f else 0.5f),
+        trailing = { Icon(Icons.Rounded.Edit, null, Modifier.padding(8.dp).size(16.dp), tint = MaterialTheme.colorScheme.outline) },
     ) {
-        Box(Modifier.size(14.dp).clip(CircleShape).background(dot).border(3.dp, MaterialTheme.colorScheme.surfaceContainer, CircleShape))
-        Column(Modifier.weight(1f)) {
-            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Icon(Icons.Rounded.Edit, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -664,7 +560,7 @@ private fun SearchResultRow(icon: androidx.compose.ui.graphics.vector.ImageVecto
 private fun PlanLegs(vm: PlanViewModel, plan: RichPlan, shapes: Map<String, online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo>, expanded: Set<String>, toggle: (String) -> Unit) {
     val nav = LocalNavigator.current
     if (plan.legs.isEmpty()) {
-        LegRow(color = MaterialTheme.colorScheme.outline, dashed = true, small = true) {
+        TimelineRow(top = Rail.Walk, bottom = Rail.Walk, dot = TimelineDot.None, color = MaterialTheme.colorScheme.outline) {
             Text(stringResource(R.string.w_plan_walk).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(Planner.formatDuration(Planner.getJourneyDuration(plan)), style = MaterialTheme.typography.bodyMedium)
         }
@@ -676,7 +572,7 @@ private fun PlanLegs(vm: PlanViewModel, plan: RichPlan, shapes: Map<String, onli
         val color = routeColor(shape?.color)
         val key = "detail-${plan.key}-$legIdx"
         val open = key in expanded
-        LegRow(color = color, dashed = false) {
+        TimelineRow(top = Rail.Walk, bottom = Rail.Ride(color), dot = TimelineDot.Station, color = color) {
             FlowRow(verticalArrangement = Arrangement.Center) {
                 Text("${stringResource(R.string.w_plan_boarding).uppercase()} ", style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
                 val shown = if (open) leg.routeIds else leg.routeIds.take(4)
@@ -704,30 +600,30 @@ private fun PlanLegs(vm: PlanViewModel, plan: RichPlan, shapes: Map<String, onli
             StopLink(vm.stopName(leg.startStopId), bold = true) { nav.stop(leg.startStopId) }
         }
         for (id in leg.intermediateStopIds) {
-            LegRow(color = color, dashed = false, small = true) {
+            TimelineRow(top = Rail.Ride(color), bottom = Rail.Ride(color), dot = TimelineDot.Stop, color = color, compact = true) {
                 StopLink(vm.stopName(id), bold = false) { nav.stop(id) }
             }
         }
-        val last = legIdx == plan.legs.lastIndex
-        LegRow(color = color, dashed = last, lineVisible = last) {
+        TimelineRow(top = Rail.Ride(color), bottom = Rail.Walk, dot = TimelineDot.Station, color = color) {
             Text(stringResource(R.string.w_plan_alighting).uppercase(), style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
             StopLink(vm.stopName(leg.destStopId), bold = true) { nav.stop(leg.destStopId) }
         }
-        if (!last) {
+        if (legIdx != plan.legs.lastIndex) {
             val meters = planner.getTransferWalkMeters(plan, legIdx)
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
-                    .clip(RoundedCornerShape(10.dp)).background(Palette.Amber.copy(alpha = 0.12f)).padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.DirectionsWalk, null, Modifier.size(18.dp), tint = Palette.Amber)
-                Text(stringResource(R.string.w_plan_transfer), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    if (meters > 25) "${Math.round(meters)} m ${stringResource(R.string.w_plan_transfer_walk)}" else stringResource(R.string.w_plan_transfer_same_stop),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            TimelineRow(top = Rail.Walk, bottom = Rail.Walk, dot = TimelineDot.None, color = color, compact = true) {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Amber.copy(alpha = 0.12f)).padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.DirectionsWalk, null, Modifier.size(18.dp), tint = Palette.Amber)
+                    Text(stringResource(R.string.w_plan_transfer), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (meters > 25) "${Math.round(meters)} m ${stringResource(R.string.w_plan_transfer_walk)}" else stringResource(R.string.w_plan_transfer_same_stop),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -744,39 +640,6 @@ private fun StopLink(name: String, bold: Boolean, onClick: () -> Unit) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
-}
-
-@Composable
-private fun LegRow(color: Color, dashed: Boolean, small: Boolean = false, lineVisible: Boolean = true, content: @Composable () -> Unit) {
-    val surface = MaterialTheme.colorScheme.surfaceContainer
-    val rail = MaterialTheme.colorScheme.outlineVariant
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(horizontal = 16.dp)) {
-        Box(Modifier.width(20.dp).fillMaxHeight()) {
-            Canvas(Modifier.fillMaxSize()) {
-                val x = size.width / 2
-                val top = size.height / 2
-                if (lineVisible) {
-                    drawLine(
-                        if (dashed) rail else color,
-                        Offset(x, top),
-                        Offset(x, size.height),
-                        strokeWidth = 3.dp.toPx(),
-                        pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())) else null,
-                    )
-                }
-                drawLine(if (dashed && small) rail else color, Offset(x, 0f), Offset(x, top), strokeWidth = 3.dp.toPx())
-                if (small) {
-                    drawCircle(surface, 4.dp.toPx(), Offset(x, top))
-                    drawCircle(rail, 4.dp.toPx(), Offset(x, top), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
-                } else {
-                    drawCircle(surface, 7.dp.toPx(), Offset(x, top))
-                    drawCircle(color, 7.dp.toPx(), Offset(x, top), style = androidx.compose.ui.graphics.drawscope.Stroke(2.5.dp.toPx()))
-                    drawCircle(color, 3.dp.toPx(), Offset(x, top))
-                }
-            }
-        }
-        Column(Modifier.weight(1f).padding(start = 10.dp, top = if (small) 4.dp else 8.dp, bottom = if (small) 4.dp else 8.dp)) { content() }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -988,75 +851,3 @@ private fun arrivalTime(plan: RichPlan, entry: PlannedTimeEntry, clockMs: Long):
     return stringResource(R.string.w_plan_arrival_at, approx + clock(arrival.toLong()))
 }
 
-private val REMIND_LEADS = listOf(0, 2, 5, 10)
-
-/**
- * "Remind me": which of the next buses to catch and how early to hear about it, each with the
- * time to leave by, counting the walk to the stop.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun RemindSheet(
-    plan: RichPlan,
-    firstLive: Double?,
-    routesById: Map<Int, Route>,
-    onDismiss: () -> Unit,
-    onConfirm: (departIn: Double, leadMinutes: Int) -> Unit,
-) {
-    val walk = plan.walkStartMeters / WALK_SPEED + 1
-    val nowMs = remember { System.currentTimeMillis() }
-    val options = remember(plan, firstLive) {
-        plan.nextTimes.take(3)
-            .mapIndexed { i, t -> if (i == 0 && firstLive != null) t.copy(minutes = firstLive, isLive = true) else t }
-            .filter { it.minutes - walk >= 0.5 }
-    }
-    var choice by rememberSaveable { mutableIntStateOf(0) }
-    var lead by rememberSaveable { mutableIntStateOf(0) }
-    val clock = remember { DateTimeFormatter.ofPattern("HH:mm") }
-    fun at(minutes: Double) = clock.format(Instant.ofEpochMilli(nowMs + (minutes * 60_000).toLong()).atZone(CLUJ_ZONE))
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.remind_title), style = MaterialTheme.typography.titleLarge)
-            if (options.isEmpty()) {
-                Text(stringResource(R.string.remind_none), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                return@Column
-            }
-            options.forEachIndexed { i, time ->
-                val route = routesById[time.routeId ?: plan.legs.first().routeIds.first()]
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .selectable(selected = choice == i, onClick = { choice = i })
-                        .padding(vertical = 6.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    RadioButton(selected = choice == i, onClick = null)
-                    route?.let { LineBadge(it.shortName, it.color, height = 28.dp, minWidth = 36.dp, corner = 8.dp) }
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.remind_leave_by, at(time.minutes - walk)), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.remind_bus_at, at(time.minutes)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (time.isLive) LiveDot()
-                }
-            }
-            Text(stringResource(R.string.remind_how_early), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                REMIND_LEADS.forEachIndexed { i, minutes ->
-                    SegmentedButton(
-                        selected = lead == minutes,
-                        onClick = { lead = minutes },
-                        shape = SegmentedButtonDefaults.itemShape(i, REMIND_LEADS.size),
-                    ) { Text(if (minutes == 0) stringResource(R.string.remind_on_time) else stringResource(R.string.eta_minutes, minutes), maxLines = 1) }
-                }
-            }
-            Button(
-                onClick = { onConfirm(options[choice.coerceIn(0, options.lastIndex)].minutes, lead) },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            ) {
-                Icon(Icons.Rounded.Alarm, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.remind_confirm))
-            }
-        }
-    }
-}

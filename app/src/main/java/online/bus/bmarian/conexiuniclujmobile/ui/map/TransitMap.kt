@@ -37,6 +37,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,6 +58,8 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import kotlin.math.roundToInt
+
+private const val TOOLTIP_MS = 2_500L
 
 /** Space the sheet, the side panel and the system bars take over the map, in px. */
 data class MapInsets(val top: Float = 0f, val bottom: Float = 0f, val right: Float = 0f, val left: Float = 0f)
@@ -103,6 +108,14 @@ fun TransitMap(
 
     var session by remember { mutableStateOf<MapSession?>(null) }
     var tooltip by remember { mutableStateOf<Tooltip?>(null) }
+    val haptics = LocalHapticFeedback.current
+    // A name shows for a moment and goes; it never stays stuck over the map.
+    LaunchedEffect(tooltip) {
+        if (tooltip != null) {
+            delay(TOOLTIP_MS)
+            tooltip = null
+        }
+    }
     var selectedVehicleId by remember { mutableStateOf<String?>(null) }
     var drag by remember { mutableStateOf<PinDrag?>(null) }
     var dragAt by remember { mutableStateOf<LatLon?>(null) }
@@ -165,13 +178,23 @@ fun TransitMap(
                 }
                 val stop = created.stopAt(point, with(density) { 16.dp.toPx() })?.let { currentStopsById[it] }
                 if (stop != null) {
-                    tooltip = Tooltip.StopName(LatLon(stop.lat, stop.lon), stop.name)
+                    // Its page opens, the stop marked on the map: no name left floating over it.
+                    tooltip = null
                     currentOnStopTap(stop.stopId)
                     return@addOnMapClickListener true
                 }
                 selectedVehicleId = null
                 tooltip = null
                 false
+            }
+            // Press and hold a stop for its name, the way Maps names a place under your finger.
+            map.addOnMapLongClickListener { latLng ->
+                val point = map.projection.toScreenLocation(latLng)
+                val stop = created.stopAt(point, with(density) { 20.dp.toPx() })?.let { currentStopsById[it] }
+                    ?: return@addOnMapLongClickListener false
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                tooltip = Tooltip.StopName(LatLon(stop.lat, stop.lon), stop.name)
+                true
             }
             session = created
         }
@@ -333,7 +356,7 @@ fun TransitMap(
     LaunchedEffect(session, controller.shapesVersion) {
         if (session == null || controller.shapesVersion == controller.handledShapes) return@LaunchedEffect
         controller.handledShapes = controller.shapesVersion
-        if (!autoFit || controller.shapes.isEmpty() || controller.fitWalking) return@LaunchedEffect
+        if (!autoFit || !controller.fitNewShapes || controller.shapes.isEmpty() || controller.fitWalking) return@LaunchedEffect
         controller.hasFittedForContent = true
         fit(content())
     }

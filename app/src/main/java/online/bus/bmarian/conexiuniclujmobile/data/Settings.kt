@@ -118,10 +118,6 @@ class Settings(private val context: Context) {
     val onboarded = bool("onboarded", false)
     fun setOnboarded() = set(onboarded, "onboarded", true)
 
-    // The wallpaper's colours (Material You); off gives the app's own emerald.
-    val dynamicColor = bool("dynamicColor", true)
-    fun setDynamicColor(v: Boolean) = set(dynamicColor, "dynamicColor", v)
-
     fun setShowWeather(v: Boolean) = set(showWeather, "showWeather", v)
     fun setShowNews(v: Boolean) = set(showNews, "showNews", v)
     fun setAutoCenterOnMe(v: Boolean) = set(autoCenterOnMe, "autoCenterOnMe", v)

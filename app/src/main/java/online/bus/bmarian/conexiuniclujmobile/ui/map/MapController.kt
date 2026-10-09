@@ -57,6 +57,8 @@ class MapController {
     var walkingPolylines by mutableStateOf<List<List<LatLon>>>(emptyList())
     // The planner asks the next walking-line render to fit lines and shapes together.
     var fitWalking by mutableStateOf(false)
+    // Off for a screen that frames the map itself, once: new shapes then leave the camera be.
+    var fitNewShapes = true
     var directionArrowAtStart by mutableStateOf(false)
 
     // Where the planner's destination and custom origin are; both can be dragged.
@@ -118,6 +120,7 @@ class MapController {
         selectedStopId = null
         walkingPolylines = emptyList()
         fitWalking = false
+        fitNewShapes = true
         directionArrowAtStart = false
         pinnedLocation = null
         customOrigin = null
