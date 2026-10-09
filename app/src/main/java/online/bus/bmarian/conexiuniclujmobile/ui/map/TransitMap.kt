@@ -61,7 +61,7 @@ import kotlin.math.roundToInt
 
 private const val TOOLTIP_MS = 2_500L
 
-/** Space the sheet, the side panel and the system bars take over the map, in px. */
+/** In px. */
 data class MapInsets(val top: Float = 0f, val bottom: Float = 0f, val right: Float = 0f, val left: Float = 0f)
 
 private sealed interface Tooltip {
@@ -76,11 +76,6 @@ private class PinDrag(val kind: PinKind, val grab: Offset, val down: Offset) {
     var at: LatLon? = null
 }
 
-/**
- * The map behind the sheet: OpenFreeMap's vector streets drawn by MapLibre, with the website's
- * layers on top: routes, stops, buses, the planner's pins and walks, and you. One map lives as
- * long as the screen; rotating or switching to dark keeps it.
- */
 @Composable
 fun TransitMap(
     controller: MapController,
@@ -109,7 +104,6 @@ fun TransitMap(
     var session by remember { mutableStateOf<MapSession?>(null) }
     var tooltip by remember { mutableStateOf<Tooltip?>(null) }
     val haptics = LocalHapticFeedback.current
-    // A name shows for a moment and goes; it never stays stuck over the map.
     LaunchedEffect(tooltip) {
         if (tooltip != null) {
             delay(TOOLTIP_MS)
@@ -141,7 +135,6 @@ fun TransitMap(
         MapHost(context, MapView(context, options).also { it.onCreate(null) })
     }
 
-    // The map view follows the screen's lifecycle and goes with it.
     DisposableEffect(lifecycle, host) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -168,7 +161,6 @@ fun TransitMap(
             map.uiSettings.isRotateGesturesEnabled = true
             map.uiSettings.isFlingVelocityAnimationEnabled = true
             val created = MapSession(context, map)
-            // Topmost first: buses, then stops; anywhere else closes what was open.
             map.addOnMapClickListener { latLng ->
                 val point = map.projection.toScreenLocation(latLng)
                 val vehicle = created.vehicleAt(point, with(density) { 18.dp.toPx() })
@@ -178,7 +170,6 @@ fun TransitMap(
                 }
                 val stop = created.stopAt(point, with(density) { 16.dp.toPx() })?.let { currentStopsById[it] }
                 if (stop != null) {
-                    // Its page opens, the stop marked on the map: no name left floating over it.
                     tooltip = null
                     currentOnStopTap(stop.stopId)
                     return@addOnMapClickListener true
@@ -187,7 +178,6 @@ fun TransitMap(
                 tooltip = null
                 false
             }
-            // Press and hold a stop for its name, the way Maps names a place under your finger.
             map.addOnMapLongClickListener { latLng ->
                 val point = map.projection.toScreenLocation(latLng)
                 val stop = created.stopAt(point, with(density) { 20.dp.toPx() })?.let { currentStopsById[it] }
@@ -201,7 +191,6 @@ fun TransitMap(
         onDispose {}
     }
 
-    // A finger on a planner pin drags the pin, not the map; a tap on it shows its name.
     host.touch = touch@{ ev ->
         val s = session ?: return@touch false
         val point = Offset(ev.x, ev.y)
@@ -264,17 +253,14 @@ fun TransitMap(
     }
 
     val fitPad = with(density) { 24.dp.toPx() }
-    // The map's buttons sit on the right: fitted routes keep clear of them.
     val buttonsPad = with(density) { 56.dp.toPx() }
     fun fit(points: List<LatLon>) = session?.fit(points, padding(fitPad).let { it.copy(right = it.right + buttonsPad) })
 
-    // Everything a fit takes in: the routes, the walks and, so they're never cut off, the pins.
     fun content(): List<LatLon> =
         controller.shapes.flatMap { it.points } + controller.walkingPolylines.flatten() +
             listOfNotNull(controller.pinnedLocation, controller.customOrigin).map { LatLon(it.lat, it.lon) }
     fun flyToVisible(target: LatLon, zoom: Double) = session?.flyTo(target, zoom, padding(0f))
 
-    // What the screens put on the map.
     LaunchedEffect(session, dark) { session?.setDark(dark) }
     LaunchedEffect(session, stops) { session?.setStops(stops) }
     val nav = controller.navigation
@@ -287,7 +273,6 @@ fun TransitMap(
     LaunchedEffect(session, shownHighlights, stopsById) {
         session?.setHighlights(shownHighlights.mapNotNull { (id, h) -> stopsById[id]?.let { it to h } })
     }
-    // Start badges and end markers only when no stops are highlighted as the shapes arrive.
     val scene = remember(controller.shapes, controller.directionArrowAtStart, nav) {
         if (nav != null) buildScene(nav.shapes, terminals = false, arrows = false)
         else buildScene(controller.shapes, terminals = controller.highlightedStops.isEmpty(), arrows = controller.directionArrowAtStart)
@@ -299,7 +284,6 @@ fun TransitMap(
         if (shownVehicles.none { it.id == selectedVehicleId }) selectedVehicleId = null
     }
     LaunchedEffect(session) { session?.onTrackingLost = { controller.trackingLost = true } }
-    // Navigation over: back to the page's trip, or to you, the way Maps returns to the route.
     var hadNav by remember { mutableStateOf(false) }
     LaunchedEffect(session, nav == null) {
         if (nav != null) {
@@ -323,7 +307,7 @@ fun TransitMap(
         val trip = controller.navigation ?: return@LaunchedEffect
         if (session == null || controller.overviewRequest == controller.handledOverview) return@LaunchedEffect
         controller.handledOverview = controller.overviewRequest
-        // Let go of you first, so letting go doesn't undo the fit when it catches up.
+        // Release tracking first or it undoes the fit.
         session?.setTracking(null)
         withFrameNanos {}
         fit(trip.shapes.flatMap { it.points } + trip.walks.flatten() + listOfNotNull(trip.destination).map { LatLon(it.lat, it.lon) })
@@ -352,7 +336,6 @@ fun TransitMap(
         session?.map?.uiSettings?.setCompassMargins(insets.left.roundToInt() + margin, compassTop.roundToInt(), margin, 0)
     }
 
-    // A screen put new routes on the map: fit them, unless the planner's walking fit will.
     LaunchedEffect(session, controller.shapesVersion) {
         if (session == null || controller.shapesVersion == controller.handledShapes) return@LaunchedEffect
         controller.handledShapes = controller.shapesVersion
@@ -362,13 +345,11 @@ fun TransitMap(
     }
     LaunchedEffect(session, controller.walkingPolylines, controller.shapesVersion, controller.fitWalking) {
         if (session == null || !controller.fitWalking || !autoFit) return@LaunchedEffect
-        // Wait for the trip itself; the pins alone would fit too close.
         if (controller.walkingPolylines.isEmpty() && controller.shapes.isEmpty()) return@LaunchedEffect
         controller.fitWalking = false
         controller.hasFittedForContent = true
         fit(content())
     }
-    // The fit button works whatever the setting says.
     LaunchedEffect(session, controller.fitRequest) {
         if (session == null || controller.fitRequest == controller.handledFit) return@LaunchedEffect
         controller.handledFit = controller.fitRequest
@@ -391,7 +372,6 @@ fun TransitMap(
             flyToVisible(LatLon(fix.lat, fix.lon), DEFAULT_ZOOM)
         }
     }
-    // The first fix centres the map on you, once, unless a route was fitted already.
     LaunchedEffect(session, me != null) {
         val fix = me ?: return@LaunchedEffect
         if (session == null) return@LaunchedEffect
@@ -415,7 +395,6 @@ fun TransitMap(
     }
 }
 
-/** The map view, with a say over touches first so the planner's pins can be dragged. */
 @SuppressLint("ViewConstructor")
 private class MapHost(context: Context, val map: MapView) : FrameLayout(context) {
     var touch: ((MotionEvent) -> Boolean)? = null
@@ -436,7 +415,6 @@ private class MapHost(context: Context, val map: MapView) : FrameLayout(context)
     }
 }
 
-/** Places [content] with its bottom middle [lift] px above [at], following the map as it moves. */
 @Composable
 private fun Anchored(session: MapSession, at: () -> LatLon?, lift: Float, alignStart: Float? = null, content: @Composable () -> Unit) {
     val margin = with(LocalDensity.current) { 8.dp.toPx() }
@@ -456,7 +434,6 @@ private fun Anchored(session: MapSession, at: () -> LatLon?, lift: Float, alignS
     ) { content() }
 }
 
-/** A stop's or a pin's name in a small card pointing at it, like the website's tooltips. */
 @Composable
 private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
     val bg = if (dark) Color(0xFF1E293B) else Color.White
@@ -487,13 +464,12 @@ private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
     }
 }
 
-/** A tapped bus: its line, how fast it goes and whether it takes wheelchairs and bikes. */
 @Composable
 private fun VehicleBubble(session: MapSession, id: String, dark: Boolean, extras: Boolean) {
     val shown = session.shownVehicle(id) ?: return
     val vehicle = shown.vehicle
     val offset = with(LocalDensity.current) { 22.dp.toPx() }
-    // vehicle.speed is floored for the ETA maths; the raw reading is what the bus does.
+    // speed is floored for ETAs; raw_speed is the real reading.
     val reported = vehicle.vehicle.rawSpeed?.takeIf { it >= 0 } ?: vehicle.vehicle.speed
     Anchored(session, { session.shownVehicle(id)?.at }, 0f, alignStart = offset) {
         Column(

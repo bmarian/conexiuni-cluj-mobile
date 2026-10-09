@@ -82,7 +82,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.RouteRow
 import java.util.Locale
 
-/** The planner query for a saved or recent place, with its own start when it has one. */
 fun planQueryFor(plan: FavoritePlan): PlanQuery {
     val withOrigin = plan.originLat != null && plan.originLon != null && !plan.originName.isNullOrEmpty()
     return PlanQuery.to(
@@ -93,10 +92,6 @@ fun planQueryFor(plan: FavoritePlan): PlanQuery {
     )
 }
 
-/**
- * Search as its own screen over the map, the way Maps opens it from its search bar: recent
- * places and every line and stop while empty, results as you type. Back closes it.
- */
 @Composable
 fun SearchOverlay(visible: Boolean, state: SearchState, onClose: () -> Unit) {
     AnimatedVisibility(
@@ -139,7 +134,6 @@ private fun SearchContent(state: SearchState, onClose: () -> Unit) {
         recentPlans.filterNot { p -> favoritePlans.any { it.samePlace(p) } }.take(8)
     }
 
-    // Whatever is picked, search closes behind it.
     fun go(action: () -> Unit) {
         focusManager.clearFocus()
         onClose()

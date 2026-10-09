@@ -26,7 +26,7 @@ The [Conexiuni Cluj](https://github.com/bmarian/conexiuni-cluj) bus and tram tra
 
 ## How it works
 
-It talks to the same API as the website and keeps the same data on the phone.
+It talks to the same API as the website and keeps the same data on the phone. The whole network (lines, stops, timetables and the learned travel times for every hour) comes down as one bundle from `/api/network`, checked against `/api/network/version` when the app comes back and fetched again only when the lines changed or the copy is half a day old ([`data/Network.kt`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/data/Network.kt)). Stops, lines and timetables open from it without a request, exactly as the server would answer (`NetworkTest` checks that against a captured answer); only the buses come live, from the version 2 stream, and shapes as polylines kept until the bundle says they changed.
 
 Everything the website works out in the browser is worked out on the phone, ported from TypeScript to Kotlin in [`logic/`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/logic): arrival times, live estimates from the bus positions, the planner's grouping, alternatives, connections and times, and the timetable with its learned delays. The arrival logic is shared with the [watch app](https://github.com/bmarian/conexiuni-cluj-wearos).
 
@@ -68,15 +68,19 @@ runs the parity tests, and the map and journey protocol tests.
 
 To try following between devices on emulators, pair a Wear OS emulator with a phone emulator that has the Play Store (Android Studio: Device Manager, then **Pair Wearable**), and install both apps from the same machine so they share the debug key.
 
+`installDebug` installs on every connected device, and both apps share one package name: with a watch connected it replaces the watch app. Pick the device with `ANDROID_SERIAL=emulator-5554 ./gradlew installDebug`, or `adb -s <serial> install -r` the APK.
+
+To try the app against a backend running on this PC: `adb reverse tcp:6698 tcp:6698`, then build with `-PapiBase=http://localhost:6698/api/` (debug builds only; plain http is allowed to `localhost` there). An emulator's `10.0.2.2` doesn't work for this: Android 17 keeps apps off private addresses without a permission.
+
 Pairing emulators needs the Wear OS app and a Google account on the phone emulator. Without them, install the debug builds of both apps and run `python tools/wear-relay.py`: debug builds log every phone–watch message, and the script hands each one to the other emulator, so following, journeys and favourites can be tried end to end. Only the Bluetooth link itself is left out.
 
 ## Links
 
-For bus.bmarian.online links to open in the app without asking, the site needs a `/.well-known/assetlinks.json` with this app's package name and signing certificate. Until then, Android opens them in the browser unless "Open supported links" is turned on in the app's settings.
+bus.bmarian.online links open in the app without asking: the site's `/.well-known/assetlinks.json` names this package and the release key's certificate (`ANDROID_CERT_SHA256` in the website's `.env`). A build signed with another key, the debug one included, opens them in the browser unless "Open supported links" is turned on in the app's settings.
 
 ## Releasing
 
-Google Play needs an upload key: use the watch app's, since both apps are one listing. Point a `keystore.properties` next to this README at it. Git ignores the file:
+Both apps are signed with one release key (the data layer and the site's app links depend on it). Point a `keystore.properties` next to this README at it, the same as the watch app's. Git ignores the file:
 
 ```properties
 storeFile=../keys/upload.jks

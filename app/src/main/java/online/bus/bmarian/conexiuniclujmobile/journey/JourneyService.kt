@@ -52,10 +52,8 @@ import kotlin.math.roundToInt
 private const val TICK_MS = 5_000L
 private const val STOP_INFO_REFRESH_MS = 120_000L
 private const val ARRIVED_M = 50.0
-// Nobody's trip lasts this long; a forgotten journey shouldn't drain the battery.
 private const val GIVE_UP_MS = 4 * 60 * 60_000L
 
-/** Where the journey is. Each change is a new step: the watch buzzes for it. */
 private sealed interface Phase {
     val leg: Int
     data class Walk(override val leg: Int) : Phase
@@ -65,12 +63,6 @@ private sealed interface Phase {
     data object Done : Phase { override val leg = -1 }
 }
 
-/**
- * Walks a trip through step by step, like Maps transit navigation: walk to the stop, wait for
- * the bus with its live countdown, count the stops on board and buzz one before yours, then
- * the next leg or the walk to the destination. Uses the phone's position when allowed, and
- * the clock and the bus times when not.
- */
 class JourneyService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null
@@ -79,7 +71,6 @@ class JourneyService : Service() {
     private var stepIndex = 0
     private var alerted = false
     private var ended = false
-    // Progress on board: the furthest stop reached, and when the ride began.
     private var rideStop = 0
     private var rideStartedAt = 0L
     private var lastDepartureMinutes: Int? = null
@@ -122,7 +113,6 @@ class JourneyService : Service() {
     override fun onDestroy() {
         scope.cancel()
         val current = journey
-        // Ended from the app or the watch: the watch drops its copy too, and "get off" goes.
         if (current != null && !ended) {
             JourneyManager.publish(this, JourneySync(current.id, current.destination.name, "", end = true))
             JourneyNotifications.clearAlert(this)
@@ -170,7 +160,6 @@ class JourneyService : Service() {
                 clock.value = System.currentTimeMillis()
             }
         }
-        // The next bus of the leg ahead, worked out at its first stop like the stop page does.
         launch {
             legIndex.collectLatest { i ->
                 departure.value = null
@@ -259,7 +248,6 @@ class JourneyService : Service() {
                 when {
                     skip -> Phase.Wait(phase.leg)
                     fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) -> Phase.Wait(phase.leg)
-                    // Near the line is not on the bus: the walk to the stop may run beside it.
                     fix != null && riding.onBus(fix, leg) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
@@ -280,7 +268,6 @@ class JourneyService : Service() {
                 if (fix != null) {
                     nearestStop(fix, leg)?.let { rideStop = max(rideStop, it) }
                 } else {
-                    // No position: count the stops off the ride time.
                     val perStop = leg.rideMinutes.takeIf { it > 0 }?.div(last.coerceAtLeast(1)) ?: 2.0
                     rideStop = max(rideStop, ((nowMs - rideStartedAt) / 60_000.0 / perStop).toInt().coerceAtMost(last))
                 }
@@ -292,7 +279,6 @@ class JourneyService : Service() {
                 when {
                     skip -> Phase.Done
                     fix != null && distanceTo(fix, journey.destination) <= max(ARRIVED_M, fix.accuracyMeters.toDouble()) -> Phase.Done
-                    // Without a position, or never quite there: the walk can't take much more than this.
                     nowMs - walkEndStartedAt > (walkMin * 2 + 10) * 60_000 -> Phase.Done
                     else -> phase
                 }
@@ -301,7 +287,6 @@ class JourneyService : Service() {
         }
     }
 
-    // The bus came and went: its countdown reached zero and the next one is further off.
     private fun busLeft(departure: StopDeparture?): Boolean {
         val minutes = departure?.nextTimes?.firstOrNull()?.minutes
         val left = lastDepartureMinutes == 0 && minutes != null && minutes > 2
@@ -309,10 +294,6 @@ class JourneyService : Service() {
         return left
     }
 
-    /**
-     * When you get there: what is left of the trip, and while the bus is still to come, its
-     * countdown in place of the walk to it if that is longer.
-     */
     private fun arrivalAt(progress: JourneyProgress, departure: StopDeparture?, nowMs: Long): Long {
         val parts = progress.parts
         val total = parts.sumOf { it.minutes }
@@ -388,7 +369,6 @@ class JourneyService : Service() {
         }
     }
 
-    // Done so far, out of the whole trip, in minutes: the walks at walking pace, the rides as planned.
     private fun progress(journey: Journey, fix: Fix?): JourneyProgress {
         val parts = JourneyProgress.parts(journey)
         val done = when (val p = phase) {

@@ -40,10 +40,6 @@ import java.time.format.DateTimeFormatter
 private val SHOWN: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 private val MODEL: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
 
-/**
- * The website's date-time picker: a day, then a time, 24 h, no earlier than now; nothing
- * changes until both are confirmed.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateTimeField(value: String, minMs: Long, label: String, onValue: (String) -> Unit) {

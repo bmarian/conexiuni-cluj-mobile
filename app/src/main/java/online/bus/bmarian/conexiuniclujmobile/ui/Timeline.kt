@@ -21,20 +21,13 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
-/** What runs through a timeline row above or below its dot: a ride in its line's colour, or a walk. */
 sealed interface Rail {
     data class Ride(val color: Color) : Rail
     data object Walk : Rail
 }
 
-/** A stop you get on or off at (or the trip's ends), a stop ridden past, or none: a walk or a change. */
 enum class TimelineDot { Station, Stop, None }
 
-/**
- * One row of a trip drawn top to bottom, as the planner and the navigation screen show it: every
- * dot on the same line, rides solid in their colours, walks dotted. [dimmed] greys out what is
- * already behind you.
- */
 @Composable
 fun TimelineRow(
     top: Rail?,
@@ -84,7 +77,6 @@ private fun DrawScope.drawRail(rail: Rail, from: Float, to: Float, x: Float, wal
     when (rail) {
         is Rail.Ride -> drawLine(rail.color, Offset(x, from), Offset(x, to), strokeWidth = 4.dp.toPx())
         Rail.Walk -> {
-            // Dots, like a walk on the map.
             val step = 7.dp.toPx()
             var y = from + step / 2
             while (y < to) {

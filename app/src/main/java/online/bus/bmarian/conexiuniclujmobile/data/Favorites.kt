@@ -16,7 +16,7 @@ import kotlinx.serialization.json.intOrNull
 @Serializable
 data class FavoriteRoute(val routeId: Int, val direction: String)
 
-/** A destination for the planner, optionally from a fixed origin. Same shape as FavoritePlan on the web. */
+/** Same shape as FavoritePlan on the web. */
 @Serializable
 data class FavoritePlan(
     val name: String,
@@ -35,8 +35,7 @@ data class FavoritePlan(
 
 private const val MAX_RECENT_PLANS = 10
 
-// Same shapes as favorites:routes, favorites:stops, favorites:plans and recents:plans on the
-// web, so an export reads the same.
+// Same keys as the website's localStorage, for exports.
 class Favorites(context: Context) {
     private val prefs = context.getSharedPreferences("favorites", Context.MODE_PRIVATE)
 
@@ -49,7 +48,6 @@ class Favorites(context: Context) {
     private val _recentPlans = MutableStateFlow(parsePlans(read("recentPlans")))
     val recentPlans: StateFlow<List<FavoritePlan>> = _recentPlans
 
-    // Told when the user changes the stops or lines, the part the watch keeps too.
     var onSharedChange: (() -> Unit)? = null
 
     private fun read(key: String): JsonElement? =
@@ -110,7 +108,6 @@ class Favorites(context: Context) {
         onSharedChange?.invoke()
     }
 
-    /** The watch's stops and lines, after a change there. Not sent back. */
     fun replaceShared(stops: List<Int>, routes: List<FavoriteRoute>) {
         _stops.value = stops
         _routes.value = routes
@@ -132,7 +129,6 @@ class Favorites(context: Context) {
         persist()
     }
 
-    /** Replaces every list with what another device sent, like importAll on the web. */
     fun importAll(favorites: JsonObject) {
         _routes.value = parseFavoriteRoutes(favorites["routes"])
         _stops.value = parseStopIds(favorites["stops"])
@@ -147,7 +143,7 @@ class Favorites(context: Context) {
             val parsed = mutableListOf<FavoriteRoute>()
             for (item in raw as? JsonArray ?: return emptyList()) {
                 val fav = when (item) {
-                    // Favorites saved before directions existed are bare route ids.
+                    // Legacy entries are bare route ids.
                     is JsonPrimitive -> item.intOrNull?.takeIf { !item.isString }?.let { FavoriteRoute(it, "0") }
                     is JsonObject -> {
                         val id = (item["routeId"] as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull

@@ -11,8 +11,12 @@ import android.view.animation.OvershootInterpolator
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.animation.doOnEnd
+import com.google.gson.JsonArray
+import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
+import kotlin.math.sin
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
@@ -41,6 +45,7 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
+import org.maplibre.android.style.layers.PropertyFactory.iconOffset
 import org.maplibre.android.style.layers.PropertyFactory.iconRotate
 import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
 import org.maplibre.android.style.layers.PropertyFactory.iconTranslate
@@ -76,35 +81,30 @@ private const val LAYER_SELECTED = "ct-selected"
 private const val LAYER_VEHICLES = "ct-vehicles"
 private const val LAYER_PINS = "ct-pins"
 
-// A bus further than this from where it was jumps instead of gliding across town.
+private val HEADING_OFFSET = 12.0 to 12.0
+
+private fun isPuckLayer(layer: Layer) = layer.id.contains("location", ignoreCase = true)
+
 private const val GLIDE_MAX_METERS = 600.0
 private const val GLIDE_MS = 1400L
 
-/** Space the sheet and the bars take over the map, in px; the camera centres in what is left. */
+/** In px. */
 data class MapPadding(val left: Float, val top: Float, val right: Float, val bottom: Float) {
     fun ints() = intArrayOf(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
 }
 
 enum class PinKind { Origin, Destination }
 
-/** One of the planner's pins, where it is or, while dragged, where it would drop. */
 class PinMark(val kind: PinKind, val at: LatLon, val label: String, val lifted: Boolean)
 
-/** A bus as drawn this frame: between where it was and where it is, turning the short way. */
 class ShownVehicle(val vehicle: MapVehicle, val at: LatLon, val heading: Double)
 
-/**
- * The transit layers on a MapLibre map: routes and walks under the basemap's labels, stops,
- * terminals, buses and the planner's pins above them. Everything a screen sets is kept and put
- * back when the style changes between light and dark.
- */
 internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private val images = MapImages(context)
     private var style: Style? = null
     private var dark: Boolean? = null
     private val addedImages = HashSet<String>()
 
-    /** Bumped on every camera move and bus frame: overlays place themselves again on it. */
     val frame = mutableIntStateOf(0)
 
     private var stops: List<Stop> = emptyList()
@@ -119,11 +119,19 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var drop: ValueAnimator? = null
     private var tracking: NavCamera? = null
 
-    /** Called when a finger moves the map while it follows you. */
     var onTrackingLost: (() -> Unit)? = null
 
+    private var bearing = map.cameraPosition.bearing
+
     init {
-        map.addOnCameraMoveListener { frame.intValue++ }
+        map.addOnCameraMoveListener {
+            frame.intValue++
+            val now = map.cameraPosition.bearing
+            if (abs(now - bearing) > 0.5) {
+                bearing = now
+                pushVehicles()
+            }
+        }
         map.addOnCameraIdleListener { MapCamera.save(context, map.cameraPosition) }
     }
 
@@ -139,8 +147,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
     }
 
-    // --- What the screens put on the map ---
-
     fun setStops(list: List<Stop>) {
         if (list === stops) return
         stops = list
@@ -152,7 +158,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         selected = stop
         applySelected()
         applyStopFilter()
-        // A short drop onto its place, once, instead of the website's endless bounce.
         drop?.cancel()
         if (stop != null) {
             drop = ValueAnimator.ofFloat(-18f, 0f).apply {
@@ -201,14 +206,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         applyMe()
     }
 
-    /** Follows you, tilted and turned your way, as Maps navigation does; null lets go. */
     fun setTracking(camera: NavCamera?) {
         if (camera == tracking) return
         tracking = camera
         applyTracking()
     }
-
-    // --- Where things are on screen ---
 
     fun screen(at: LatLon): PointF = map.projection.toScreenLocation(LatLng(at.lat, at.lon))
 
@@ -220,7 +222,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_VEHICLES)
             .firstOrNull()?.getStringProperty("id")
 
-    /** The stop nearest [point] among the selected, highlighted and (zoomed in) plain stops. */
     fun stopAt(point: PointF, reach: Float): Int? {
         val box = RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach)
         return map.queryRenderedFeatures(box, LAYER_SELECTED, LAYER_HIGHLIGHTS, LAYER_STOPS)
@@ -234,9 +235,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .minByOrNull { it.second }?.first
     }
 
-    // --- The camera ---
-
-    /** Shows all of [points] in what the padding leaves free, no closer than a street. */
     fun fit(points: List<LatLon>, padding: MapPadding, maxZoom: Double = FIT_MAX_ZOOM) {
         if (points.isEmpty()) return
         val minLat = points.minOf { it.lat }
@@ -261,7 +259,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         map.easeCamera(CameraUpdateFactory.newCameraPosition(camera), 650)
     }
 
-    /** Leaflet's flyTo: out, across and back in, landing [target] in the free part of the map. */
     fun flyTo(target: LatLon, zoom: Double, padding: MapPadding) {
         val camera = CameraPosition.Builder()
             .target(LatLng(target.lat, target.lon))
@@ -273,16 +270,13 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     fun cancelCamera() = map.cancelTransitions()
 
-    // --- Building the layers ---
-
     private fun addLayers(style: Style, dark: Boolean) {
         listOf(SRC_LINES, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS)
             .forEach { style.addSource(GeoJsonSource(it)) }
         addBaseImages(style, dark)
 
-        // Routes and walks over the streets and under their names, the way Maps keeps them readable:
-        // below the first label that comes after the last street, rail or building layer.
-        val layers = style.layers
+        // Under the basemap's labels.
+        val layers = style.layers.filterNot(::isPuckLayer)
         val lastGround = layers.indexOfLast { it !is SymbolLayer && !it.id.startsWith("boundary") }
         val firstLabel = layers.drop(lastGround + 1).firstOrNull { it is SymbolLayer }?.id
         fun under(layer: Layer) = if (firstLabel != null) style.addLayerBelow(layer, firstLabel) else style.addLayer(layer)
@@ -303,11 +297,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
             ).withFilter(eq(get("dash"), literal(i)))
-            // The website's dashes were in px along a 5 px line; MapLibre counts line widths.
+            // Dash arrays are in line widths.
             if (pattern.isNotEmpty()) layer.setProperties(lineDasharray(pattern.map { it / 5f }.toTypedArray()))
             under(layer)
         }
-        // Walking as Maps draws it: a line of dots.
         under(
             LineLayer("ct-walks", SRC_WALKS).withProperties(
                 lineColor(MapColors.Walk.toArgb()),
@@ -318,8 +311,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             ),
         )
 
-        // Markers on top, below the location puck if it is already there.
-        val puck = style.layers.firstOrNull { it.id.contains("location", ignoreCase = true) }?.id
+        val puck = style.layers.firstOrNull(::isPuckLayer)?.id
         fun over(layer: SymbolLayer) {
             layer.setProperties(iconAllowOverlap(true), iconIgnorePlacement(true))
             if (puck != null) style.addLayerBelow(layer, puck) else style.addLayer(layer)
@@ -346,14 +338,12 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             ),
         )
         over(SymbolLayer(LAYER_SELECTED, SRC_SELECTED).withProperties(iconImage("stop-selected")))
-        over(SymbolLayer(LAYER_VEHICLES, SRC_VEHICLES).withProperties(iconImage(get("img")), symbolSortKey(get("z"))))
         over(
-            SymbolLayer("ct-vehicle-heading", SRC_VEHICLES).withProperties(
-                iconImage("heading"),
-                iconRotate(get("heading")),
-                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
-                iconTranslate(arrayOf(12f, 12f)),
-                iconTranslateAnchor(Property.ICON_TRANSLATE_ANCHOR_VIEWPORT),
+            SymbolLayer(LAYER_VEHICLES, SRC_VEHICLES).withProperties(
+                iconImage(get("img")),
+                iconRotate(get("rot")),
+                iconOffset(get("off")),
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
                 symbolSortKey(get("z")),
             ),
         )
@@ -377,8 +367,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val style = style ?: return
         if (addedImages.add(name)) style.addImage(name, make())
     }
-
-    // --- Pushing data into the sources ---
 
     private fun source(id: String): GeoJsonSource? = style?.getSourceAs(id)
 
@@ -407,7 +395,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         )
     }
 
-    // The selected stop is drawn on its own, bigger, so the plain one hides.
     private fun applyStopFilter() {
         style?.getLayerAs<SymbolLayer>(LAYER_STOPS)?.setFilter(neq(get("id"), literal(selected?.stopId ?: -1)))
     }
@@ -502,19 +489,20 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private fun pushVehicles() {
         val src = source(SRC_VEHICLES)
         if (src != null) {
+            val ordered = glide.all().sortedWith(compareBy<ShownVehicle>({ it.vehicle.id == selectedVehicleId }, { -it.at.lat }))
             src.setGeoJson(
                 FeatureCollection.fromFeatures(
-                    glide.all().map { shown ->
+                    ordered.flatMapIndexed { i, shown ->
                         val v = shown.vehicle
                         val name = "veh-${v.color}-${v.shortName}"
                         image(name) { images.vehicle(v.color, v.shortName) }
-                        Feature.fromGeometry(point(shown.at)).apply {
-                            addStringProperty("id", v.id)
-                            addStringProperty("img", name)
-                            addNumberProperty("heading", shown.heading)
-                            // The one with its bubble open on top; further south over further north.
-                            addNumberProperty("z", (if (v.id == selectedVehicleId) 1000.0 else 0.0) - shown.at.lat)
-                        }
+                        val rot = shown.heading - bearing
+                        val r = Math.toRadians(rot)
+                        val (ox, oy) = HEADING_OFFSET
+                        listOf(
+                            vehicleFeature(shown, name, z = 2 * i, rot = 0.0, off = 0.0 to 0.0),
+                            vehicleFeature(shown, "heading", z = 2 * i + 1, rot = rot, off = (ox * cos(r) + oy * sin(r)) to (oy * cos(r) - ox * sin(r))),
+                        )
                     },
                 ),
             )
@@ -522,7 +510,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         frame.intValue++
     }
 
-    @SuppressLint("MissingPermission") // Only switched on once the permission is there.
+    private fun vehicleFeature(shown: ShownVehicle, img: String, z: Int, rot: Double, off: Pair<Double, Double>) =
+        Feature.fromGeometry(point(shown.at)).apply {
+            addStringProperty("id", shown.vehicle.id)
+            addStringProperty("img", img)
+            addNumberProperty("z", z)
+            addNumberProperty("rot", rot)
+            addProperty("off", JsonArray().apply { add(off.first); add(off.second) })
+        }
+
+    @SuppressLint("MissingPermission")
     private fun applyMe() {
         val style = style ?: return
         val component = map.locationComponent
@@ -532,7 +529,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             return
         }
         if (!component.isLocationComponentActivated) {
-            // MapLibre's own dot and navigation arrow: tinting them flattens the arrow into a blob.
+            // Untinted: tinting flattens the GPS arrow.
             val options = LocationComponentOptions.builder(context)
                 .accuracyColor(MapColors.MeAccuracy.toArgb())
                 .accuracyAlpha(0.15f)
@@ -570,7 +567,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         if (first) applyTracking()
     }
 
-    @SuppressLint("MissingPermission") // The component is only on with the permission.
+    @SuppressLint("MissingPermission")
     private fun applyTracking() {
         val camera = tracking
         map.uiSettings.isTiltGesturesEnabled = camera != null
@@ -578,7 +575,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         if (!component.isLocationComponentActivated || !component.isLocationComponentEnabled) return
         if (camera == null) {
             if (component.cameraMode == CameraMode.NONE && component.renderMode == RenderMode.NORMAL) return
-            // Its own zoom, tilt and padding animations would keep moving the camera after it lets go.
+            // Otherwise its own animations keep moving the camera.
             component.cancelZoomWhileTrackingAnimation()
             component.cancelTiltWhileTrackingAnimation()
             component.cancelPaddingWhileTrackingAnimation()
@@ -598,7 +595,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 }
 
-/** The basemaps, bundled so the map draws its streets as soon as their tiles are cached. */
 private object MapStyles {
     private val cache = HashMap<Boolean, String>()
 
@@ -607,10 +603,6 @@ private object MapStyles {
     }
 }
 
-/**
- * Buses glide from where they were to where they are over a second and a half, turning the
- * short way round, instead of jumping at every update.
- */
 private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.FrameCallback {
     private class Track(var vehicle: MapVehicle, var from: LatLon, var to: LatLon, var fromHeading: Double, var toHeading: Double, var at: LatLon, var heading: Double)
 
@@ -647,7 +639,6 @@ private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.Fram
 
     override fun doFrame(frameTimeNanos: Long) {
         val t = ((System.nanoTime() - startNanos) / 1_000_000.0 / GLIDE_MS).coerceIn(0.0, 1.0)
-        // Ease in and out, like a bus pulling away and coming to a stop.
         val e = if (t < 0.5) 4 * t * t * t else 1 - Math.pow(-2 * t + 2, 3.0) / 2
         for (track in tracks.values) {
             track.at = LatLon(track.from.lat + (track.to.lat - track.from.lat) * e, track.from.lon + (track.to.lon - track.from.lon) * e)

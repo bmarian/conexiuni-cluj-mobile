@@ -36,15 +36,9 @@ import java.time.format.DateTimeFormatter
 
 private const val CHANNEL = "at_stop"
 private const val RADIUS_M = 70f
-// Standing at the stop for a minute, not walking past it.
 private const val DWELL_MS = 60_000
 private const val NOTIFICATION_TAG = "at-stop"
 
-/**
- * Optional: arrive at a favourite stop and a quiet notification shows its next buses, gone
- * when you leave. A geofence around each favourite stop does the noticing, so it needs the
- * location all the time; it's off until turned on in Settings.
- */
 object AtStop {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -55,11 +49,10 @@ object AtStop {
     private fun pending(context: Context) = PendingIntent.getBroadcast(
         context, 40,
         Intent(context, AtStopReceiver::class.java),
-        // The geofence API fills in the event, so this one must stay mutable.
+        // Mutable: the geofence API fills in the intent.
         PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-    /** Puts a fence around each favourite stop, or takes them all down. */
     @SuppressLint("MissingPermission")
     fun sync(context: Context, enabled: Boolean, stopIds: List<Int>, stops: List<Stop>) {
         val app = context.applicationContext
@@ -149,10 +142,7 @@ class AtStopReceiver : BroadcastReceiver() {
     }
 }
 
-/**
- * Fences don't survive a restart or an update. Waking the app is enough: once the stops are
- * loaded, the app puts them back (see Services.init).
- */
+/** Fences don't survive reboots or updates; Services.init adds them back. */
 class AtStopRestoreReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) = Unit
 }

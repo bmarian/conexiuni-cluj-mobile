@@ -2,8 +2,6 @@ package online.bus.bmarian.conexiuniclujmobile.ui
 
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.calculateTargetValue
-import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -67,23 +65,16 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** Where the sheet rests: a peek of its top, 60% of the screen, or all of it. */
 enum class SheetSnap { Peek, Half, Full }
 
 private const val HALF_FRACTION = 0.60f
 val SHEET_HANDLE = 28.dp
-// What shows of the content when only peeking: the search bar or a page's title bar.
 private val PEEK_CONTENT = 64.dp
-// Slower than this, a release goes to the nearest rest; faster, it goes the way it was thrown.
-private val FlingThreshold = 125.dp
+private val FlingThreshold = 400.dp
+private val ReverseSlop = 32.dp
 
-/** The sheet's motion: a spring that starts at the finger's speed, a little soft at the end. */
 internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.86f, stiffness = 420f)
 
-/**
- * A Google Maps style sheet. It slides rather than resizing, so a drag only moves it; a throw
- * keeps the finger's speed; lists inside hand their scroll over to it and back.
- */
 @Stable
 class SheetState(initial: SheetSnap) {
     val anchored = AnchoredDraggableState(initial)
@@ -91,10 +82,9 @@ class SheetState(initial: SheetSnap) {
     internal var onUserSettle: ((SheetSnap) -> Unit)? = null
     internal var onUserDrag: (() -> Unit)? = null
 
-    /** Where it last came to rest. */
     val snap: SheetSnap get() = anchored.settledValue
 
-    /** The sheet's top inside its container, continuous. Read it in layout or draw, not composition. */
+    /** Read in layout or draw, not composition. */
     val offsetPx: Float get() = anchored.offset.takeUnless { it.isNaN() } ?: containerPx
 
     fun heightFor(s: SheetSnap): Float {
@@ -102,7 +92,6 @@ class SheetState(initial: SheetSnap) {
         return if (p.isNaN()) 0f else containerPx - p
     }
 
-    /** The height it is resting at or heading to: what the map leaves room for. */
     val restingPx: Float get() = heightFor(anchored.targetValue)
 
     internal val isAtAnchor: Boolean
@@ -124,22 +113,28 @@ class SheetState(initial: SheetSnap) {
 
     suspend fun animateTo(target: SheetSnap) = anchored.animateTo(target, SheetSpring)
 
-    /** Where a release at [velocity] (px/s, positive downwards) should end. */
     internal fun targetFor(velocity: Float, density: Density): SheetSnap {
         val anchors = anchored.anchors
         val offset = offsetPx
         val closest = anchors.closestAnchor(offset) ?: snap
         if (abs(velocity) < with(density) { FlingThreshold.toPx() }) return closest
-        // Thrown: the rest ahead nearest to where the throw would coast to, at least one step.
-        val projected = exponentialDecay<Float>(frictionMultiplier = 2f).calculateTargetValue(offset, velocity)
-        val ahead = SheetSnap.entries.filter {
-            val p = anchors.positionOf(it)
-            if (velocity > 0) p > offset + 1 else p < offset - 1
+        val down = velocity > 0
+        val rest = anchors.positionOf(snap)
+        val slop = with(density) { ReverseSlop.toPx() }
+        val against = if (down) offset < rest - slop else offset > rest + slop
+        val from = when {
+            rest.isNaN() || against -> offset
+            down -> maxOf(offset, rest)
+            else -> minOf(offset, rest)
         }
-        return ahead.minByOrNull { abs(anchors.positionOf(it) - projected) } ?: closest
+        return SheetSnap.entries
+            .filter {
+                val p = anchors.positionOf(it)
+                !p.isNaN() && if (down) p > from + 1 else p < from - 1
+            }
+            .minByOrNull { abs(anchors.positionOf(it) - from) } ?: closest
     }
 
-    /** A throw that began in a list inside: carried on by the sheet. */
     internal suspend fun fling(velocity: Float, behavior: FlingBehavior) = anchored.anchoredDrag {
         val scope = object : ScrollScope {
             override fun scrollBy(pixels: Float): Float {
@@ -167,10 +162,6 @@ private class SheetFling(private val sheet: SheetState, private val density: Den
     }
 }
 
-/**
- * Lists inside the sheet: scrolling up first raises the sheet, pulling down at the top lowers
- * it, and a throw is passed on whole, the way Material's own bottom sheet does it.
- */
 private fun sheetNestedScroll(sheet: SheetState, fling: FlingBehavior) = object : NestedScrollConnection {
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
         if (available.y < 0 && source == NestedScrollSource.UserInput) {
@@ -191,7 +182,7 @@ private fun sheetNestedScroll(sheet: SheetState, fling: FlingBehavior) = object 
         } else Velocity.Zero
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
-        // Only when this gesture moved the sheet: a list throw that just reaches the top leaves it be.
+        // Only if this gesture moved the sheet.
         if (!sheet.isAtAnchor) {
             sheet.fling(available.y, fling)
             available
@@ -208,11 +199,6 @@ fun rememberSheetState(initial: SheetSnap = SheetSnap.Half): SheetState {
     return state
 }
 
-/**
- * The sheet over the map. It is laid out once at full height and slid into place, so moving it
- * never re-measures the page inside. The whole surface can be dragged; [above] rides on its top
- * edge (the map credits).
- */
 @Composable
 fun BottomSheet(
     state: SheetState,
@@ -251,7 +237,6 @@ fun BottomSheet(
                 Modifier.layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints)
                     layout(placeable.width, placeable.height) {
-                        // Fades out as the sheet nears the top, so it never sits on the status bar.
                         val h = placeable.height.toFloat()
                         placeable.placeWithLayer(0, (state.offsetPx - h).roundToInt()) {
                             alpha = ((state.offsetPx - h) / h).coerceIn(0f, 1f)
@@ -278,7 +263,6 @@ fun BottomSheet(
             }
         }
     }
-    // Typing goes full height above the keyboard; dragging the sheet puts the keyboard away, like Maps.
     LaunchedEffect(imeUp, focused) {
         if (imeUp && focused && state.snap != SheetSnap.Full) state.animateTo(SheetSnap.Full)
     }
@@ -311,7 +295,6 @@ private fun SheetHandle(state: SheetState) {
     }
 }
 
-/** The landscape and tablet panel: open or tucked away to the start side, with the same feel. */
 enum class SideSnap { Closed, Open }
 
 @Stable
@@ -320,7 +303,7 @@ class SideSheetState(initial: SideSnap) {
     internal var widthPx by mutableFloatStateOf(0f)
 
     val isOpen: Boolean get() = anchored.targetValue == SideSnap.Open
-    /** How far the panel is out, 0 (closed) to its width. Read in layout or draw. */
+    /** Read in layout or draw. */
     val visiblePx: Float get() = widthPx + (anchored.offset.takeUnless { it.isNaN() } ?: 0f)
 
     internal fun updateAnchors(width: Float) {

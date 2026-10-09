@@ -41,13 +41,11 @@ import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.ConexiuniTheme
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
-/** Picks the favourite stop a new widget shows; the launcher opens it when the widget is placed. */
 class StopWidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val appWidgetId = intent?.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
-        // Backing out leaves no widget behind.
         setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return finish()
         enableEdgeToEdge()

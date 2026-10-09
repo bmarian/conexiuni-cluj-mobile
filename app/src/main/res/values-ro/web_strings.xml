@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Generated from frontend/src/locales/ro.json; keys keep the website's names. -->
+<!-- Generated from frontend/src/locales/ro.json by tools/gen_strings.py. -->
 <resources>
     <string name="w_center">Centrează pe locația mea</string>
     <string name="w_fit_routes">Încadrează harta</string>

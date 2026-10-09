@@ -67,10 +67,6 @@ private class RouteChip(val route: Route, val destination: String, val name: Str
 
 private fun planKey(p: FavoritePlan) = "${p.lat}_${p.lon}_${p.originLat ?: ""}_${p.originLon ?: ""}"
 
-/**
- * Home in the sheet: the trip or bus you're on, then your favourites and recent places. Search
- * lives in the bar over the map.
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen() {
@@ -90,7 +86,6 @@ fun HomeScreen() {
 
     val listState = rememberLazyListState()
 
-    // Favorite stops in red on the map.
     val owner = remember { Any() }
     DisposableEffect(owner) {
         map.claim(owner)
@@ -149,7 +144,6 @@ fun HomeScreen() {
             }
         }
 
-        // No "Favourites" over these: each kind has its own label.
         if (chips.isNotEmpty()) {
             item(key = "routes-label") { SubLabel(stringResource(R.string.w_favorite_routes), Modifier.padding(top = 12.dp)) }
             item(key = "routes") {

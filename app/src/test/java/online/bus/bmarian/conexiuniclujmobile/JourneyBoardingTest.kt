@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class JourneyBoardingTest {
-    // A made-up line running east, a stop about every 380 m: board at the first.
+    // Made-up line going east, stops ~380 m apart.
     private val leg = JourneyLeg(
         routeIds = listOf(1),
         tripIds = listOf("1_0"),
@@ -29,8 +29,7 @@ class JourneyBoardingTest {
 
     @Test
     fun standingNearTheLineIsNotRidingIt() {
-        // A few steps from the second stop and 370 m from the first: what the trip used to
-        // take for being on the bus before the walk had even begun.
+        // Near the second stop before the walk began.
         val start = fix(23.5848, null)
         assertTrue(leftOnBus(start, leg))
         val riding = RidingCheck()

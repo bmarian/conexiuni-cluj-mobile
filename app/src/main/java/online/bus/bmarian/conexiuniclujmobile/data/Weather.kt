@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.floor
 
-/** Today in Cluj from Open-Meteo, the same request and rounding as the website's weather button. */
+/** Same request and rounding as the website's weather button. */
 data class Weather(
     val temp: Int?,
     val apparentTemp: Int?,
@@ -27,7 +27,6 @@ data class Weather(
     val precipitationChance: Int?,
     val sunrise: String?,
     val sunset: String?,
-    // When to ask again: the data's time plus its interval, plus 5 s, at least 30 s away.
     val nextFetchMs: Long,
 )
 
@@ -37,7 +36,7 @@ object WeatherApi {
     const val RETRY_MS = 10 * 60 * 1000L
     private val BUCHAREST: ZoneId = ZoneId.of("Europe/Bucharest")
 
-    // Math.round: halves go up, -2.5 becomes -2.
+    // JS Math.round: -2.5 becomes -2.
     private fun roundOrNull(value: Double?): Int? = value?.takeIf { it.isFinite() }?.let { floor(it + 0.5).toInt() }
 
     private fun JsonObject?.number(key: String): Double? = (this?.get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
@@ -75,7 +74,6 @@ object WeatherApi {
         )
     }
 
-    /** "07:32" from Open-Meteo's local "2026-10-08T07:32", or "—". */
     fun formatTime(value: String?): String {
         if (value == null) return "—"
         return runCatching { LocalDateTime.parse(value).let { "%02d:%02d".format(it.hour, it.minute) } }.getOrDefault("—")
@@ -112,7 +110,6 @@ object WeatherApi {
         99 to ("Strong thunderstorm with hail" to "Furtună puternică cu grindină"),
     )
 
-    /** The website's Meteocons slug for a WMO code, by day or night. */
     val ICONS: Map<Int, Pair<String, String>> = mapOf(
         0 to ("clear-day" to "clear-night"),
         1 to ("clear-day" to "clear-night"),
@@ -151,11 +148,10 @@ object WeatherApi {
     }
 }
 
-/** A CTP announcement from the news endpoint. */
 @kotlinx.serialization.Serializable
 data class NewsItem(val url: String = "", val date: String = "", val title: String = "")
 
 object NewsApi {
-    // A scrape that found nothing comes back as null.
+    // The endpoint returns null when the scrape found nothing.
     suspend fun fetch(): List<NewsItem> = Api.getFresh<List<NewsItem>?>("news").orEmpty()
 }

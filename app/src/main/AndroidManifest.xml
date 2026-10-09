@@ -10,13 +10,10 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- A followed bus: a live countdown in the status bar until it comes. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
-    <!-- A journey follows you along the trip, so it can say which stop is next. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <!-- Only when "Favourite stops" is turned on in Settings. -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -42,7 +39,6 @@
         <receiver
             android:name=".follow.StopFollowingReceiver"
             android:exported="false" />
-        <!-- A trip step by step: walk, wait, ride, get off. Uses the position while it runs. -->
         <service
             android:name=".journey.JourneyService"
             android:exported="false"
@@ -65,7 +61,6 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-        <!-- A stop's next departures on the home screen. -->
         <receiver
             android:name=".widget.StopWidgetReceiver"
             android:exported="true"
@@ -88,7 +83,6 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
-        <!-- The watch app starting, updating or stopping a follow. -->
         <service
             android:name=".follow.WearListener"
             android:exported="true">
@@ -104,7 +98,6 @@
                     android:pathPrefix="/journey"
                     android:scheme="wear" />
             </intent-filter>
-            <!-- Favourites changed on the watch. -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
 
@@ -127,7 +120,6 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Shared links to the website open here: stops, lines, the planner and transfer codes. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
 
@@ -141,7 +133,6 @@
                 <data android:path="/plan" />
                 <data android:path="/settings" />
             </intent-filter>
-            <!-- The app's own links: from the watch's "Open on phone", shortcuts and notifications. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
@@ -151,7 +142,6 @@
                 <data android:scheme="conexiunicluj" />
                 <data android:host="bus.bmarian.online" />
             </intent-filter>
-            <!-- Share a place from Maps or a chat to plan a trip there. -->
             <intent-filter android:label="@string/shortcut_plan">
                 <action android:name="android.intent.action.SEND" />
 

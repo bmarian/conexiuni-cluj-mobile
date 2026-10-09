@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
 
-// The website's marker artwork from utils/mapIcons.ts, drawn once into bitmaps.
+// Port of the artwork in utils/mapIcons.ts.
 object Glyphs {
     const val BUS_STOP =
         "M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"
@@ -67,7 +67,6 @@ object MapColors {
     }
 }
 
-/** A circle with the bus glyph: the website's stop, highlight and selected-stop markers. */
 fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Float, shadow: Float = 1f) {
     val r = diameter / 2
     drawCircle(Color.Black.copy(alpha = 0.18f * shadow), r + 1.dp.toPx(), center + Offset(0f, 1.dp.toPx()))
@@ -78,7 +77,6 @@ fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Fl
     }
 }
 
-/** The planner's teardrop pin, its tip at [tip]. */
 fun DrawScope.pinMarker(tip: Offset, color: Color) {
     val w = 20.dp.toPx()
     val h = 28.dp.toPx()

@@ -54,14 +54,9 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.graphics.Color
 
-/** One line on the widget: its badge, where it goes, and the next times as clock times. */
 @Serializable
 data class WidgetRow(val line: String, val color: String, val destination: String, val times: List<String>, val live: Boolean)
 
-/**
- * A stop's next departures on the home screen, worked out on the phone like the stop page.
- * Times are clock times, so they stay right between the refreshes every quarter of an hour.
- */
 class StopWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
@@ -165,7 +160,6 @@ class StopWidgetReceiver : GlanceAppWidgetReceiver() {
     }
 }
 
-/** The widget's refresh button. */
 class RefreshStopWidget : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         StopWidgetWorker.refreshNow(context)

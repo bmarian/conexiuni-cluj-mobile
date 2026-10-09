@@ -29,7 +29,7 @@ data class Stop(
 data class StopTime(
     @SerialName("trip_id") val tripId: String,
     @SerialName("stop_id") val stopId: Int,
-    // Seconds from the previous stop into this one.
+    // Seconds from the previous stop.
     @SerialName("offset_arrival_time") val offsetArrivalTime: Double = 0.0,
     @SerialName("stop_sequence") val stopSequence: Int = 0,
     @SerialName("stop_headsign") val headsign: String = "",
@@ -114,7 +114,7 @@ data class Vehicle(
     val longitude: Double = 0.0,
     val timestamp: String = "",
     val speed: Double = 0.0,
-    // Tranzy's reading before the server's smoothing and minimum-speed floor.
+    // Before the server's smoothing and minimum-speed floor.
     @SerialName("raw_speed") val rawSpeed: Double? = null,
     @SerialName("vehicle_type") val vehicleType: Int = 0,
     @SerialName("bike_accessible") val bikeAccessible: String = "",
@@ -124,7 +124,6 @@ data class Vehicle(
     @SerialName("stationary_since") val stationarySince: String? = null,
 )
 
-/** Learned minutes from the terminus to each stop, per departure hour. */
 @Serializable
 data class HourlyStopOffsets(
     @SerialName("stop_ids") val stopIds: List<Int> = emptyList(),
@@ -141,7 +140,6 @@ fun directionFromTripId(tripId: String): String = if (tripId.endsWith(INCOMING_S
 fun tripIdFor(routeId: Int, direction: String): String =
     "$routeId${if (direction == "1") INCOMING_SUFFIX else OUTGOING_SUFFIX}"
 
-// "Origin - Destination": direction 0 runs to the part after the last " - ", 1 back to the part before.
 fun terminalName(routeLongName: String, direction: String): String {
     val i = routeLongName.lastIndexOf(" - ")
     if (i < 0) return routeLongName

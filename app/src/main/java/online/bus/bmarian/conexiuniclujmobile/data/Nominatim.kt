@@ -64,7 +64,7 @@ object Nominatim {
         }.getOrNull()
     }
 
-    // String(number) in JS: no trailing ".0".
+    // JS String(number): no trailing ".0".
     private fun jsNumber(value: Double): String =
         if (value == Math.floor(value) && !value.isInfinite()) value.toLong().toString() else value.toString()
 

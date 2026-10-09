@@ -17,11 +17,7 @@ import java.util.regex.Pattern
 const val PACKAGE = "online.bmarian.bus"
 private const val WAIT_MS = 15_000L
 
-/**
- * The paths people take every day: the map and Home's nearby buses, the sheet up and down,
- * search, a line, a stop and the planner. Needs an English emulator with a location set near
- * Cluj stops, and the app past its first-run screen.
- */
+/** Needs an English emulator with a location near Cluj stops, past the first-run screens. */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
     @get:Rule
@@ -34,7 +30,6 @@ class BaselineProfileGenerator {
         }
         pressHome()
         startActivityAndWait()
-        // A fresh install starts with the first-run screens: through them, nothing allowed.
         for (step in 1..6) {
             val done = device.wait(Until.findObject(By.text("Done")), 1_500)
             if (done != null) {
@@ -45,7 +40,6 @@ class BaselineProfileGenerator {
         }
         Thread.sleep(4_000)
 
-        // The sheet up to full and back to half, then the map panned.
         val w = device.displayWidth
         val h = device.displayHeight
         device.swipe(w / 2, h * 3 / 4, w / 2, h / 4, 30)
@@ -55,7 +49,6 @@ class BaselineProfileGenerator {
         device.swipe(w / 3, h / 4, w * 2 / 3, h / 5, 30)
         Thread.sleep(1_500)
 
-        // Search from the bar on the map, and a line from the results.
         await(By.text("Search routes, stops, places...")).click()
         device.waitForIdle()
         device.executeShellCommand("input text 25")
@@ -64,7 +57,6 @@ class BaselineProfileGenerator {
         device.pressBack()
         Thread.sleep(1_000)
 
-        // A stop from Home's nearby buses.
         device.wait(Until.findObject(By.text(Pattern.compile("\\d+ m"))), WAIT_MS)?.let {
             it.click()
             Thread.sleep(3_000)
@@ -72,7 +64,6 @@ class BaselineProfileGenerator {
             Thread.sleep(1_000)
         }
 
-        // The planner, from a link as a shared place opens it.
         startActivityAndWait(
             Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/plan?lat=46.7694&lon=23.5899&name=Unirii"))
                 .setPackage(PACKAGE),

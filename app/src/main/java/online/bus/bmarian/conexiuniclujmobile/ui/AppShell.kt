@@ -123,14 +123,13 @@ import org.maplibre.android.offline.OfflineManager
 val LocalMap = compositionLocalOf<MapController> { error("no map") }
 val LocalSheet = compositionLocalOf<SheetState?> { null }
 
-/** The map and its camera outlive rotations, like the website's single map component. */
 class MapHolder(app: Application) : AndroidViewModel(app) {
     val controller = MapController()
     val camera = MapCamera.restore(app)
 
     init {
         MapLibre.getInstance(app)
-        // The app's client without its HTTP cache: MapLibre keeps tiles in its own.
+        // MapLibre caches tiles itself.
         HttpRequestUtil.setOkHttpClient(Api.client.newBuilder().cache(null).build())
         OfflineManager.getInstance(app).setMaximumAmbientCacheSize(200L * 1024 * 1024, null)
     }
@@ -163,10 +162,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         Services.locationPermissionChanged()
     }
-    // Like the website, the map asks where you are as soon as it opens.
-    LaunchedEffect(Unit) {
-        if (!UserLocation.permitted(context)) permission.launch(LOCATION_PERMISSIONS)
-    }
 
     val link by links.collectAsStateWithLifecycle()
     LaunchedEffect(link) {
@@ -180,7 +175,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     val route = entry?.destination?.route
     val atHome = route == "home"
 
-    // Search over everything, opened from the bar on the map or the Search shortcut.
     val search = remember { SearchState() }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     val searchRequest by HomeRequests.search.collectAsStateWithLifecycle()
@@ -192,7 +186,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
         searchOpen = true
     }
 
-    // The weather on Home's chip, kept fresh while the app is on screen.
     val showWeather by Services.settings.showWeather.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(showWeather, online) {
@@ -200,7 +193,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     }
     var chromeHeight by remember { mutableIntStateOf(0) }
 
-    // Turn-by-turn over the map; the sheet slides away under it and comes back as it was.
     val navigating by JourneyManager.navigating.collectAsStateWithLifecycle()
     val journeyState by JourneyManager.state.collectAsStateWithLifecycle()
     val showNav = navigating && journeyState != null
@@ -217,12 +209,10 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
             val panelWidth = if (wide) (maxWidth * 0.3f).coerceAtLeast(360.dp) else minOf(420.dp, maxWidth * 0.58f)
             val panelPx = with(density) { panelWidth.toPx() }
             val statusTop = WindowInsets.statusBars.getTop(density).toFloat()
-            // On Home the search bar and its chips float over the top of the map.
             val chromePx = if (atHome) chromeHeight.toFloat() else 0f
             val insets = when {
                 showNav -> MapInsets(top = navTop, bottom = navBottom)
                 side -> MapInsets(top = statusTop + chromePx, left = if (sidePanel.isOpen || wide) panelPx else 0f)
-                // A full sheet hides the map; fit for when it comes back down to half.
                 else -> MapInsets(top = statusTop + chromePx, bottom = minOf(sheet.restingPx, sheet.heightFor(SheetSnap.Half)))
             }
 
@@ -259,7 +249,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
             }
 
             if (side) {
-                // The panel slides out from the start side; the search bar rides along its edge.
                 val panelOffset = Modifier.offset { IntOffset(sidePanel.visiblePx.roundToInt(), 0) }
                 chrome(Modifier.align(Alignment.TopStart).besidePanel(sidePanel, maxWidth = 520.dp))
                 if (!showNav) MapFabs(map, Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp))
@@ -291,7 +280,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                     }
                 }
             } else {
-                // Under the sheet, so it slides over them; they fade as it comes up.
                 chrome(
                     Modifier.align(Alignment.TopStart).fillMaxWidth().graphicsLayer {
                         val reach = chromeHeight + statusTop
@@ -299,14 +287,12 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                     },
                 )
                 val fade = with(density) { 120.dp.toPx() }
-                // Clear of the credits line on the sheet's edge.
                 val gap = with(density) { 28.dp.roundToPx() }
                 if (!showNav) MapFabs(
                     map,
                     Modifier.align(Alignment.TopEnd).padding(end = 16.dp).layout { measurable, constraints ->
                         val placeable = measurable.measure(constraints)
                         layout(placeable.width, placeable.height) {
-                            // Riding on the sheet's top edge, gone once it is well above half.
                             val half = sheet.anchored.anchors.positionOf(SheetSnap.Half).takeUnless { it.isNaN() } ?: sheet.offsetPx
                             val y = statusTop + sheet.offsetPx - placeable.height - gap
                             placeable.placeWithLayer(0, y.roundToInt()) {
@@ -358,20 +344,16 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 search.query = ""
             }
             ToastHost(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp))
-            // First run: language, permissions and the watch, once.
             val onboarded by Services.settings.onboarded.collectAsStateWithLifecycle()
             if (!onboarded) Onboarding(onDone = Services.settings::setOnboarded, onImport = navigator::settings)
         }
     }
 
-    // A page opening on a lowered sheet or a closed panel brings it into view, like a place in Maps.
     LaunchedEffect(route) {
         if (route == null || route == "home") return@LaunchedEffect
         if (sheet.snap == SheetSnap.Peek) sheet.animateTo(SheetSnap.Half)
         if (!sidePanel.isOpen) sidePanel.toggle()
     }
-    // On the first page, back from a full or peeking sheet first brings it to half, following
-    // the back gesture as it is made. Elsewhere pages, searches and modes take back first.
     val lower = if (!atRoot || sheet.snap == SheetSnap.Half) null else SheetSnap.Half
     PredictiveBackHandler(enabled = lower != null) { events ->
         val from = sheet.snap
@@ -390,10 +372,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     }
 }
 
-/**
- * Lays something out in the map's part of the screen, right of the side panel as it slides,
- * leaving [endReserve] free at the end and no wider than [maxWidth].
- */
 private fun Modifier.besidePanel(panel: SideSheetState, endReserve: Dp = 0.dp, maxWidth: Dp = Dp.Infinity) = layout { measurable, constraints ->
     val left = panel.visiblePx.roundToInt().coerceAtLeast(0)
     val room = (constraints.maxWidth - left - endReserve.roundToPx()).coerceAtLeast(0)
@@ -402,8 +380,6 @@ private fun Modifier.besidePanel(panel: SideSheetState, endReserve: Dp = 0.dp, m
     layout(constraints.maxWidth, placeable.height) { placeable.place(left, 0) }
 }
 
-// Pages slide in a little from the side and fade, Material's shared axis; back runs it in
-// reverse, following the predictive back gesture.
 private val PAGE_IN = tween<Float>(210, delayMillis = 90, easing = LinearOutSlowInEasing)
 private val PAGE_OUT = tween<Float>(90, easing = FastOutLinearInEasing)
 private val PAGE_SLIDE = spring(stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold)
@@ -511,7 +487,6 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
         go("news")
     }
 
-    // A double tap opens a page once.
     private var lastTarget: String? = null
     private var lastAt = 0L
 
@@ -528,7 +503,6 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
     }
 }
 
-/** Opens a bus.bmarian.online link in the app: the same paths the website has. */
 private fun openLink(navigator: Navigator, uri: Uri) {
     val segments = uri.pathSegments
     when (segments.firstOrNull()) {
@@ -546,7 +520,7 @@ private fun openLink(navigator: Navigator, uri: Uri) {
         }
         "settings" -> {
             val code = uri.getQueryParameter("send")
-            // The key travels after the #, so the server never sees it.
+            // The key is in the fragment, never sent to the server.
             val key = uri.fragment?.split('&')?.firstOrNull { it.startsWith("k=") }?.removePrefix("k=")
             if (code != null && navigator is AppNavigator) navigator.settingsSend(code, key) else navigator.settings()
         }

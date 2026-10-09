@@ -9,9 +9,8 @@ import kotlin.math.ln
 import kotlin.math.sinh
 import kotlin.math.tan
 
-// MapLibre's zoom levels: one below the website's Leaflet ones, which count 256 px tiles.
+// One below the website's Leaflet levels (256 px tiles).
 const val DEFAULT_ZOOM = 15.0
-// Plain stops show from here in.
 const val STOP_ZOOM = 15f
 const val MIN_ZOOM = 8.0
 const val MAX_ZOOM = 19.0
@@ -32,7 +31,6 @@ fun mercatorY(lat: Double): Double {
 fun lonOf(x: Double) = x * 360.0 - 180.0
 fun latOf(y: Double): Double = Math.toDegrees(atan(sinh(PI * (1 - 2 * y))))
 
-/** Where the map opens: the last view, like the website's map.lastView. */
 class MapCamera(val center: LatLon, val zoom: Double, val bearing: Double) {
     companion object {
         private const val PREFS = "map"
@@ -42,7 +40,7 @@ class MapCamera(val center: LatLon, val zoom: Double, val bearing: Double) {
             if (prefs.contains("lat")) {
                 val lat = Double.fromBits(prefs.getLong("lat", 0))
                 val lon = Double.fromBits(prefs.getLong("lon", 0))
-                // Views saved by the old canvas map counted Leaflet's levels.
+                // Views saved by the old canvas map used Leaflet levels.
                 val zoom = if (prefs.contains("glZoom")) prefs.getFloat("glZoom", DEFAULT_ZOOM.toFloat()).toDouble()
                 else prefs.getFloat("zoom", DEFAULT_ZOOM.toFloat() + 1) - 1.0
                 val bearing = prefs.getFloat("bearing", 0f).toDouble()

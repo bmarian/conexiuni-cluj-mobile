@@ -15,7 +15,7 @@ import org.junit.Test
 class JourneyProtocolTest {
     @Test
     fun aVersionOneStepStillReads() {
-        // What the phone app sent before the navigation screens: no step type, no progress.
+        // Payload from before step types and progress.
         val v1 = """{"id":"a","title":"Unirii","step":"Wait for 5","detail":"Arriving in 3 min","line":"5","stepIndex":2}"""
         val sync = Api.json.decodeFromString<JourneySync>(v1)
         assertEquals("Wait for 5", sync.step)
@@ -33,7 +33,7 @@ class JourneyProtocolTest {
 
     @Test
     fun aPlanWithoutPathsStillReads() {
-        // The watch must read a plan sent before paths and walks were part of it.
+        // Plan from before paths and walks.
         val json = """{"id":"a","destination":{"id":-1,"name":"Unirii","lat":46.77,"lon":23.59},
             "legs":[{"routeIds":[5],"tripIds":["5_0"],"lines":["5"],"colors":["#ff0000"],
             "stops":[{"id":1,"name":"A","lat":46.78,"lon":23.62},{"id":2,"name":"B","lat":46.77,"lon":23.6}]}]}"""
@@ -44,7 +44,6 @@ class JourneyProtocolTest {
 
     @Test
     fun pathsAreThinnedButKeepTheirEnds() {
-        // A point every metre along a kilometre of straight road.
         val dense = (0..1000).map { LatLon(46.77 + it * 0.000009, 23.6) }
         val thin = simplifyPath(dense, minMeters = 12.0)
         assertTrue(thin.size in 60..100)

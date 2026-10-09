@@ -39,10 +39,6 @@ import online.bus.bmarian.conexiuniclujmobile.logic.stopsForDirection
 import java.time.Instant
 import java.time.LocalDateTime
 
-/**
- * The line a stop or the home screen just opened, so the route shows at once instead of
- * loading it again; the website's route store.
- */
 object RouteHandoff {
     var shapeInfo: ShapeInfo? = null
         private set
@@ -71,7 +67,7 @@ class RouteUi(
     val now: LocalDateTime,
 )
 
-/** Port of useRouteArrivals and the state RouteView keeps around it. */
+/** Port of useRouteArrivals. */
 class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId: Int?, changeId: Long?) : ViewModel() {
     private val repository = Services.repository
 
@@ -91,13 +87,9 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
 
     val activeChange = MutableStateFlow<RouteChange?>(null)
 
-    // The hourly learned offsets for the timetable tab on show, keyed by trip id.
     val hourlyOffsets = MutableStateFlow<Map<String, HourlyStopOffsets>>(emptyMap())
 
-    /**
-     * 'auto' (from home or search) opens the direction whose nearest stop is closest to the
-     * user, like the website.
-     */
+    /** 'auto' picks the direction with the stop nearest the user. */
     private fun resolveDirection(requested: String): String {
         if (requested == "1") return "1"
         if (requested != "auto") return "0"
@@ -139,8 +131,7 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
         val indexed = if (shape == null) emptyList()
         else indexVehicles(info.shortName, info.color, shape.index, nowMs, vehicles[tripId].orEmpty())
         val departures = departureMinutes(daySchedule(info.timetable, now), dir == "0")
-        // The header lists departures from the terminus, where there is no stop to have been
-        // passed, so it stays on the timetable alone.
+        // Terminus departures come from the timetable only.
         val firstOffset = stops.firstOrNull()?.offsetFromStart ?: 0
         val header = mergeArrivals(null, scheduledArrivals(departures, firstOffset, minutesOfDay(now), SCHEDULE_HORIZON_MIN))
         var nearest = -1
@@ -187,7 +178,6 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
                     initialLoading.value = true
                     val route = repository.route(routeId) ?: throw IllegalStateException("unknown route")
                     repository.cachedShapeInfo(route)?.let { shapeInfo.value = it }
-                    // Offline with a saved copy: keep showing it rather than an error.
                     val fresh = try {
                         repository.shapeInfo(route)
                     } catch (e: Exception) {
@@ -195,7 +185,6 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
                         null
                     }
                     if (fresh != null) shapeInfo.value = fresh
-                    // Deep-linked 'auto': stops load async, so resolve once they arrive.
                     if (wantsAuto) direction.value = resolveDirection("auto")
                 }
                 initialLoading.value = false
@@ -219,7 +208,6 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
     fun hasDirection(dir: String): Boolean =
         shapeInfo.value?.stopTimes?.any { it.tripId == tripIdFor(routeId, dir) } == true
 
-    /** The last stop's name per direction, for the direction buttons. */
     fun terminal(dir: String): String {
         val info = shapeInfo.value ?: return ""
         val last = info.stopTimes.filter { it.tripId == tripIdFor(routeId, dir) }.maxByOrNull { it.stopSequence }
@@ -231,7 +219,7 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
     private var hourlyJob: Job? = null
     private var hourlyKey: String? = null
 
-    /** Only the tab asked for last may fill the offsets; another day's would be wrong here. */
+    /** Ignore answers for a tab no longer shown. */
     fun loadHourly(shortName: String, dayType: String) {
         val key = "$shortName|$dayType"
         hourlyJob?.cancel()
@@ -244,7 +232,6 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
         }
     }
 
-    /** Runs while the screen is visible: live positions stream in for both directions. */
     suspend fun live() {
         shapes.collectLatest { loaded ->
             val ids = loaded.keys.map { tripIdFor(routeId, it) }

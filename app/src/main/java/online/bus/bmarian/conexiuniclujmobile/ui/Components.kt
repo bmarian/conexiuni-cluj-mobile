@@ -51,19 +51,17 @@ import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
-/** The shared clock as a local time in Cluj, ticking every 10 s like the website's. */
 @Composable
 fun rememberNow(): LocalDateTime {
     val clock by Services.clock.collectAsStateWithLifecycle()
     return remember(clock) { LocalDateTime.ofInstant(Instant.ofEpochMilli(clock), CLUJ_ZONE) }
 }
 
-/** "now", "7m", or the clock time once it is an hour or more away; the website's formatMinutes. */
+/** Port of formatMinutes. */
 @Composable
 fun minutesLabel(minutes: Int, now: LocalDateTime): String =
     formatMinutesFromNow(minutes, now, stringResource(R.string.w_now))
 
-/** A line number in its colour, as the website draws it. */
 @Composable
 fun LineBadge(
     shortName: String,
@@ -92,7 +90,6 @@ fun LineBadge(
     }
 }
 
-/** The arcs Google Maps puts next to a time that comes from a tracked vehicle. */
 @Composable
 fun RealtimeIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 12.dp) {
     Canvas(modifier.size(size)) {
@@ -114,11 +111,9 @@ fun RealtimeIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 12.dp) 
     }
 }
 
-/** Live times in the accent colour with the realtime arcs; timetable times plain. */
 @Composable
 fun liveColor(): Color = LocalLiveColors.current.content
 
-/** A small uppercase heading over a group of rows, like the website's section labels. */
 @Composable
 fun SectionLabel(
     text: String,
@@ -181,7 +176,6 @@ fun MessageText(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** A round tinted icon at the start of a list row, like the website's stop and place rows. */
 @Composable
 fun RowIcon(icon: ImageVector, container: Color, tint: Color, size: Dp = 36.dp) {
     Box(
@@ -192,7 +186,6 @@ fun RowIcon(icon: ImageVector, container: Color, tint: Color, size: Dp = 36.dp) 
     }
 }
 
-/** A pill showing one arrival time, live ones in the accent colour. */
 @Composable
 fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: Boolean = false) {
     val container = when {
@@ -227,10 +220,7 @@ fun TruncatedText(text: String, modifier: Modifier = Modifier, style: TextStyle 
     Text(text, modifier = modifier, style = style, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 }
 
-/**
- * Each item with its list key from [key]; a repeated one gets a suffix, since a lazy list must
- * not see it twice. Item and key travel together, so the key is never read from an older list.
- */
+/** Lazy list keys must be unique: repeats get a suffix. */
 fun <T> withUniqueKeys(items: List<T>, key: (T) -> String): List<Pair<String, T>> {
     val seen = HashMap<String, Int>()
     return items.map { item ->

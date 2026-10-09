@@ -25,18 +25,14 @@ enum class SendState { Idle, Busy, Sent, Unknown, Limited, Failed }
 class TransferViewModel : ViewModel() {
     val mode = MutableStateFlow<TransferMode?>(null)
 
-    // Export / Import
     val text = MutableStateFlow("")
     val exportDone = MutableStateFlow(false)
     val importState = MutableStateFlow("idle")
 
-    // Send
     val code = MutableStateFlow("")
     val sendState = MutableStateFlow(SendState.Idle)
-    // The key from a scanned code only belongs to that code.
     private var scanned: Pair<String, String?>? = null
 
-    // Receive
     val receiveState = MutableStateFlow(ReceiveState.Idle)
     val link = MutableStateFlow<TransferLink?>(null)
     val summary = MutableStateFlow<Transfer.Summary?>(null)
@@ -151,7 +147,7 @@ class TransferViewModel : ViewModel() {
         }
     }
 
-    // pollNow may have taken the data while this one slept or read; then it has nothing to add.
+    // pollNow may have taken it meanwhile.
     private fun stillWaitingOn(current: TransferLink) =
         receiveState.value == ReceiveState.Waiting && link.value === current
 
@@ -163,7 +159,6 @@ class TransferViewModel : ViewModel() {
                 receiveState.value = ReceiveState.Expired
                 return
             }
-            // Offline for a moment: the next poll tries again.
             val result = runCatching { Api.readTransfer(current) }.getOrNull() ?: continue
             if (!stillWaitingOn(current)) return
             when (result) {
@@ -174,7 +169,6 @@ class TransferViewModel : ViewModel() {
         }
     }
 
-    /** Back from the background: check at once instead of waiting for the next poll. */
     fun pollNow() {
         val current = link.value ?: return
         if (receiveState.value != ReceiveState.Waiting) return

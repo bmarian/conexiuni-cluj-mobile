@@ -22,10 +22,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.zIndex
 
-/**
- * Drag to reorder, like the website's vuedraggable lists: the item follows the finger and
- * swaps places with whatever it is dragged over.
- */
 @Stable
 class ReorderState<K : Any>(private val keys: () -> List<K>, private val onMove: (from: Int, to: Int) -> Unit) {
     internal val bounds = mutableStateMapOf<K, Rect>()
@@ -51,7 +47,6 @@ class ReorderState<K : Any>(private val keys: () -> List<K>, private val onMove:
         onMove(from, target)
     }
 
-    /** After a swap the item sits somewhere new, so the finger's offset is measured from there. */
     internal fun relaid(key: K, rect: Rect) {
         if (key != dragging) return
         val moved = rect.topLeft - origin
@@ -74,7 +69,6 @@ fun <K : Any> rememberReorderState(keys: List<K>, onMove: (from: Int, to: Int) -
     return remember { ReorderState({ currentKeys }, { a, b -> currentMove(a, b) }) }
 }
 
-/** The item itself: tracks where it is and follows the finger while dragged. */
 fun <K : Any> Modifier.reorderItem(state: ReorderState<K>, key: K): Modifier = this
     .onGloballyPositioned { coordinates ->
         val rect = coordinates.boundsInRoot()
@@ -92,10 +86,7 @@ fun <K : Any> Modifier.reorderItem(state: ReorderState<K>, key: K): Modifier = t
         }
     }
 
-/**
- * A handle that starts the drag at once, the website's grip dots. It sits by the screen's
- * edge, so the system's back swipe is told to leave it alone.
- */
+/** Excluded from the back gesture: it sits at the screen edge. */
 @Composable
 fun <K : Any> Modifier.dragHandle(state: ReorderState<K>, key: K): Modifier {
     val haptics = LocalHapticFeedback.current
@@ -118,7 +109,6 @@ fun <K : Any> Modifier.dragHandle(state: ReorderState<K>, key: K): Modifier {
     }
 }
 
-/** A long press anywhere on the item starts the drag too. */
 @Composable
 fun <K : Any> Modifier.longPressDrag(state: ReorderState<K>, key: K): Modifier {
     val haptics = LocalHapticFeedback.current

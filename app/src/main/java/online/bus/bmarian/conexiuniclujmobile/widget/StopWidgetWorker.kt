@@ -15,11 +15,9 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
-import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.computeStopDepartures
 import online.bus.bmarian.conexiuniclujmobile.logic.trackableTripIds
@@ -28,7 +26,6 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
-/** Works out every stop widget's departures: every 15 minutes, and when its refresh is tapped. */
 class StopWidgetWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val context = applicationContext
@@ -51,8 +48,8 @@ class StopWidgetWorker(context: Context, params: WorkerParameters) : CoroutineWo
         val info = repository.stopInfo(stopId)
         val trips = trackableTripIds(info)
         val shapes = runCatching { repository.shapes(trips) }.getOrDefault(emptyMap())
-        // One look at where the buses are, so the first times are live when they can be.
-        val vehicles = withTimeoutOrNull(8_000) { VehicleStream.vehicles(trips).first { it.isNotEmpty() } }.orEmpty()
+        val vehicles = if (trips.isEmpty()) emptyMap()
+        else withTimeoutOrNull(8_000) { runCatching { Api.vehicles(trips) }.getOrNull() }.orEmpty().groupBy { it.tripId.orEmpty() }
         val nowMs = System.currentTimeMillis()
         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
         return computeStopDepartures(info, shapes, vehicles, now, nowMs).map { departure ->

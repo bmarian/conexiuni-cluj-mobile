@@ -12,8 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.toColorInt
 
-// The website's own colours, for the parts that mean the same thing in both: the live
-// accent, the stop markers and the pins on the map.
 object Palette {
     val Emerald = Color(0xFF10B981)
     val EmeraldLight = Color(0xFF34D399)
@@ -29,7 +27,6 @@ object Palette {
     val Slate900 = Color(0xFF0F172A)
 }
 
-// Material 3 tones around the app's emerald, the same palette as the watch app.
 private val LightColors = lightColorScheme(
     primary = Color(0xFF006C48),
     onPrimary = Color(0xFFFFFFFF),
@@ -108,13 +105,8 @@ private val DarkColors = darkColorScheme(
     surfaceContainerHighest = Color(0xFF303633),
 )
 
-/** Whether the app is drawn dark, for the map tiles and the few colours that differ. */
 val LocalDarkTheme = staticCompositionLocalOf { false }
 
-/**
- * Times that come from a tracked bus. Green whatever the wallpaper colours are, like Google
- * Maps' live times, so "live" never looks like just another accent.
- */
 @Immutable
 class LiveColors(val content: Color, val container: Color, val onContainer: Color)
 

@@ -37,14 +37,12 @@ class MapSceneTest {
 
     @Test
     fun theSamePathTwiceIsDrawnOnce() {
-        // Like the website: the same path with the same dash shows once, whatever its colour.
         val scene = buildScene(
             listOf(MapShape("a", "25", "#ff0000", north), MapShape("b", "26", "#00ff00", north)),
             terminals = false,
             arrows = false,
         )
         assertEquals(1, scene.lines.size)
-        // A dashed copy of a colour already there is a different drawing and stays.
         val dashed = buildScene(
             listOf(MapShape("a", "25", "#ff0000", north), MapShape("b", "26", "#ff0000", north)),
             terminals = false,

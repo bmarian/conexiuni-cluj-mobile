@@ -24,8 +24,7 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-// Port of utils/transferLink.ts and useSettingsTransfer.ts. A scanned code carries a key after
-// the #, which never reaches the server, and the sender seals the data with it.
+// Port of utils/transferLink.ts and useSettingsTransfer.ts.
 object Transfer {
     private val random = SecureRandom()
     private val urlEncoder = Base64.getUrlEncoder().withoutPadding()
@@ -42,7 +41,6 @@ object Transfer {
             init(mode, SecretKeySpec(urlDecoder.decode(key), "AES"), GCMParameterSpec(128, iv))
         }
 
-    /** Throws when the data is sealed and this key can't open it. */
     fun open(payload: JsonElement, key: String?): JsonElement {
         val sealed = payload as? JsonObject ?: return payload
         if ((sealed["sealed"] as? JsonPrimitive)?.intOrNull != 1) return payload
@@ -66,7 +64,6 @@ object Transfer {
 
     data class Summary(val stops: Int, val lines: Int, val places: Int, val followed: Int)
 
-    /** Null for anything that isn't a settings export. */
     fun describe(data: JsonElement): Summary? {
         val export = data as? JsonObject ?: return null
         val favorites = export["favorites"] as? JsonObject
@@ -79,7 +76,6 @@ object Transfer {
         )
     }
 
-    /** Everything that moves to another device, in the website's export format. */
     fun buildExport(): JsonObject {
         val s = Services.settings
         val f = Services.favorites
@@ -113,7 +109,6 @@ object Transfer {
 
     private fun JsonObject.flag(key: String): Boolean? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull
 
-    /** Throws when the data isn't an export. */
     fun applyExport(data: JsonElement) {
         val export = data as? JsonObject ?: throw IllegalArgumentException("not a settings export")
         val s = export["settings"] as? JsonObject ?: JsonObject(emptyMap())
@@ -135,7 +130,7 @@ object Transfer {
         (export["followedLines"] as? JsonArray)?.let(Services.routeUpdates::importFollowed)
     }
 
-    /** The Export text: base64 of raw-deflated JSON, as the website writes it. */
+    /** Base64 of raw-deflated JSON, as the website writes it. */
     fun compress(json: String): String {
         val deflater = Deflater(Deflater.DEFAULT_COMPRESSION, true)
         deflater.setInput(json.toByteArray(Charsets.UTF_8))
@@ -163,7 +158,6 @@ object Transfer {
         return String(out.toByteArray(), Charsets.UTF_8)
     }
 
-    /** Import: the compressed text, or plain JSON if it isn't that. */
     fun parseImport(text: String): JsonElement {
         val raw = text.trim()
         val json = runCatching { decompress(raw) }.getOrDefault(raw)

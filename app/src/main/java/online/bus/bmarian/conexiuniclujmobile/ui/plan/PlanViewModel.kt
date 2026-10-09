@@ -59,7 +59,6 @@ class Origin(val name: String, val lat: Double, val lon: Double)
 
 enum class SearchField { Origin, Destination }
 
-/** What the map shows for the selected plan. */
 class PlanMapLayer(
     val shapes: List<MapShape> = emptyList(),
     val walks: List<List<LatLon>> = emptyList(),
@@ -72,7 +71,6 @@ private const val LOCATING_TIMEOUT_MS = 15_000L
 class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) {
     private fun string(id: Int) = getApplication<Application>().getString(id)
 
-    // The destination keeps the strings it came with, so a shared link reads the same.
     val destLatText = MutableStateFlow(query.lat)
     val destLonText = MutableStateFlow(query.lon)
     val destName = MutableStateFlow(query.name.orEmpty())
@@ -96,7 +94,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     val mapVehicles = MutableStateFlow<List<MapVehicle>>(emptyList())
     val locatingTimedOut = MutableStateFlow(false)
 
-    // Opened without a destination, from the Plan shortcut: ask where to, like Maps.
     val activeSearch = MutableStateFlow(if (query.lat == null || query.lon == null) SearchField.Destination else null)
     val searchQuery = MutableStateFlow("")
     val searchResults = MutableStateFlow<List<Place>>(emptyList())
@@ -118,7 +115,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         override fun position(id: Int) = stop(id)?.second
     }
 
-    /** All stops first, then the plan's own: the website's getStop. */
+    /** Port of getStop. */
     fun stop(id: Int): Pair<String, Pair<Double, Double>>? {
         Services.repository.stops.value.find { it.stopId == id }?.let { return it.name to (it.lat to it.lon) }
         planData.value?.stops?.get("$id")?.let { return it.name to (it.lat to it.lon) }
@@ -129,14 +126,12 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
 
     fun planner(): Planner = Planner(planData.value?.shapes.orEmpty(), stops)
 
-    /** The selected plan as a journey to take step by step; null for a walk-only plan. */
     fun journeyFor(plan: RichPlan): Journey? {
         if (plan.legs.isEmpty() || !hasValidCoords) return null
         val routesById = Services.repository.routes.value.associateBy { it.routeId }
         fun at(id: Int): JourneyStop? = stop(id)?.let { (name, pos) -> JourneyStop(id, name, pos.first, pos.second) }
         val transfers = (plan.legs.size - 1).coerceAtLeast(1)
         val indices = shapeIndices.value
-        // The ride as drawn on the map: the line's shape between boarding and alighting.
         fun pathOf(tripId: String?, startStopId: Int, destStopId: Int): List<JourneyPoint> {
             val pts = tripId?.let { indices[it]?.shape } ?: return emptyList()
             val start = stop(startStopId)?.second ?: return emptyList()
@@ -175,7 +170,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         if (!hasValidCoords) activeSearch.value = SearchField.Destination
         calculateRoutes()
         viewModelScope.launch {
-            // The first fix plans from where you are; later movement doesn't replan.
             var had = Services.location.value != null
             Services.location.collect { fix ->
                 if (fix != null && !had && customOrigin.value == null) {
@@ -214,7 +208,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         return Origin(name, lat, lon)
     }
 
-    /** The planner's link as the website writes it. */
     fun currentQuery(): PlanQuery {
         val origin = customOrigin.value
         val mode = timeMode.value
@@ -261,10 +254,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         liveEtaByKey = emptyMap()
     }
 
-    /**
-     * Asks the planner for routes. A newer request replaces one still in flight rather than
-     * being dropped, so the last origin and destination are always the ones planned.
-     */
     fun calculateRoutes(force: Boolean = false) {
         val origin = originPoint() ?: return
         if (!hasValidCoords) return
@@ -308,7 +297,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
     }
 
-    /** Bumped when the map should fit the selected plan's walks and routes again. */
     val fitRequests = MutableStateFlow(0)
 
     private suspend fun setPlanData(data: PlanResponse) {
@@ -343,7 +331,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     fun setTimeMode(mode: TimeMode) {
         if (timeMode.value == mode) return
         timeMode.value = mode
-        // Live times belong to leaving now; another time reads the timetable only.
         if (mode != TimeMode.Now) {
             liveEtaByKey = emptyMap()
             selectedLiveEtaMin.value = null
@@ -355,13 +342,10 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         if (mode == TimeMode.Now || mode == TimeMode.Last) refreshRoutes()
     }
 
-    /** A moment in the past is pulled up to now. */
     fun setTimeValue(value: String) {
         val min = formatLocalDateTime(Services.clock.value)
         timeValue.value = if (value.isNotEmpty() && value < min) min else value
     }
-
-    // --- Search fields ---
 
     fun openSearch(field: SearchField) {
         if (field == SearchField.Destination && !Services.online.value) return
@@ -399,7 +383,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
     }
 
-    // One search at a time: an older answer must not land after a newer one.
     private var searchJob: Job? = null
 
     private fun runSearch(query: String, waitMs: Long) {
@@ -413,7 +396,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     fun searchNow() = runSearch(searchQuery.value, 0)
 
     private fun setOrigin(origin: Origin?) {
-        // Kept at 4 decimals from the start, as the website's link round trip leaves it.
+        // 4 decimals, as the website's links keep it.
         customOrigin.value = origin?.let { Origin(it.name, clampCoord4(it.lat), clampCoord4(it.lon)) }
         clearPlanSelection()
         closeSearch()
@@ -497,8 +480,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
     }
 
-    // --- Favorites ---
-
     fun isFavorite(plans: List<FavoritePlan>): Boolean =
         plans.any { it.sameAs(destLat, destLon, customOrigin.value?.lat, customOrigin.value?.lon) }
 
@@ -521,8 +502,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         if (!Services.online.value) return
         Services.favorites.renamePlan(destLat, destLon, customOrigin.value?.lat, customOrigin.value?.lon, label.trim().ifEmpty { null })
     }
-
-    // --- Timing and live data ---
 
     private fun applyTiming() {
         val data = planData.value ?: return
@@ -559,13 +538,11 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
     }
 
-    /** The trips to stream: every trip of every plan, only while leaving now. */
     fun streamTripIds(): List<String> {
         if (timeMode.value != TimeMode.Now || plans.value.isEmpty()) return emptyList()
         return plans.value.flatMap { p -> p.legs.flatMap { it.tripIds } }.distinct()
     }
 
-    /** Runs while the screen is visible. */
     suspend fun live() {
         combine(plans.map { streamTripIds() }.distinctUntilChanged(), timeMode) { ids, mode -> if (mode == TimeMode.Now) ids else emptyList() }
             .distinctUntilChanged()
@@ -629,7 +606,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         return findClosestShapeIdx(target.lat, target.lon, pts)
     }
 
-    /** The selected plan's buses on the map: from a few stops before boarding to just past alighting. */
     private suspend fun updateMapVehicles(byTrip: Map<String, List<Vehicle>>, indices: Map<String, ShapeIndex>) {
         val plan = plans.value.getOrNull(selectedIndex.value)
         val data = planData.value
@@ -676,7 +652,6 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
         val indices = shapeIndices.value
         val shapes = plan.legs.mapNotNull { leg ->
-            // Only the first line of a grouped leg is drawn, cropped to the part ridden.
             val tid = leg.tripIds.firstOrNull() ?: return@mapNotNull null
             val routeId = leg.routeIds.firstOrNull() ?: return@mapNotNull null
             val s = data.shapes["$routeId"] ?: return@mapNotNull null

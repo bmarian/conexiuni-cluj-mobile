@@ -59,13 +59,12 @@ import java.text.Normalizer
 
 private val DIACRITICS = Regex("\\p{Mn}+")
 
-/** NFD without the marks, lower-cased: the website's norm(). */
+/** Port of norm(). */
 fun norm(s: String): String = Normalizer.normalize(s, Normalizer.Form.NFD).replace(DIACRITICS, "").lowercase()
 
 fun <T> sortByDistance(items: List<T>, lat: Double, lon: Double, latOf: (T) -> Double, lonOf: (T) -> Double): List<T> =
     items.map { it to haversineMeters(lat, lon, latOf(it), lonOf(it)) }.sortedBy { it.second }.map { it.first }
 
-/** The website's universal search: lines, stops and places from one box. */
 @Stable
 class SearchState {
     var query by mutableStateOf("")
@@ -90,7 +89,6 @@ class SearchState {
         return sorted.take(3)
     }
 
-    /** Debounced like the website: places once three letters have rested for 350 ms. */
     suspend fun searchPlaces(query: String, online: Boolean, locale: String, me: Fix?) {
         places = emptyList()
         val trimmed = query.trim()

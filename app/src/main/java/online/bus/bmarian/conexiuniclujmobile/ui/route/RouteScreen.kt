@@ -159,7 +159,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val isFavorite = favoriteRoutes.any { it.routeId == routeId && it.direction == dir }
     val isFollowing = info?.let { it.shortName in followed } == true
 
-    // The current direction's route, buses and stops on the map, with the arrow at its start.
     val owner = remember { Any() }
     DisposableEffect(owner) {
         map.claim(owner)
@@ -188,7 +187,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         }.toMap()
     }
 
-    // Pong: five taps on the direction buttons within two seconds.
+    // Easter egg: five taps on the direction buttons within 2 s.
     val taps = remember { mutableStateListOf<Long>() }
     var pong by rememberSaveable { mutableStateOf(false) }
     fun onDirection(target: String) {
@@ -202,7 +201,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         }
     }
 
-    // Timetable state: the tab, the learned offsets for it, and the run picked to look at.
     var tab by rememberSaveable { mutableStateOf<TimetableTab?>(null) }
     val now = current?.now
     val today = now?.let(::todayTab) ?: TimetableTab.Weekdays
@@ -219,7 +217,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
-    // "Wake me before my stop": the next tap on a stop starts the ride alert.
     var pickingStop by rememberSaveable { mutableStateOf(false) }
     val menu = buildList {
         add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
@@ -564,7 +561,6 @@ private fun TimeColumns(times: List<Pair<String, Boolean>>, header: Boolean = fa
     }
 }
 
-/** One stop on the line: the rail with its dot, the name, and its times. */
 @Composable
 private fun StopLine(
     name: String,
@@ -693,7 +689,6 @@ private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect
 
 private const val ENTRY_LIMIT = 12
 
-/** A followed line's change, opened from the news or a notification. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RouteChangeBanner(change: RouteChange, onDismiss: () -> Unit) {

@@ -17,7 +17,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-/** Where the phone is; [bearing] and [speed] when it is moving and the system knows them. */
 class Fix(val lat: Double, val lon: Double, val accuracyMeters: Float, val bearing: Float? = null, val speed: Float? = null)
 
 const val LOCATION_UPDATE_MS = 10_000L
@@ -29,7 +28,6 @@ object UserLocation {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    // The last place the nearby stops were worked out for. It stays on the watch.
     private fun prefs(context: Context) = context.getSharedPreferences("location", Context.MODE_PRIVATE)
 
     fun saved(context: Context): Fix? {
@@ -50,11 +48,9 @@ object UserLocation {
         }
     }
 
-    // Like the website, a position outside Cluj county isn't drawn.
     private fun inClujCounty(location: Location) =
         location.latitude in 46.38..47.50 && location.longitude in 22.75..24.27
 
-    /** Position updates while collected; nothing without the location permission. */
     @SuppressLint("MissingPermission")
     fun updates(context: Context, intervalMs: Long = LOCATION_UPDATE_MS): Flow<Fix?> = callbackFlow {
         if (!permitted(context)) {

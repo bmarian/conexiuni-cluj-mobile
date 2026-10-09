@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import java.util.UUID
 
-/** One departure at one stop: a line in one direction. The same as the watch app's. */
+/** Shared with the watch app. */
 @Serializable
 data class Followed(
     val stopId: Int,
@@ -21,21 +21,17 @@ data class Followed(
     val destination: String,
 )
 
-/**
- * What the device doing the following tells the other one, every time the countdown moves.
- * The watch app sends and reads the same JSON.
- */
+/** Wire format shared with the watch app. */
 @Serializable
 data class FollowSync(
-    // One follow, the same on both devices; a new follow on either side gets a new one.
     val id: String,
     val followed: Followed,
     val minutes: Int? = null,
     val live: Boolean = false,
     val later: List<Int> = emptyList(),
-    // When the countdown reaches zero, in epoch milliseconds.
+    // Epoch ms.
     val arrivalAt: Long? = null,
-    // Set once it is over: "left", "none" (no more departures) or "stopped".
+    // "left", "none" or "stopped" once over.
     val end: String? = null,
 )
 
@@ -46,13 +42,11 @@ data class FollowState(
     val live: Boolean = false,
     val later: List<Int> = emptyList(),
     val arrivalAt: Long? = null,
-    // Followed on the watch; this phone only shows its countdown, the way Maps mirrors navigation.
     val remote: Boolean = false,
 ) {
     fun toSync(end: String? = null) = FollowSync(id, followed, minutes, live, later, arrivalAt, end)
 }
 
-/** The bus being followed, here or on the watch: one at a time across both. */
 object FollowManager {
     internal val mutableState = MutableStateFlow<FollowState?>(null)
     val state: StateFlow<FollowState?> = mutableState
@@ -61,7 +55,6 @@ object FollowManager {
         it.stopId == stopId && it.routeId == routeId && it.tripId == tripId
     } == true
 
-    /** Follows a bus here; a watch in reach shows it at once. */
     fun start(context: Context, followed: Followed) {
         if (state.value?.remote == true) FollowNotifications.clearMirror(context)
         val id = UUID.randomUUID().toString()
@@ -73,7 +66,6 @@ object FollowManager {
         WearLink.showOnWatch(context, "/following")
     }
 
-    /** Stops following, on both devices. */
     fun stop(context: Context) {
         val current = state.value ?: return
         mutableState.value = null
@@ -81,12 +73,10 @@ object FollowManager {
             FollowNotifications.clearMirror(context)
             WearLink.sendStop(context, current.id)
         } else {
-            // The service tells the watch as it goes.
             context.stopService(Intent(context, FollowService::class.java))
         }
     }
 
-    /** The watch is following a bus, or its countdown moved. */
     internal fun onRemoteState(context: Context, sync: FollowSync) {
         val current = state.value
         if (sync.end != null) {
@@ -96,7 +86,6 @@ object FollowManager {
             }
             return
         }
-        // A new follow on the watch replaces the one here, as a new one here would.
         if (current != null && !current.remote && current.id != sync.id) {
             context.stopService(Intent(context, FollowService::class.java))
         }
@@ -104,7 +93,6 @@ object FollowManager {
         FollowNotifications.showMirror(context, mutableState.value!!)
     }
 
-    /** Stop was pressed on the watch. */
     internal fun onRemoteStop(context: Context, id: String) {
         val current = state.value ?: return
         if (!current.remote && current.id == id) stop(context)

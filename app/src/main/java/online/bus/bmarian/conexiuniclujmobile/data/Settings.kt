@@ -21,7 +21,7 @@ enum class ThemeMode(val key: String) {
 
 class Toast(val id: Long, val title: String, val body: String?, val actionLabel: String?, val action: (() -> Unit)?)
 
-/** Same keys and defaults as stores/settings.ts, so an export reads the same everywhere. */
+/** Same keys and defaults as stores/settings.ts. */
 class Settings(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
@@ -44,7 +44,7 @@ class Settings(private val context: Context) {
     val locale: StateFlow<String> = _locale
 
     private fun detectInitialLocale(): String {
-        // The app's language picked in the phone's settings wins over the one saved here.
+        // The per-app language from system settings wins.
         val applied = context.getSystemService(LocaleManager::class.java)?.applicationLocales?.get(0)?.language
         if (applied == "ro" || applied == "en") {
             prefs.edit { putString("locale", applied) }
@@ -62,7 +62,6 @@ class Settings(private val context: Context) {
         applyLocale()
     }
 
-    /** The app's language follows the setting, whatever the phone is set to. */
     fun applyLocale() {
         val manager = context.getSystemService(LocaleManager::class.java) ?: return
         val tag = _locale.value
@@ -70,7 +69,7 @@ class Settings(private val context: Context) {
         manager.applicationLocales = LocaleList.forLanguageTags(tag)
     }
 
-    // Kept so an export from this phone carries them on to the website unchanged.
+    // Web-only settings, kept for exports.
     val arcadeUnlocked = bool("arcadeUnlocked", false)
     val arcadeActive = bool("arcadeActive", false)
     val legacyBlueUnlocked = bool("legacyBlueUnlocked", false)
@@ -110,11 +109,9 @@ class Settings(private val context: Context) {
     val showTimetableChanges = bool("showTimetableChanges", false)
     val pushNotifications = bool("pushNotifications", false)
 
-    // Off until asked for: it needs the location all the time.
     val atFavoriteStop = bool("atFavoriteStop", false)
     fun setAtFavoriteStop(v: Boolean) = set(atFavoriteStop, "atFavoriteStop", v)
 
-    // The first-run screens, shown once.
     val onboarded = bool("onboarded", false)
     fun setOnboarded() = set(onboarded, "onboarded", true)
 

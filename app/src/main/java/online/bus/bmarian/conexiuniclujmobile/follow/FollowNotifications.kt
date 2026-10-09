@@ -22,16 +22,10 @@ private const val MIRROR_NOTIFICATION_ID = 9
 private const val ENDED_NOTIFICATION_ID = 8
 private const val ALERT_NOTIFICATION_ID = 10
 
-/**
- * The followed bus in the notification shade and, from Android 16, as a Live Update chip in
- * the status bar, like Maps navigation. The same card whether the phone or the watch follows.
- */
 object FollowNotifications {
-    // The journey's notifications share these: one quiet channel for the countdowns, one that buzzes.
     const val FOLLOW_CHANNEL = "follow"
     const val ALERT_CHANNEL = "follow_alerts"
 
-    // Where the countdown started, so the progress bar fills as the bus gets closer.
     private var progressFrom: Pair<String, Int>? = null
 
     private fun manager(context: Context) = context.getSystemService(NotificationManager::class.java)
@@ -74,7 +68,7 @@ object FollowNotifications {
             .setCategory(Notification.CATEGORY_NAVIGATION)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            // The watch shows its own countdown; a bridged copy would be a second one.
+            // Not bridged: the watch shows its own.
             .setLocalOnly(true)
             .setContentIntent(openStop(context, followed.stopId))
             .addAction(
@@ -88,7 +82,7 @@ object FollowNotifications {
         builder.setShowWhen(counting).setUsesChronometer(counting).setChronometerCountDown(counting)
         if (counting) builder.setWhen(arrival!!)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            // Live Updates came with Android 16 QPR1; before it the card still shows the progress.
+            // Live Updates need Android 16 QPR1.
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
             builder.setShortCriticalText(if (minutes == null) followed.shortName else chipText(context, minutes, nowMs))
             builder.setStyle(progress(context, state, color))
@@ -96,7 +90,6 @@ object FollowNotifications {
         return builder.build()
     }
 
-    // A bar from when the follow started to the bus at the stop, the bus icon riding along it.
     @RequiresApi(Build.VERSION_CODES.BAKLAVA)
     private fun progress(context: Context, state: FollowState, color: Int): Notification.ProgressStyle {
         val minutes = state.minutes
@@ -116,7 +109,6 @@ object FollowNotifications {
             .setProgress(done)
     }
 
-    /** Two minutes out and at the stop: a heads-up, like the watch's buzz. */
     fun alert(context: Context, followed: Followed, minutes: Int) {
         ensureChannels(context)
         val text = if (minutes <= 0) context.getString(R.string.follow_now)
@@ -158,10 +150,8 @@ object FollowNotifications {
         runCatching { manager(context).notify(ENDED_NOTIFICATION_ID, done) }
     }
 
-    /** The watch's follow, shown here. Updates come every few seconds while it runs. */
     fun showMirror(context: Context, state: FollowState) {
         val notification = ongoing(context, state)
-        // Nobody to update it if the watch goes out of reach: it goes once the bus should have come.
         val left = (state.arrivalAt ?: System.currentTimeMillis()) - System.currentTimeMillis()
         val timed = Notification.Builder.recoverBuilder(context, notification)
             .setTimeoutAfter(left.coerceAtLeast(0) + 5 * 60_000L)
@@ -196,12 +186,10 @@ object FollowNotifications {
     )
 }
 
-/** The notification's Stop button, for a follow here or on the watch. */
 class StopFollowingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra(EXTRA_ID)
         if (FollowManager.state.value?.id == id) return FollowManager.stop(context)
-        // The app was closed since: the watch's countdown is still up, and the watch still following.
         if (id != null && intent.getBooleanExtra(EXTRA_REMOTE, false)) {
             FollowNotifications.clearMirror(context)
             WearLink.sendStop(context, id)

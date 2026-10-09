@@ -24,7 +24,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.AppShell
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.ConexiuniTheme
 
 class MainActivity : ComponentActivity() {
-    // Links the app was opened with: a shared stop or line, a transfer code, a notification.
     private val links = MutableStateFlow<android.net.Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,10 +67,6 @@ class MainActivity : ComponentActivity() {
         links.value = data
     }
 
-    /**
-     * Shared from Maps or a chat: a place becomes a trip there. A Google Maps link resolves to its
-     * pin, anything else is searched for; if nothing comes up, Home searches for it instead.
-     */
     private fun planToShared(text: String) {
         val url = Regex("""https?://\S+""").find(text)?.value
         if (url != null && url.toUri().host == "bus.bmarian.online") {

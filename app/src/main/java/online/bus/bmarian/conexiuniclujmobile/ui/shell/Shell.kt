@@ -64,7 +64,6 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Toast
 
-/** "Offline", top centre, while there is no connection. */
 @Composable
 fun OfflinePill(online: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(!online, modifier, enter = fadeIn(), exit = fadeOut()) {
@@ -79,7 +78,6 @@ fun OfflinePill(online: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-/** Messages from anywhere in the app as Material snackbars; a newer one replaces the one on show. */
 @Composable
 fun ToastHost(modifier: Modifier = Modifier) {
     val host = remember { SnackbarHostState() }
@@ -117,10 +115,7 @@ private class ToastVisuals(val toast: Toast) : SnackbarVisuals {
     override val duration = if (toast.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short
 }
 
-/**
- * Fridays are free on CTP. Shown on Fridays until dismissed; the dismissal is kept under
- * the UTC date, like the website keeps it.
- */
+/** Dismissal keyed by UTC date, as on the website. */
 @Composable
 fun GreenFridayBanner() {
     val context = androidx.compose.ui.platform.LocalContext.current

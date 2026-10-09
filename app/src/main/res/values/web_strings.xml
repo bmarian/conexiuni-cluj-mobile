@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Generated from frontend/src/locales/en.json; keys keep the website's names. -->
+<!-- Generated from frontend/src/locales/en.json by tools/gen_strings.py. -->
 <resources>
     <string name="w_center">Center on my location</string>
     <string name="w_fit_routes">Zoom out</string>

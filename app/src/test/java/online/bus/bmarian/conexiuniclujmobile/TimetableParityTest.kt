@@ -25,7 +25,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.util.zip.GZIPInputStream
 
-// RouteView.vue's timetable grid, run under Node on the same lines (tools/parity), against the port.
+// Expected values from RouteView.vue run under Node (tools/parity).
 class TimetableParityTest {
     @Serializable
     private class FixtureRoute(

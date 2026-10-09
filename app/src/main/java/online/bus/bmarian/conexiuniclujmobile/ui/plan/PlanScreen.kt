@@ -185,7 +185,6 @@ fun PlanScreen(query: PlanQuery) {
     val hasOrigin = origin != null || me != null
     val gpsResolving = permitted && me == null && origin == null && !timedOut
 
-    // The pins, the selected plan's routes, walks, stops and buses on the map.
     val owner = remember { Any() }
     DisposableEffect(owner) {
         map.claim(owner)
@@ -199,7 +198,6 @@ fun PlanScreen(query: PlanQuery) {
         map.pinnedLocation = if (lat != null && lon != null) MapPin(lat, lon, destName) else null
     }
     LaunchedEffect(origin) { map.customOrigin = origin?.let { MapPin(it.lat, it.lon, it.name) } }
-    // Fit once per new search; coming back to the screen or rotating doesn't fit again.
     var fitsHandled by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(fits) {
         if (fits > fitsHandled) {
@@ -237,7 +235,6 @@ fun PlanScreen(query: PlanQuery) {
     val haptics = LocalHapticFeedback.current
     val resources = LocalResources.current
 
-    // Maps' Start: the plan becomes a step-by-step journey, on the watch too.
     fun startJourney(plan: RichPlan) {
         val journey = vm.journeyFor(plan) ?: return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -292,7 +289,6 @@ fun PlanScreen(query: PlanQuery) {
         }
         if (!renaming && validCoords) {
             item(key = "actions") {
-                // Maps' Start, first in the row: a trip leaving now, with a bus to catch.
                 val startable = selectedPlan?.takeIf { !calculating && mode == TimeMode.Now && it.legs.isNotEmpty() && it.nextTimes.isNotEmpty() }
                 ActionChips(
                     listOfNotNull(
@@ -554,7 +550,6 @@ private fun SearchResultRow(icon: androidx.compose.ui.graphics.vector.ImageVecto
     }
 }
 
-/** The legs of the selected plan: boarding, the stops ridden past, alighting, the change between. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlanLegs(vm: PlanViewModel, plan: RichPlan, shapes: Map<String, online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo>, expanded: Set<String>, toggle: (String) -> Unit) {
@@ -850,4 +845,3 @@ private fun arrivalTime(plan: RichPlan, entry: PlannedTimeEntry, clockMs: Long):
     else departure + (duration - plan.walkStartMeters / WALK_SPEED) * 60_000
     return stringResource(R.string.w_plan_arrival_at, approx + clock(arrival.toLong()))
 }
-

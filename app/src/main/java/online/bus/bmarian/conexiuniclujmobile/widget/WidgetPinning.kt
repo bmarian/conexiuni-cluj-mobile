@@ -13,7 +13,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/** "Add departures widget" on a stop page: the launcher places it with this stop already chosen. */
 object WidgetPinning {
     private const val EXTRA_STOP_ID = "stopId"
     private const val EXTRA_STOP_NAME = "stopName"
@@ -27,7 +26,7 @@ object WidgetPinning {
         val placed = PendingIntent.getBroadcast(
             context, stopId,
             Intent(context, WidgetPinnedReceiver::class.java).putExtra(EXTRA_STOP_ID, stopId).putExtra(EXTRA_STOP_NAME, name),
-            // The launcher adds the new widget's id to it.
+            // Mutable: the launcher adds the widget id.
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return manager.requestPinAppWidget(ComponentName(context, StopWidgetReceiver::class.java), null, placed)

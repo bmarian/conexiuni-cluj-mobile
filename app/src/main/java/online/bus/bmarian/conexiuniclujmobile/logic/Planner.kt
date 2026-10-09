@@ -13,13 +13,10 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.ceil
 import kotlin.math.max
 
-// Port of the planning maths in RoutePlanningView.vue. Times are epoch ms; minutes of the
-// day and the timetable's day type are read in Cluj time, which is what the website's
-// Date methods give on a phone in Romania.
+// Port of RoutePlanningView.vue. Times are epoch ms; day minutes and day types in Cluj time.
 
 const val PLAN_MAX_MINUTES = 60
 const val WALK_SPEED = 80.0 // m/min
-// How many stops before the boarding stop a live vehicle becomes visible on the map.
 const val VEHICLE_LOOKAHEAD_STOPS = 3
 
 @Serializable
@@ -120,7 +117,7 @@ data class RichPlan(
 
 enum class TimeMode(val key: String) { Now("now"), Leave("leave"), Arrive("arrive"), Last("last") }
 
-// new Date(x) keeps whole milliseconds, dropping the fraction toward zero.
+// JS new Date(x) truncates to whole milliseconds.
 private fun jsDate(ms: Double): Long = ms.toLong()
 
 private fun local(ms: Long): LocalDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(ms), CLUJ_ZONE)
@@ -131,7 +128,6 @@ private val LOCAL_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-
 
 fun formatLocalDateTime(ms: Long): String = local(ms).format(LOCAL_FORMAT)
 
-/** "Last today": the next 03:00, which picks up the runs just after midnight. */
 fun lastTransitCutoffString(nowMs: Long): String {
     val now = local(nowMs)
     var cutoff = now.withHour(3).withMinute(0).withSecond(0).withNano(0)
@@ -151,12 +147,10 @@ fun parsePlannerDateTime(value: String?): Long? {
     }.getOrNull()
 }
 
-/** JS toFixed(4) for coordinates, always with a dot. */
+/** JS toFixed(4). */
 fun toFixed4(v: Double): String = BigDecimal(v).setScale(4, RoundingMode.HALF_UP).toPlainString()
 
 fun clampCoord4(v: Double): Double = toFixed4(v).toDouble()
-
-// --- Timetable helpers ---
 
 fun getScheduleDiffs(arrivalAtStopMinutes: Int, referenceMinutes: Int, maxMinutes: Int, arriveBy: Boolean): List<Int> {
     val offsets = if (arriveBy) listOf(-1440, 0) else listOf(0, 1440)
@@ -177,13 +171,11 @@ fun stopLabelsMatch(a: String, b: String): Boolean {
     return na == nb || na.contains(nb) || nb.contains(na)
 }
 
-/** All the lookups the planner needs from outside: stop names and coordinates. */
 interface StopLookup {
     fun name(id: Int): String?
     fun position(id: Int): Pair<Double, Double>?
 }
 
-/** Which timetable column a trip leaves by: matched on its first stop's name. */
 fun tripUsesDepartureIn(shape: ShapeInfo, tripId: String, stops: StopLookup): Boolean {
     val timetable = shape.timetable
     val firstStopId = shape.stopTimes.firstOrNull { it.tripId == tripId }?.stopId
@@ -194,7 +186,6 @@ fun tripUsesDepartureIn(shape: ShapeInfo, tripId: String, stops: StopLookup): Bo
     return tripId.endsWith("_0")
 }
 
-/** The ride between two stops of a trip, in array order; 0 when they aren't both on it. */
 fun getRideMinutesBetweenStops(stopTimes: List<StopTime>, tripId: String, fromStopId: Int, toStopId: Int): Int {
     var started = false
     var totalSec = 0.0
@@ -271,7 +262,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
         return if (fromStopTimesRide != 0) fromStopTimesRide else ceil(leg.rideSeconds / 60).toInt()
     }
 
-    /** Whether a run of the first leg still makes some scheduled run of the second. */
     fun hasScheduledConnection(plan: GroupedPlan, firstDeparture: PlannedTimeEntry, nowMs: Long): Boolean {
         if (plan.isDirect || plan.legs.size < 2) return true
         val leg1 = plan.legs[0]
@@ -291,7 +281,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
         val walkEndMin = plan.walkEndMeters / WALK_SPEED
         if (plan.isDirect) {
             val leg = plan.legs[0]
-            // For arriveBy, the reference is the latest time the rider can board.
             val rideMin = getRideMinutes(leg)
             val refTime = if (arriveBy) jsDate(nowMs - (rideMin + walkEndMin) * 60_000) else nowMs
             val offset = (refTime - nowMs) / 60_000.0
@@ -356,7 +345,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
         )
     }
 
-    /** Other lines that ride the same stops in the same order and run soon enough to count. */
     fun enrichWithAlternativesFromShapes(grouped: List<GroupedPlan>, nowMs: Long): List<GroupedPlan> {
         // Object.entries visits integer keys in ascending order.
         val ordered = shapes.entries.mapNotNull { (k, v) -> k.toIntOrNull()?.let { it to v } }.sortedBy { it.first }
@@ -380,7 +368,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
                             }
                         }
                         if (reqIdx < required.size) continue
-                        // No departure from the boarding stop within 30 min: not running now.
                         if (getTripDeparturesAtStop(shape, tripId, routeId, leg.startStopId, nowMs, 1, 30).isEmpty()) continue
                         mergedRouteIds += routeId
                         mergedTripIds += tripId
@@ -393,8 +380,7 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
 
     fun buildRichPlan(plan: GroupedPlan, nowMs: Long, arriveBy: Boolean): RichPlan? {
         var nextTimes = computeNextTimesForPlan(plan, nowMs, arriveBy)
-        // The timetable can miss a run OTP found (the 03:00 cutoff reads the next day's
-        // schedule), so OTP's own start time stands in.
+        // OTP can find a run the timetable misses (03:00 cutoff): use its start time.
         if (nextTimes.isEmpty() && plan.startTimeMs > 0) {
             val walkStartMin = plan.walkStartMeters / WALK_SPEED
             val boardingMs = if (plan.legs.isNotEmpty()) plan.startTimeMs + walkStartMin * 60_000 else plan.startTimeMs.toDouble()
@@ -411,7 +397,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
             .sortedBy { it.minutes }
     }
 
-    /** Live first when one is catchable, then the timetable without that same run; three at most. */
     fun mergeLiveAndScheduled(plan: RichPlan, liveEntries: List<PlannedTimeEntry>, scheduledEntries: List<PlannedTimeEntry>): List<PlannedTimeEntry> {
         val walkStartMin = plan.walkStartMeters / WALK_SPEED
         val catchableLive = liveEntries.filter { it.minutes >= walkStartMin }
@@ -431,7 +416,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
         return merged.ifEmpty { scheduledEntries.sortedBy { it.minutes }.take(3) }
     }
 
-    /** The clock moved on: each plan's times again, with any live estimates, in the same order. */
     fun applyTiming(
         plans: List<RichPlan>,
         nowMs: Long,
@@ -456,7 +440,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
         }
     }
 
-    /** The plans from a new response, sorted and trimmed: six with transit, then every walk. */
     fun buildPlans(data: PlanResponse, nowMs: Long, mode: TimeMode, timeValue: String): List<RichPlan> {
         if (data.plans.isEmpty()) return emptyList()
         val arriveBy = mode == TimeMode.Arrive || mode == TimeMode.Last
@@ -496,7 +479,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
             else -> nowMs
         }
 
-        /** Plans with the same legs are one card with every line that serves them. */
         fun groupPlans(rawPlans: List<ApiPlan>): List<GroupedPlan> {
             val groups = LinkedHashMap<String, GroupedPlan>()
             for (p in rawPlans) {
@@ -542,7 +524,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
             return (plan.walkStartMeters + plan.walkTransferMeters + plan.walkEndMeters) / WALK_SPEED
         }
 
-        /** The sort key and "Total trip": the wait, the rides, 5 min per change, the walk at the end. */
         fun computeTotalMinutes(plan: RichPlan): Double {
             if (plan.nextTimes.isEmpty()) return Double.POSITIVE_INFINITY
             val first = plan.nextTimes.firstOrNull()?.minutes ?: 0.0
@@ -553,7 +534,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
             return Math.round(first + rideMin + transferPenalty + walkEndMin).toDouble()
         }
 
-        /** The card's duration: walks, rides and 2 min per change. */
         fun getJourneyDuration(plan: RichPlan): Double {
             val walkTime = getWalkMinutes(plan.plan)
             val rideTime = plan.legs.sumOf { it.rideSeconds / 60 }
@@ -561,7 +541,6 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
             return walkTime + rideTime + transferWait
         }
 
-        /** "12 min", "1 h", "1 h 5 min". */
         fun formatDuration(m: Double): String {
             val rounded = Math.round(m).toInt()
             if (rounded < 60) return "$rounded min"
@@ -570,8 +549,8 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
             return if (rem == 0) "$h h" else "$h h $rem min"
         }
 
-        /** Google's encoded polyline, precision 1e5. */
-        fun decodePolyline(encoded: String): List<Pair<Double, Double>> {
+        fun decodePolyline(encoded: String, precision: Int = 5): List<Pair<Double, Double>> {
+            val factor = Math.pow(10.0, precision.toDouble())
             val coords = mutableListOf<Pair<Double, Double>>()
             var index = 0
             var lat = 0
@@ -595,7 +574,7 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
                     shift += 5
                 } while (b >= 0x20 && index < encoded.length)
                 lng += if (result and 1 != 0) (result shr 1).inv() else result shr 1
-                coords += lat / 1e5 to lng / 1e5
+                coords += lat / factor to lng / factor
             }
             return coords
         }

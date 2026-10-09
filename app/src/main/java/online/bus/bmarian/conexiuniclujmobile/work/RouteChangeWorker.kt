@@ -35,11 +35,7 @@ private const val CHANNEL = "route-changes"
 private const val PREFS = "push"
 private const val WORK = "route-changes"
 
-/**
- * The website gets a web push when a followed line changes. The server only speaks to
- * browsers, so the app asks it itself every hour and posts the same notification: one per
- * line, the newest change, only between 08:00 and 20:00 in Cluj.
- */
+/** The server only sends web push, so the app polls. */
 class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val settings = Services.settings
@@ -63,7 +59,6 @@ class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineW
         val since = prefs.getLong("since", System.currentTimeMillis())
         val notified = prefs.getStringSet("notified", emptySet()).orEmpty().mapNotNull { it.toLongOrNull() }.toMutableSet()
         val fresh = changes.filter { it.detectedAt > since && it.id !in notified }
-        // Only the newest pending change of each line goes out.
         val newestPerLine = fresh.groupBy { it.routeShortName }.mapValues { (_, list) -> list.maxBy { it.detectedAt } }
         for ((_, change) in newestPerLine) notify(change)
         notified += fresh.map { it.id }
@@ -92,7 +87,6 @@ class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineW
             .setAutoCancel(true)
             .build()
         try {
-            // The tag per line replaces an older notice about the same line.
             NotificationManagerCompat.from(context).notify("route-change-${change.routeShortName}", 1, notification)
         } catch (_: SecurityException) {
         }
@@ -114,7 +108,6 @@ class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineW
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
         }
 
-        /** Notifications start with what changes from now on, like a fresh web push subscription. */
         fun markEnabled(context: Context) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putLong("since", System.currentTimeMillis()) }
             ensureChannel(context)

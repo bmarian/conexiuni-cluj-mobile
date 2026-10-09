@@ -8,8 +8,7 @@ import java.time.DayOfWeek
 import java.time.LocalDateTime
 import kotlin.math.ceil
 
-// Port of the timetable grid in RouteView.vue: the chips per hour, the learned offsets that
-// move them to when the bus leaves the first stop, and the trip view under a chip.
+// Port of the timetable grid in RouteView.vue.
 
 enum class TimetableTab(val dayType: String) { Weekdays("weekday"), Saturday("saturday"), Sunday("sunday") }
 
@@ -32,7 +31,6 @@ fun availableTabs(timetable: Timetable): List<TimetableTab> =
 
 fun isPastTab(tab: TimetableTab, today: TimetableTab) = tab.ordinal < today.ordinal
 
-/** A headway direction lists no departures; its frequency stands in for them. */
 fun activeFrequency(timetable: Timetable, tab: TimetableTab, outgoing: Boolean): Frequency? {
     val sched = timetable.scheduleFor(tab)
     return if (outgoing) sched.inFrequency else sched.outFrequency
@@ -43,7 +41,6 @@ fun formatAbsoluteMinutes(absMin: Int): String {
     return "%02d:%02d".format(dayMin / 60, dayMin % 60)
 }
 
-/** The offsets of this trip's stops by departure hour, if the server's stops match ours. */
 fun tripHourlyOffsets(offsets: Map<String, HourlyStopOffsets>, tripId: String, stops: List<IndexedStop>): Map<String, List<Int>>? {
     val trip = offsets[tripId] ?: return null
     if (trip.stopIds.size != stops.size) return null
@@ -55,7 +52,6 @@ fun offsetsAt(hourly: Map<String, List<Int>>?, departureMin: Int, stops: List<In
     return seconds?.map { ceil(it / 60.0).toInt() } ?: stops.map { it.offsetFromStart }
 }
 
-/** [time] is CTP's printed departure and identifies the run; [startMin] adds the learned delay to the first stop. */
 data class TimetableChip(val time: String, val startMin: Int?, val isPast: Boolean)
 
 fun chipsForDay(
@@ -91,7 +87,6 @@ fun chipsByHour(entries: List<TimetableChip>): List<HourGroup> =
 
 class TripStop(val stop: IndexedStop, val arrival: String)
 
-/** Every stop of one run with the time it gets there, the trip view under a chip. */
 fun tripStops(selectedTime: String, hourly: Map<String, List<Int>>?, stops: List<IndexedStop>): List<TripStop> {
     val departureMin = timeStringToMinutes(selectedTime) ?: return emptyList()
     val offsets = offsetsAt(hourly, departureMin, stops)

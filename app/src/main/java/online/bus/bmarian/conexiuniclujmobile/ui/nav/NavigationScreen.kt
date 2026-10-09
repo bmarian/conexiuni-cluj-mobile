@@ -138,7 +138,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.NavScene
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
-/** The buses of the leg under way, from a while before your stop to the one you get off at. */
 class NavigationViewModel : ViewModel() {
     private val _vehicles = MutableStateFlow<List<MapVehicle>>(emptyList())
     val vehicles: StateFlow<List<MapVehicle>> = _vehicles
@@ -176,7 +175,6 @@ private fun busesFor(leg: JourneyLeg, indices: Map<String, ShapeIndex>, byTrip: 
     return shown.distinctBy { it.id }
 }
 
-/** The trip as the map draws it while navigating: rides in their colours, walks dotted, buses live. */
 fun navScene(journey: Journey, vehicles: List<MapVehicle>): NavScene {
     val shapes = journey.legs.mapIndexed { i, leg ->
         val points = leg.path.takeIf { it.size >= 2 }?.map { LatLon(it.lat, it.lon) } ?: leg.stops.map { LatLon(it.lat, it.lon) }
@@ -191,7 +189,6 @@ fun navScene(journey: Journey, vehicles: List<MapVehicle>): NavScene {
     return NavScene(shapes, journey.walks.map { w -> w.map { LatLon(it.lat, it.lon) } }, highlights, vehicles, destination)
 }
 
-/** What comes after the step on show, like Maps' "Then" chip. */
 @Composable
 private fun thenText(journey: Journey, sync: JourneySync): String? {
     val leg = journey.legs.getOrNull(sync.legIndex) ?: return null
@@ -215,11 +212,6 @@ private fun stepIcon(type: String?): ImageVector = when (type) {
     else -> Icons.AutoMirrored.Rounded.DirectionsWalk
 }
 
-/**
- * Turn-by-turn for a bus trip, the way Maps' transit navigation looks: the step in a banner at
- * the top, what comes next under it, the map following you, tilted, in the middle, and when you
- * get there at the bottom. Back puts it away; the trip goes on in the notification and on Home.
- */
 @Composable
 fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) -> Unit) {
     val context = LocalContext.current
@@ -236,7 +228,6 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
     var overview by remember { mutableStateOf(false) }
     var epoch by remember { mutableIntStateOf(0) }
 
-    // Your position every second and the screen on, only while this is up.
     DisposableEffect(Unit) {
         Services.fastLocation(true)
         view.keepScreenOn = true
@@ -257,13 +248,11 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val height = constraints.maxHeight.toFloat()
-        // Walking: close and tilted; on the bus: further out to see the stops coming; waiting: flat.
         LaunchedEffect(sync.stepType, overview, epoch, bannerBottom, panelHeight, height) {
             if (overview || bannerBottom <= 0f) {
                 map.navCamera = null
                 return@LaunchedEffect
             }
-            // You low in the free space, so more of the way ahead shows.
             val top = bannerBottom + (height - bannerBottom - panelHeight) * 0.35f
             map.navCamera = when (sync.stepType) {
                 StepType.RIDE -> NavCamera(15.3, 50.0, top, panelHeight, epoch)
@@ -351,8 +340,6 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // The steps drawer: when you get there and how far you've come always show; pull it up
-        // (or tap it) for every step of the trip, the one you're on marked.
         val drawerMax = height * 0.72f
         val navBar = WindowInsets.navigationBars.getBottom(density).toFloat()
         var headerPx by remember { mutableFloatStateOf(0f) }
@@ -436,7 +423,6 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
 
 private enum class NavDrawer { Closed, Open }
 
-/** One row of the trip's steps: what it says, how it is drawn, and which stop it stands for. */
 private class StepRow(
     val title: String,
     val subtitle: String?,
@@ -448,11 +434,6 @@ private class StepRow(
     val lines: List<Pair<String, String>> = emptyList(),
 )
 
-/**
- * Every step of the trip top to bottom, on the same timeline as the planner: the walks dotted,
- * the rides in their colours with every stop, the one you're on marked and the ones behind you
- * greyed.
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifier: Modifier) {
@@ -468,7 +449,6 @@ private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifie
         journey.legs.forEachIndexed { i, leg ->
             val color = routeColor(leg.colors.firstOrNull() ?: "#64748b")
             val walkRow = rows.size
-            // A change at the same stop is no walk.
             val previous = journey.legs.getOrNull(i - 1)?.alighting
             val sameStop = previous != null && haversineMeters(previous.lat, previous.lon, leg.boarding.lat, leg.boarding.lon) < 40
             rows += StepRow(
@@ -511,7 +491,6 @@ private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifie
         rows to current
     }
     val list = rememberLazyListState()
-    // Opened: the step you're on in view, with the one before it for context.
     LaunchedEffect(open, current) { if (open) list.animateScrollToItem((current - 1).coerceAtLeast(0)) }
     LazyColumn(modifier.fillMaxWidth(), state = list, contentPadding = PaddingValues(bottom = 24.dp)) {
         itemsIndexed(rows) { i, row ->
@@ -543,12 +522,10 @@ private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifie
     }
 }
 
-/** The trip as a bar of walks and rides in their colours, filled as far as you have come. */
 @Composable
 private fun TripProgress(journey: Journey, progress: Float) {
     val parts = remember(journey) { JourneyProgress.parts(journey) }
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
-    // Walks in the dotted walking lines' sky blue, rides in their lines' colours.
     val walk = MapColors.Walk
     Canvas(Modifier.fillMaxWidth().height(8.dp)) {
         val total = parts.sumOf { it.minutes }.coerceAtLeast(1.0)

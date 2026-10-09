@@ -133,7 +133,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val atStop by settings.atFavoriteStop.collectAsStateWithLifecycle()
     val watchStatus by WearLink.status.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { WearLink.refreshStatus(context) }
-    // Location first, then "all the time": Android only offers the second once the first is given.
+    // Background location can only be asked for after foreground.
     val backgroundLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted && AtStop.allowed(context)) settings.setAtFavoriteStop(true)
         else settings.showToast(resources.getString(R.string.at_stop_background_needed))
@@ -147,8 +147,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val transfer: TransferViewModel = viewModel()
     val sheet = LocalSheet.current
 
-    // A scanned code opens Settings with Send filled in, and the sheet tall enough to see it.
-    // Once per link: rotating or coming back to Settings must not open Send again.
+    // Once per link.
     var linkHandled by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(sendCode, sendKey) {
         if (linkHandled) return@LaunchedEffect
@@ -226,7 +225,6 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             Section(stringResource(R.string.w_settings_notifications))
             Toggle(Icons.Rounded.Notifications, stringResource(R.string.w_timetable_changes), stringResource(R.string.w_timetable_changes_desc), changes, beta = true) { on ->
                 settings.setShowTimetableChanges(on)
-                // Without the feature there is nothing to notify about.
                 if (!on && push) settings.setPushNotifications(false)
             }
             if (changes) {
@@ -399,7 +397,6 @@ private fun SendPanel(vm: TransferViewModel) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 keyboardActions = KeyboardActions(onDone = { vm.doSend() }),
                 trailingIcon = {
-                    // The other device's code can be scanned instead of typed.
                     androidx.compose.material3.IconButton(onClick = {
                         val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
                         GmsBarcodeScanning.getClient(context, options).startScan().addOnSuccessListener { barcode ->
@@ -502,7 +499,7 @@ private fun ReceivePanel(vm: TransferViewModel) {
     }
 }
 
-/** ZXing's QR, error correction L and no margin, like the website's uqr code. */
+/** Same as the website's uqr: ECC L, no margin. */
 @Composable
 fun QrCode(text: String, modifier: Modifier = Modifier) {
     val matrix = remember(text) {
@@ -521,7 +518,6 @@ fun QrCode(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Light, dark or as the phone is, with the system's icons. */
 @Composable
 private fun ThemeRow(theme: ThemeMode, onChange: (ThemeMode) -> Unit) {
     val options = listOf(

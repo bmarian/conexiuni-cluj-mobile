@@ -81,7 +81,6 @@ fun changeDirection(change: RouteChange): String = change.changes.firstOrNull()?
 
 private fun dateLocale(locale: String): Locale = if (locale == "en") Locale.UK else Locale.forLanguageTag("ro-RO")
 
-/** "8 Oct 2026" or "8 oct. 2026", like toLocaleDateString with day, short month and year. */
 fun formatChangeDate(ms: Long, locale: String, withYear: Boolean = true): String {
     val date = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate()
     return formatDate(date, locale, withYear)
@@ -141,7 +140,7 @@ class ChangeRow(val kind: String, val label: String, val entries: List<ChangeEnt
 
 private val ROW_ORDER = listOf("retimed", "trips_added", "trips_removed", "stops_added", "stops_removed")
 
-// The service day starts around 04:00, so 00:30 belongs after 23:30.
+// The service day starts around 04:00.
 private fun serviceMinutes(time: String): Int {
     val m = timeStringToMinutes(time) ?: 0
     return if (m < 240) m + 1440 else m

@@ -31,7 +31,6 @@ class TransferTest {
         assertEquals(1, sealed.jsonObject["sealed"]?.let { (it as JsonPrimitive).content.toInt() })
         assertNotEquals(export, sealed)
         assertEquals(export, Transfer.open(sealed, key))
-        // Without a key nothing is sealed, like a typed code on the website.
         assertEquals(export, Transfer.seal(export, null))
     }
 
@@ -39,7 +38,6 @@ class TransferTest {
     fun exportTextIsBase64RawDeflate() {
         val text = Transfer.compress(export.toString())
         assertEquals(export, Transfer.parseImport(text))
-        // What a browser's CompressionStream('deflate-raw') writes reads back the same.
         val deflater = Deflater(Deflater.BEST_COMPRESSION, true)
         deflater.setInput(export.toString().toByteArray())
         deflater.finish()
@@ -47,7 +45,6 @@ class TransferTest {
         val n = deflater.deflate(buffer)
         val browser = Base64.getEncoder().encodeToString(buffer.copyOf(n))
         assertEquals(export, Transfer.parseImport(browser))
-        // Plain JSON is accepted too.
         assertEquals(export, Transfer.parseImport("  ${export}  "))
     }
 
@@ -60,7 +57,7 @@ class TransferTest {
 
     @Test
     fun decodesGooglePolylines() {
-        // The example from Google's polyline documentation.
+        // Example from Google's polyline documentation.
         val points = Planner.decodePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@")
         assertEquals(listOf(38.5 to -120.2, 40.7 to -120.95, 43.252 to -126.453), points)
     }

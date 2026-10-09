@@ -50,10 +50,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberNow
 
-/**
- * Follows a bus, or stops if it's the one followed. The first time it asks to show
- * notifications; it follows either way, the countdown is in the app and on the watch.
- */
 @Composable
 fun rememberFollowToggle(): (Followed) -> Unit {
     val context = LocalContext.current
@@ -77,10 +73,6 @@ fun rememberFollowToggle(): (Followed) -> Unit {
     }
 }
 
-/**
- * Runs an action that shows notifications (a journey, a reminder), asking for the permission
- * first when it's missing; the action runs either way.
- */
 @Composable
 fun rememberWithNotifications(): (() -> Unit) -> Unit {
     val context = LocalContext.current
@@ -99,13 +91,11 @@ fun rememberWithNotifications(): (() -> Unit) -> Unit {
     }
 }
 
-/** Opens a stop or line on the watch and says whether it went. */
 suspend fun openOnWatch(context: Context, path: String) {
     val opened = WearLink.openOnWatch(context, path)
     Services.settings.showToast(context.getString(if (opened) R.string.opened_on_watch else R.string.no_watch))
 }
 
-/** The followed bus on top of Home, like Maps' trip in progress. */
 @Composable
 fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val followed = state.followed
@@ -155,7 +145,6 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
     }
 }
 
-/** The journey under way, on top of Home: the step, the countdown, Next and End. */
 @Composable
 fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modifier: Modifier = Modifier, onOpen: (() -> Unit)? = null) {
     val now = rememberNow()

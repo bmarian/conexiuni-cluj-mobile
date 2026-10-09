@@ -23,7 +23,6 @@ private const val JOURNEY_ALERT_ID = 12
 private const val JOURNEY_ARRIVED_ID = 13
 private const val WALK_GREY = 0xFF8A9590.toInt()
 
-/** The trip in parts, walks and rides, in minutes, and how far along it is. */
 class JourneyProgress(val parts: List<Part>, val doneMinutes: Double, val riding: Boolean) {
     class Part(val leg: Int, val ride: Boolean, val minutes: Double, val color: String?)
 
@@ -38,7 +37,6 @@ class JourneyProgress(val parts: List<Part>, val doneMinutes: Double, val riding
     }
 }
 
-/** The journey's Live Update: the step, a bar of walks and rides, Next and End. */
 object JourneyNotifications {
     private fun manager(context: Context) = context.getSystemService(NotificationManager::class.java)
 
@@ -54,7 +52,7 @@ object JourneyNotifications {
             .setCategory(Notification.CATEGORY_NAVIGATION)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            // The watch shows its own copy of the step.
+            // Not bridged: the watch shows its own.
             .setLocalOnly(true)
             .setContentIntent(open(context, journey))
             .addAction(action(context, R.string.journey_next, JourneyActionReceiver.NEXT, 20))
@@ -71,7 +69,6 @@ object JourneyNotifications {
         return builder.build()
     }
 
-    // What the status bar chip says: the countdown or the stops left, short.
     private fun chip(context: Context, sync: JourneySync): String {
         val arrival = sync.arrivalAt
         if (arrival != null) {
@@ -84,7 +81,7 @@ object JourneyNotifications {
     @RequiresApi(Build.VERSION_CODES.BAKLAVA)
     private fun bar(context: Context, progress: JourneyProgress): Notification.ProgressStyle {
         val total = progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)
-        // Segments must add up to the bar's length; the last one takes the rounding.
+        // Segments must sum to the bar length; the last one takes the rounding.
         val lengths = progress.parts.map { (it.minutes / total * 1000).toInt().coerceAtLeast(1) }.toMutableList()
         lengths[lengths.lastIndex] += 1000 - lengths.sum()
         val segments = progress.parts.mapIndexed { i, part ->
@@ -104,7 +101,6 @@ object JourneyNotifications {
             .setProgress((progress.doneMinutes / total * 1000).toInt().coerceIn(0, 1000))
     }
 
-    /** A step that needs you now: the bus is here, or yours is the next stop. */
     fun alert(context: Context, journey: Journey, sync: JourneySync) {
         FollowNotifications.ensureChannels(context)
         val notification = Notification.Builder(context, FollowNotifications.ALERT_CHANNEL)
@@ -158,7 +154,6 @@ object JourneyNotifications {
     ).build()
 }
 
-/** The Live Update's Next step and End buttons. */
 class JourneyActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {

@@ -38,7 +38,6 @@ import java.time.LocalDateTime
 
 class StopUi(val departures: List<StopDeparture>, val now: LocalDateTime)
 
-/** The favorite lines' buses on their way here and the routes they run, as the website shows. */
 class StopMapLayer(val shapes: List<MapShape>, val vehicles: List<MapVehicle>)
 
 /** Port of useStopDepartures. */
@@ -77,7 +76,6 @@ class StopViewModel(val stopId: Int) : ViewModel() {
         StopMapLayer(lines, buses)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, StopMapLayer(emptyList(), emptyList()))
 
-    /** Lines with a timetable here, favorites first, then by number. */
     val routesHere: StateFlow<List<ShapeInfo>> = combine(_info, Services.favorites.routes) { info, _ ->
         info?.shapesInfo.orEmpty().filter { hasTimetableEntries(it.timetable) }.sortedWith(
             compareBy<ShapeInfo> { if (Services.favorites.isRouteFavorite(it.routeId)) 0 else 1 }
@@ -92,7 +90,6 @@ class StopViewModel(val stopId: Int) : ViewModel() {
     fun load() {
         failed.value = false
         viewModelScope.launch {
-            // The last copy first, so the timetable shows at once; then the fresh one.
             if (_info.value == null) repository.cachedStopInfo(stopId)?.let { show(it) }
             try {
                 show(repository.stopInfo(stopId))
@@ -113,7 +110,6 @@ class StopViewModel(val stopId: Int) : ViewModel() {
         loading.value = false
     }
 
-    /** Runs while the screen is visible: live positions stream in. */
     suspend fun live() {
         _info.filterNotNull().map { trackableTripIds(it) }.distinctUntilChanged().collectLatest { ids ->
             VehicleStream.vehicles(ids).collect { vehicles.value = it }

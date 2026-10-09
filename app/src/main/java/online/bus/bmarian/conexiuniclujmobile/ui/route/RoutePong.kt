@@ -58,7 +58,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-// Port of RoutePong.vue: the line's badge is the ball, the AI plays left, you play right.
+// Port of RoutePong.vue.
 private const val H = 220f
 private const val PW = 10f
 private const val PH = 55f
@@ -92,7 +92,7 @@ private class PongGame(val width: Float) {
         vy = vy.coerceIn(-limit, limit)
     }
 
-    /** Null while playing; "player" or "ai" once someone has five. */
+    /** "player" or "ai" once someone has five. */
     fun tick(dt: Float): String? {
         val want = by - PH / 2 - lpy
         lpy += want.coerceIn(-base * 0.5f * dt, base * 0.5f * dt)
@@ -143,7 +143,7 @@ fun RoutePong(shortName: String, color: String, onExit: () -> Unit) {
     val court = if (dark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
     val ink = if (dark) Color.White else Color(0xFF0F172A)
     val measurer = rememberTextMeasurer()
-    // The canvas size in px; the court is H units tall and as many units wide as fit.
+    // Canvas px; the court is H units tall.
     var canvas by remember { mutableStateOf(Size.Zero) }
     var game by remember { mutableStateOf<PongGame?>(null) }
     var frame by remember { mutableIntStateOf(0) }

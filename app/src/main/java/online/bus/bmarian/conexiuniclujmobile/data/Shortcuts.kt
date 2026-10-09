@@ -10,12 +10,7 @@ import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 
-/**
- * Long-press shortcuts on the launcher icon: the favourite stops, kept in step with the
- * favourites, next to the fixed Search and Plan ones. A stop can also be pinned to the home screen.
- */
 object Shortcuts {
-    // Two, next to the fixed Search and Plan: launchers show four or five in all.
     private const val MAX_STOPS = 2
 
     private fun stopIntent(context: Context, stopId: Int) = Intent(context, MainActivity::class.java)
@@ -36,7 +31,6 @@ object Shortcuts {
         runCatching { ShortcutManagerCompat.setDynamicShortcuts(context, shortcuts) }
     }
 
-    /** Asks the launcher to pin the stop; returns false when it can't. */
     fun pinStop(context: Context, stopId: Int, name: String): Boolean {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
         return runCatching { ShortcutManagerCompat.requestPinShortcut(context, stopShortcut(context, stopId, name), null) }.getOrDefault(false)

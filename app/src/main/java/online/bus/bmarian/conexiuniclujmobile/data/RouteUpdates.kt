@@ -45,7 +45,7 @@ data class RouteChange(
     val changes: List<RouteChangeItem> = emptyList(),
 )
 
-/** Followed lines and their timetable or route changes. Port of stores/routeUpdates.ts. */
+/** Port of stores/routeUpdates.ts. */
 class RouteUpdates(context: Context) {
     private val prefs = context.getSharedPreferences("routeUpdates", Context.MODE_PRIVATE)
 
@@ -74,7 +74,6 @@ class RouteUpdates(context: Context) {
 
     fun isFollowing(routeShortName: String) = routeShortName in _followed.value
 
-    /** True when the line is now followed. */
     fun toggleFollow(routeShortName: String): Boolean {
         val following = routeShortName !in _followed.value
         _followed.value = if (following) _followed.value + routeShortName else _followed.value - routeShortName

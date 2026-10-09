@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""
-Carries the Wear OS data layer messages between a phone and a watch emulator that can't be
-paired (pairing needs the Wear OS app and a Google account on the phone emulator).
-
-Debug builds of both apps log every message they send with the tag WearRelay; this reads each
-device's log and hands the message to the other device's DebugWearReceiver, which runs the
-same code a real message would. Everything above the Bluetooth link is exercised: following,
-journeys, favourites. "Open on phone/watch" needs real pairing.
+"""Relays Wear data layer messages between unpaired phone and watch emulators (debug builds).
 
     python tools/wear-relay.py [phone-serial] [watch-serial]
 
@@ -23,7 +16,7 @@ PACKAGE = "online.bmarian.bus"
 
 
 def pump(source: str, target: str, label: str) -> None:
-    # Messages too long for one log line come as path#1/3, path#2/3...: put back together here.
+    # Long messages arrive as path#i/n.
     parts: dict[str, list[str]] = {}
     subprocess.run([ADB, "-s", source, "logcat", "-c"], check=False)
     log = subprocess.Popen(

@@ -72,12 +72,10 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 
-/** Today's weather in Cluj, fetched again when the forecast says it changes. */
 object WeatherFeed {
     private val _weather = MutableStateFlow<Weather?>(null)
     val weather: StateFlow<Weather?> = _weather
 
-    /** Keeps it fresh while collected (the app on screen and the weather switched on). */
     suspend fun run() {
         while (true) {
             val wait = try {
@@ -93,7 +91,6 @@ object WeatherFeed {
     }
 }
 
-/** CTP's news, read once a session like the website's popover. */
 object NewsFeed {
     val items = MutableStateFlow<List<NewsItem>>(emptyList())
     val loading = MutableStateFlow(true)
@@ -115,7 +112,6 @@ object NewsFeed {
     }
 }
 
-/** The Material icon and tint standing in for the website's Meteocons slug. */
 fun weatherIcon(slug: String?): Pair<ImageVector, Color> = when {
     slug == null || slug == "not-available" -> Icons.Rounded.HelpOutline to Color(0xFF94A3B8)
     slug.startsWith("thunderstorms") -> Icons.Rounded.Thunderstorm to Color(0xFF7C3AED)
@@ -129,7 +125,6 @@ fun weatherIcon(slug: String?): Pair<ImageVector, Color> = when {
     else -> Icons.Rounded.Cloud to Color(0xFF94A3B8)
 }
 
-/** Whether there are line changes you haven't seen: the dot on the News chip. */
 @Composable
 fun rememberNewsDot(): Boolean {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -146,7 +141,6 @@ fun rememberNewsDot(): Boolean {
     return showChanges && Services.routeUpdates.unseenIds(changes, seen).isNotEmpty()
 }
 
-/** The weather page in the sheet: what the website's weather popover shows. */
 @Composable
 fun WeatherPage() {
     val locale by Services.settings.locale.collectAsStateWithLifecycle()
@@ -210,7 +204,6 @@ fun WeatherPage() {
     }
 }
 
-/** The news page in the sheet: changes to the lines you follow, then CTP's own news. */
 @Composable
 fun NewsPage() {
     val context = LocalContext.current
@@ -224,7 +217,6 @@ fun NewsPage() {
     val news by NewsFeed.items.collectAsStateWithLifecycle()
     val loading by NewsFeed.loading.collectAsStateWithLifecycle()
     val error by NewsFeed.error.collectAsStateWithLifecycle()
-    // Kept while the page is open, so the "new" marks don't vanish at once.
     var freshIds by remember { mutableStateOf(emptySet<Long>()) }
     val hasUpdates = rememberNewsDot()
 
@@ -308,7 +300,7 @@ fun NewsPage() {
     }
 }
 
-// CSS text-transform: capitalize: the first letter of every word upper-cased.
+// CSS text-transform: capitalize.
 private fun capitalizeWords(text: String): String = text.split(" ").joinToString(" ") { word ->
     word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }

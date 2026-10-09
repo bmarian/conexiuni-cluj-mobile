@@ -60,10 +60,6 @@ import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 
 private enum class Step { Welcome, Location, Notifications, Watch }
 
-/**
- * The first-run screens: language, why the app wants the location and notifications (asking
- * only for what isn't given yet), and the watch. Shown once, over the app.
- */
 @Composable
 fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
     val context = LocalContext.current
@@ -91,7 +87,6 @@ fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 28.dp, vertical = 24.dp)) {
-            // Where you are in the few screens.
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 steps.indices.forEach { i ->
                     Box(

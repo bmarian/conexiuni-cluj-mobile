@@ -1,8 +1,4 @@
-"""Generates res/values*/web_strings.xml from the website's locale files, keeping its keys.
-
-Keys for what the app doesn't have (the website's special themes, keyboard help, the watch
-layout, browser-only push messages) are left out.
-"""
+"""Generates res/values*/web_strings.xml from the website's locale files, skipping keys the app doesn't use."""
 import json, re
 from xml.sax.saxutils import escape
 
@@ -21,7 +17,7 @@ def snake(key):
 
 
 def convert(value, order):
-    # {name} placeholders become positional %n$s in the order of first appearance in English.
+    # {name} placeholders become %n$s in order of first appearance in English.
     def repl(m):
         return f"%{order.index(m.group(1)) + 1}$s"
     out = re.sub(r"\{(\w+)\}", repl, value)

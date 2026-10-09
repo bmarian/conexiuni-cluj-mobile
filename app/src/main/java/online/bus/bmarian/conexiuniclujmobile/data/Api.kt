@@ -51,8 +51,8 @@ object Api {
 
     fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
-    suspend fun send(request: Request): Response = suspendCancellableCoroutine { cont ->
-        val call = client.newCall(request)
+    suspend fun send(request: Request, via: OkHttpClient = client): Response = suspendCancellableCoroutine { cont ->
+        val call = via.newCall(request)
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -65,10 +65,8 @@ object Api {
         })
     }
 
-    // The callback comes with the headers; the body is still on its way, so it is read off
-    // the main thread.
-    suspend fun <T> fetch(request: Request, read: (Response) -> T): T {
-        val response = send(request)
+    suspend fun <T> fetch(request: Request, via: OkHttpClient = client, read: (Response) -> T): T {
+        val response = send(request, via)
         try {
             return withContext(Dispatchers.IO) { read(response) }
         } finally {
@@ -81,13 +79,11 @@ object Api {
         response.body?.string() ?: ""
     }
 
-    // Parsing stays off the main thread: the stop and route lists are large.
     suspend inline fun <reified T> get(path: String): T {
         val text = getText(path)
         return withContext(Dispatchers.Default) { json.decodeFromString<T>(text) }
     }
 
-    /** Past any cached copy, for answers that change from one minute to the next. */
     suspend inline fun <reified T> getFresh(path: String): T {
         val text = fetchText(Request.Builder().url(url(path)).cacheControl(CacheControl.FORCE_NETWORK).build())
         return withContext(Dispatchers.Default) { json.decodeFromString<T>(text) }
@@ -98,7 +94,6 @@ object Api {
         response.body?.string() ?: ""
     }
 
-    /** POSTs JSON to the API; throws on anything but a 2xx. */
     suspend fun postJson(path: String, body: String): String {
         val request = Request.Builder().url(url(path))
             .post(body.toRequestBody("application/json".toMediaType()))
@@ -106,7 +101,6 @@ object Api {
         return fetchText(request)
     }
 
-    // Whatever the HTTP cache holds, however old, without touching the network.
     suspend fun cachedText(path: String): String? = runCatching {
         fetch(Request.Builder().url(url(path)).cacheControl(CacheControl.FORCE_CACHE).build()) { response ->
             if (response.isSuccessful) response.body?.string() else null
@@ -129,10 +123,20 @@ object Api {
     suspend fun stopInfo(stopId: Int): StopInfo = get(stopInfoPath(stopId))
     suspend fun timetable(shortName: String): Timetable = get(timetablePath(shortName))
     suspend fun stopTimes(shortName: String): List<StopTime> = get(stopTimesPath(shortName))
-    suspend fun shapes(shapeIds: List<String>): List<ShapePoint> = get("shapes?shape_ids=${shapeIds.joinToString(",")}")
+    suspend fun shapePolylines(shapeIds: List<String>): Map<String, String> =
+        get("shapes?format=polyline&shape_ids=${shapeIds.joinToString(",")}")
     suspend fun vehicles(tripIds: List<String>): List<Vehicle> = get("vehicles?trip_ids=${tripIds.joinToString(",")}")
     suspend fun hourlyOffsets(shortName: String, dayType: String): Map<String, HourlyStopOffsets> =
         runCatching { get<Map<String, HourlyStopOffsets>>(hourlyPath(shortName, dayType)) }.getOrDefault(emptyMap())
+
+    suspend fun networkVersion(): NetworkVersion = getFresh("network/version")
+
+    private val bundleClient: OkHttpClient by lazy { client.newBuilder().cache(null).build() }
+
+    suspend fun networkText(): String = fetch(Request.Builder().url(url("network")).build(), bundleClient) { response ->
+        if (!response.isSuccessful) throw HttpException(response.code)
+        response.body?.string() ?: ""
+    }
 
     suspend fun createTransfer(): TransferLink {
         val request = Request.Builder().url(url("transfer")).post(ByteArray(0).toRequestBody()).build()

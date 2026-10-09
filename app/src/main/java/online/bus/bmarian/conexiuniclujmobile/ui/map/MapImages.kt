@@ -29,10 +29,6 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/**
- * The website's marker artwork as bitmaps for the map's symbol layers, drawn at the screen's
- * density so they show at their size in dp.
- */
 internal class MapImages(context: Context) {
     private val density = Density(context)
     private val measurer = TextMeasurer(createFontFamilyResolver(context), density, LayoutDirection.Ltr)
@@ -53,10 +49,8 @@ internal class MapImages(context: Context) {
 
     fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f) }
 
-    /** The planner's pin, its tip at the bottom middle. */
     fun pin(color: Color) = draw(22f, 28f) { pinMarker(Offset(11.dp.toPx(), 28.dp.toPx()), color) }
 
-    /** A pin being dragged: lifted clear of the finger, with a guide down to where it will drop. */
     fun liftedPin(color: Color) = draw(22f, 66f) {
         pinMarker(Offset(11.dp.toPx(), 28.dp.toPx()), color)
         drawRect(Color(0x8C0F172A), Offset(10.dp.toPx(), 30.dp.toPx()), Size(2.dp.toPx(), 24.dp.toPx()))
@@ -76,7 +70,6 @@ internal class MapImages(context: Context) {
         drawRoundRect(ring, Offset(at.x - sq / 2, at.y - sq / 2), Size(sq, sq), CornerRadius(2.dp.toPx()))
     }
 
-    /** The line numbers at a route's start, side by side in pills of their colours. */
     fun badge(routes: List<Pair<String, String>>, dark: Boolean): Bitmap {
         val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White)
         val layouts = routes.map { measurer.measure(it.first, style) }
@@ -102,7 +95,6 @@ internal class MapImages(context: Context) {
         }
     }
 
-    /** The bubble above a route's start, its tail pointing down at it; the arrow turns on its own. */
     fun arrowBubble(dark: Boolean) = draw(26f, 30f) {
         val c = Offset(13.dp.toPx(), 13.dp.toPx())
         val ring = if (dark) MapColors.InkDark else Color.White
@@ -123,7 +115,6 @@ internal class MapImages(context: Context) {
         scale(s / 24f, s / 24f, pivot = Offset.Zero) { drawPath(Glyphs.directionArrow, if (dark) MapColors.Ink else Color.White) }
     }
 
-    /** A bus: a disc of its line's colour with the number; its heading is a badge of its own. */
     fun vehicle(color: String, label: String) = draw(40f, 42f) {
         val at = Offset(20.dp.toPx(), 20.dp.toPx())
         val r = 18.dp.toPx()
@@ -139,7 +130,6 @@ internal class MapImages(context: Context) {
         drawText(layout, topLeft = Offset(at.x - layout.size.width / 2f, at.y - layout.size.height / 2f))
     }
 
-    /** The arrow badge at a bus's corner; the layer turns it to the bus's heading. */
     fun heading() = draw(19f, 19f) {
         val c = center
         val br = 8.dp.toPx()

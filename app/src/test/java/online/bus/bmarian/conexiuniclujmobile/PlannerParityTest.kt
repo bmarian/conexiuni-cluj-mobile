@@ -14,8 +14,7 @@ import org.junit.Test
 import java.util.zip.GZIPInputStream
 import kotlin.math.abs
 
-// The expected values come from RoutePlanningView.vue's own code, run under Node on the same
-// plan_routes answers (tools/parity), so this fails if the port drifts from the website.
+// Expected values from RoutePlanningView.vue run under Node (tools/parity).
 class PlannerParityTest {
     @Serializable
     private class FixtureStop(val stop_id: Int, val stop_name: String = "", val stop_lat: Double = 0.0, val stop_lon: Double = 0.0)

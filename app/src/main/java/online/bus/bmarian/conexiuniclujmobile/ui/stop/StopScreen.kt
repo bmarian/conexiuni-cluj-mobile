@@ -115,7 +115,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
 import online.bus.bmarian.conexiuniclujmobile.widget.WidgetPinning
 
-// How long an opening stop waits for its favourite lines' routes before going to the stop alone.
 private const val FRAME_WAIT_MS = 2_000L
 
 @Composable
@@ -152,17 +151,13 @@ fun StopScreen(stopId: Int) {
     val toggleFollow = rememberFollowToggle()
     val haptics = LocalHapticFeedback.current
 
-    // The favorite lines' routes and buses on the map, and this stop bouncing.
     val owner = remember { Any() }
     DisposableEffect(owner) {
         map.claim(owner)
         map.selectedStopId = stopId
-        // This page frames the map itself, once; buses coming and going later leave it be.
         map.fitNewShapes = false
         onDispose { map.release(owner) }
     }
-    // Opening a stop, from the map, search, a favourite, a link or a notification, brings the map
-    // to it in one move: with its favourite lines' routes when they come in time, else the stop.
     var centred by rememberSaveable(stopId) { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (centred) return@LaunchedEffect
@@ -420,7 +415,6 @@ fun DepartureCard(
                     }
                 }
             }
-            // The watch's Follow: a countdown that stays when the app is closed, on the watch too.
             if (onFollow != null) {
                 IconToggleButton(checked = following, onCheckedChange = { onFollow() }) {
                     Icon(
@@ -458,7 +452,6 @@ fun LiveBadge() {
     }
 }
 
-/** A line in the lists: its badge, its name, and a chevron. */
 @Composable
 fun RouteRow(shortName: String, color: String, name: String, favorite: Boolean = false, busy: Boolean = false, onClick: () -> Unit) {
     Row(

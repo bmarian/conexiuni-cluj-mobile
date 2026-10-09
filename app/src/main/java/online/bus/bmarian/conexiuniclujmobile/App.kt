@@ -49,16 +49,14 @@ object Services {
         private set
 
     private val _location = MutableStateFlow<Fix?>(null)
-    /** Where the phone is, while the app is open and allowed to know. Null outside Cluj county. */
+    /** Null outside Cluj county. */
     val location: StateFlow<Fix?> = _location
     private val permissionChecks = MutableStateFlow(0)
-    // Every 10 s normally; every second while the navigation screen follows you.
     private val locationInterval = MutableStateFlow(LOCATION_UPDATE_MS)
 
     private val _online = MutableStateFlow(true)
     val online: StateFlow<Boolean> = _online
 
-    // Ticks every 10 s like the website's user clock, so every list moves on together.
     private val _clock = MutableStateFlow(System.currentTimeMillis())
     val clock: StateFlow<Long> = _clock
 
@@ -70,7 +68,10 @@ object Services {
         routeUpdates = RouteUpdates(app)
         settings.applyLocale()
         watchConnectivity(app)
-        scope.launch { repository.loadCached() }
+        scope.launch {
+            repository.loadCached()
+            repository.refreshNetwork(now = true)
+        }
         val lifecycle = ProcessLifecycleOwner.get().lifecycle
         scope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -81,15 +82,14 @@ object Services {
                     }
                 }
                 launch {
-                    // A first start offline has no lists yet; fetch them as soon as there is a network.
                     online.collect { up ->
                         if (up) {
+                            repository.refreshNetwork()
                             repository.refreshRoutes()
                             repository.refreshStops()
                         }
                     }
                 }
-                // Outside Cluj county a fix counts as no location, like on the website.
                 combine(permissionChecks, locationInterval) { _, ms -> ms }.collectLatest { ms ->
                     UserLocation.updates(app, ms).collect { fix -> _location.value = fix }
                 }
@@ -97,12 +97,10 @@ object Services {
         }
         RouteChangeWorker.schedule(app)
         WearLink.start(app)
-        // Departures at a favourite stop: fences around them while it's on.
         scope.launch {
             combine(settings.atFavoriteStop, favorites.stops, repository.stops) { on, ids, stops -> Triple(on, ids, stops) }
                 .collect { (on, ids, stops) -> if (stops.isNotEmpty() || !on) AtStop.sync(app, on, ids, stops) }
         }
-        // The favourite stops on the launcher icon's long-press menu.
         scope.launch {
             combine(favorites.stops, repository.stops) { ids, stops -> ids to stops }.collect { (ids, stops) ->
                 if (stops.isNotEmpty()) Shortcuts.updateFavoriteStops(app, ids, stops)
@@ -110,12 +108,10 @@ object Services {
         }
     }
 
-    /** After the location permission is granted: start following the phone. */
     fun locationPermissionChanged() {
         permissionChecks.value++
     }
 
-    /** Position every second, for the navigation screen; back to every 10 s when it goes. */
     fun fastLocation(on: Boolean) {
         locationInterval.value = if (on) 1_000L else LOCATION_UPDATE_MS
     }

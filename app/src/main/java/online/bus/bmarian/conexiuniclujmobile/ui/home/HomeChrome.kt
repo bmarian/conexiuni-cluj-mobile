@@ -51,10 +51,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.WeatherApi
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
 
-/**
- * The top of the map on Home, as in Google Maps: a floating search bar with settings at its end,
- * and under it chips for the weather, the news and your saved places.
- */
 @Composable
 fun HomeChrome(onSearch: () -> Unit, modifier: Modifier = Modifier) {
     val nav = LocalNavigator.current
@@ -111,7 +107,6 @@ fun HomeChrome(onSearch: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** An elevated chip over the map, like the ones under Maps' search bar. */
 @Composable
 private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspecified, dot: Boolean = false, onClick: () -> Unit) {
     Surface(
@@ -135,7 +130,6 @@ private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspec
     }
 }
 
-/** Fit and my-location at the sheet's top edge, like Maps' buttons above its sheet. */
 @Composable
 fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {

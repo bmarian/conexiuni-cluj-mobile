@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.R
 
-/** Where a screen can send the user; the app's router, in the website's terms. */
 interface Navigator {
     val canGoBack: Boolean
     fun back()
@@ -61,10 +60,7 @@ interface Navigator {
     fun news()
 }
 
-/**
- * The planner's query string, the website's /plan?lat=&lon=&name=&originLat=&originLon=
- * &originName=&time=&arrive_by=&last=&plan=, kept as the strings the website keeps.
- */
+/** Same keys as the website's /plan query. */
 data class PlanQuery(
     val lat: String? = null,
     val lon: String? = null,
@@ -83,7 +79,6 @@ data class PlanQuery(
         "time" to time, "arrive_by" to arriveBy, "last" to last, "plan" to plan,
     ).filter { it.second != null }
 
-    /** The query string, as it goes into the share link and the app's own route. */
     fun encode(): String = pairs().joinToString("&") { (k, v) -> "$k=${Uri.encode(v)}" }
 
     companion object {
@@ -108,7 +103,7 @@ data class PlanQuery(
                 originLat = originLat?.let(::jsNumber), originLon = originLon?.let(::jsNumber), originName = originName,
             )
 
-        // String(number) in JS: no trailing ".0".
+        // JS String(number): no trailing ".0".
         fun jsNumber(value: Double): String =
             if (value == Math.floor(value) && !value.isInfinite()) value.toLong().toString() else value.toString()
     }
@@ -116,14 +111,8 @@ data class PlanQuery(
 
 val LocalNavigator = compositionLocalOf<Navigator> { error("no navigator") }
 
-/** One entry in a page's overflow menu. */
 class MenuAction(val label: String, val icon: ImageVector, val onClick: () -> Unit)
 
-/**
- * The sheet's top bar, pinned above the page like a Material top app bar: back, the page's
- * name once its big header has scrolled away, an overflow menu, and close, which goes home
- * the way Maps closes a place.
- */
 @Composable
 fun SheetTopBar(
     title: String?,
@@ -175,17 +164,12 @@ fun SheetTopBar(
     }
 }
 
-/**
- * Whether a list has scrolled its first item, the page's big header, out of sight. Read through
- * a derived state, so the page recomposes when it flips, not on every scrolled pixel.
- */
 @Composable
 fun LazyListState.pastHeader(): Boolean {
     val past by remember(this) { derivedStateOf { firstVisibleItemIndex > 0 || firstVisibleItemScrollOffset > 120 } }
     return past
 }
 
-/** The website's share button: the page's address through the system share sheet. */
 @Composable
 fun ShareButton(path: String) {
     val context = LocalContext.current
@@ -200,7 +184,6 @@ fun share(context: Context, path: String) {
     context.startActivity(Intent.createChooser(send, null))
 }
 
-/** One action under a page's title: the main one filled, a toggle tinted while on. */
 class ChipAction(
     val label: String,
     val icon: ImageVector,
@@ -210,7 +193,6 @@ class ChipAction(
     val onClick: () -> Unit,
 )
 
-/** Maps' row of actions under a place's name: Directions, Save, Share and the rest, scrolling sideways. */
 @Composable
 fun ActionChips(actions: List<ChipAction>, modifier: Modifier = Modifier) {
     LazyRow(

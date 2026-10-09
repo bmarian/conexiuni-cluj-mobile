@@ -7,7 +7,6 @@ plugins {
     alias(libs.plugins.baselineprofile)
 }
 
-// The upload key for Google Play, also kept out of the repository.
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -20,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        // The watch app's id: the Wear OS data layer only connects apps that share it and the signing key.
+        // Must match the watch app: the Wear data layer needs the same id and signing key.
         applicationId = "online.bmarian.bus"
         minSdk = 34
         targetSdk = 37
@@ -29,7 +28,6 @@ android {
 
         buildConfigField("String", "API_BASE", "\"https://bus.bmarian.online/api/\"")
         buildConfigField("String", "SITE_ORIGIN", "\"https://bus.bmarian.online\"")
-        // MapLibre's native code for 64-bit phones and emulators; Android 14 and later run nothing else.
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
@@ -47,9 +45,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            (project.findProperty("apiBase") as String?)?.let { buildConfigField("String", "API_BASE", "\"$it\"") }
+        }
         release {
-            // Without the upload key the debug one still lets the fast build install from
-            // Android Studio; Play refuses anything signed with it.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
             optimization {
                 enable = true
@@ -67,15 +66,13 @@ android {
     }
 }
 
-// The baseline profile plugin copies release but only turns off the old minify flag. Recorded
-// on an obfuscated build, the profile names classes the real one doesn't have.
+// The baseline profile plugin leaves R8 on for this variant.
 androidComponents {
     finalizeDsl { android ->
         android.buildTypes.findByName("nonMinifiedRelease")?.optimization?.enable = false
     }
 }
 
-// Generated with `gradlew :app:generateBaselineProfile` on a phone emulator; see the README.
 baselineProfile {
     dexLayoutOptimization = true
 }
