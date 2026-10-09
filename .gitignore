@@ -18,3 +18,8 @@ keystore.properties
 
 # Project exclude paths
 /baselineprofile/build/
+
+/app/release/
+*.apk
+*.aab
+/app/src/*/generated/baselineProfiles/

@@ -54,6 +54,10 @@
     <string name="widget_updated">Updated %1$s</string>
     <string name="widget_no_departures">No departures soon</string>
     <string name="follow_arriving_at">Arriving at %1$s</string>
+    <string name="follow_arriving_stop">Arriving at %1$s</string>
+    <string name="follow_in">in %1$s</string>
+    <string name="follow_at_clock">at %1$s</string>
+    <string name="follow_now_stop">Arriving now at %1$s</string>
     <string name="journey_line_at">%1$s at %2$s</string>
     <string name="add_widget">Add departures widget</string>
     <string name="journey_line_here">%1$s is here</string>

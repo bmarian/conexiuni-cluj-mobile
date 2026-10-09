@@ -1,8 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -85,29 +83,6 @@ fun <K : Any> Modifier.reorderItem(state: ReorderState<K>, key: K): Modifier = t
             shadowElevation = 12f
         }
     }
-
-/** Excluded from the back gesture: it sits at the screen edge. */
-@Composable
-fun <K : Any> Modifier.dragHandle(state: ReorderState<K>, key: K): Modifier {
-    val haptics = LocalHapticFeedback.current
-    return systemGestureExclusion().pointerInput(key) {
-        try {
-            detectDragGestures(
-                onDragStart = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    state.start(key)
-                },
-                onDragEnd = { state.end() },
-                onDragCancel = { state.end() },
-            ) { change, delta ->
-                change.consume()
-                state.drag(delta)
-            }
-        } finally {
-            if (state.dragging == key) state.end()
-        }
-    }
-}
 
 @Composable
 fun <K : Any> Modifier.longPressDrag(state: ReorderState<K>, key: K): Modifier {

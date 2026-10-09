@@ -121,14 +121,15 @@ class FollowService : Service() {
         val first = departure?.nextTimes?.firstOrNull() ?: return end(start, "none")
         val minutes = first.minutes
         if (progress.arrived && minutes > (progress.lastMinutes ?: 0) + 2) return end(start, "left")
+        var alert = false
         if (minutes <= SOON_MINUTES && !progress.alertedSoon && minutes > 0) {
             progress.alertedSoon = true
-            FollowNotifications.alert(this, followed, minutes)
+            alert = true
         }
         if (minutes == 0 && !progress.arrived) {
             progress.arrived = true
             progress.alertedSoon = true
-            FollowNotifications.alert(this, followed, 0)
+            alert = true
         }
         progress.lastMinutes = minutes
 
@@ -145,7 +146,7 @@ class FollowService : Service() {
         FollowManager.mutableState.value = state
         WearLink.sendState(this, state.toSync())
         getSystemService(NotificationManager::class.java)
-            .notify(FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state))
+            .notify(FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state, alert))
     }
 
     private fun end(state: FollowState, reason: String) {

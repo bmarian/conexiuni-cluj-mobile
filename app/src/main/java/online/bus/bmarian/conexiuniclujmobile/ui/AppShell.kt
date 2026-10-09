@@ -137,7 +137,7 @@ class MapHolder(app: Application) : AndroidViewModel(app) {
 
 private val LOCATION_PERMISSIONS = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
 
-const val CREDITS = "© OpenFreeMap © OpenMapTiles © OpenStreetMap | © tranzy.ai, © CTP"
+const val CREDITS = "© OpenMapTiles © OpenStreetMap | © tranzy.ai, © CTP"
 
 @Composable
 fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {

@@ -651,12 +651,12 @@ private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             group.hour,
-            modifier = Modifier.width(32.dp).padding(top = 6.dp),
+            modifier = Modifier.width(32.dp).alignByBaseline(),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = if (group.isNextDay) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
         )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(Modifier.alignByBaseline(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (chip in group.chips) {
                 val isSelected = selected == chip.time
                 val isNext = selected == null && next == chip.time

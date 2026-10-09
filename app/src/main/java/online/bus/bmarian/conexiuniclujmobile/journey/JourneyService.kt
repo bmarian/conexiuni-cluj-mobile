@@ -115,7 +115,6 @@ class JourneyService : Service() {
         val current = journey
         if (current != null && !ended) {
             JourneyManager.publish(this, JourneySync(current.id, current.destination.name, "", end = true))
-            JourneyNotifications.clearAlert(this)
         }
         if (JourneyManager.state.value?.id == current?.id) {
             JourneyManager.mutableState.value = null
@@ -221,15 +220,15 @@ class JourneyService : Service() {
             lon = fix?.lon?.let { Math.round(it * 1e5) / 1e5 },
             bearing = fix?.bearing,
         )
-        if (sync.alert && !alerted) {
+        val alert = sync.alert && !alerted
+        if (alert) {
             alerted = true
             stepIndex++
-            JourneyNotifications.alert(this, journey, sync)
         }
         val shown = sync.copy(stepIndex = stepIndex)
         JourneyManager.publish(this, shown)
         getSystemService(NotificationManager::class.java)
-            .notify(JOURNEY_NOTIFICATION_ID, JourneyNotifications.ongoing(this, journey, shown, progress))
+            .notify(JOURNEY_NOTIFICATION_ID, JourneyNotifications.ongoing(this, journey, shown, progress, alert))
     }
 
     private fun advance(journey: Journey, phase: Phase, fix: Fix?, departure: StopDeparture?, nowMs: Long, skip: Boolean): Phase {

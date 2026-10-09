@@ -57,12 +57,12 @@ class BaselineProfileGenerator {
         device.pressBack()
         Thread.sleep(1_000)
 
-        device.wait(Until.findObject(By.text(Pattern.compile("\\d+ m"))), WAIT_MS)?.let {
-            it.click()
-            Thread.sleep(3_000)
-            device.pressBack()
-            Thread.sleep(1_000)
-        }
+        startActivityAndWait(Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/stop/629")).setPackage(PACKAGE))
+        Thread.sleep(4_000)
+        device.swipe(w / 2, h * 3 / 4, w / 2, h / 3, 30)
+        Thread.sleep(1_000)
+        device.pressBack()
+        Thread.sleep(1_000)
 
         startActivityAndWait(
             Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/plan?lat=46.7694&lon=23.5899&name=Unirii"))

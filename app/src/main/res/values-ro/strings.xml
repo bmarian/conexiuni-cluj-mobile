@@ -53,6 +53,10 @@
     <string name="widget_updated">Actualizat la %1$s</string>
     <string name="widget_no_departures">Nicio plecare curând</string>
     <string name="follow_arriving_at">Sosește la %1$s</string>
+    <string name="follow_arriving_stop">Sosește în stația %1$s</string>
+    <string name="follow_in">în %1$s</string>
+    <string name="follow_at_clock">la %1$s</string>
+    <string name="follow_now_stop">Sosește acum în stația %1$s</string>
     <string name="journey_line_at">%1$s la %2$s</string>
     <string name="add_widget">Adaugă widgetul cu plecări</string>
     <string name="journey_line_here">%1$s a sosit</string>

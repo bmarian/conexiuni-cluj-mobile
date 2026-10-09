@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.toArgb
 internal const val FOLLOW_NOTIFICATION_ID = 7
 private const val MIRROR_NOTIFICATION_ID = 9
 private const val ENDED_NOTIFICATION_ID = 8
-private const val ALERT_NOTIFICATION_ID = 10
 
 object FollowNotifications {
     const val FOLLOW_CHANNEL = "follow"
@@ -50,24 +49,24 @@ object FollowNotifications {
         }
     }
 
-    fun ongoing(context: Context, state: FollowState): Notification {
+    /** [alert] re-posts it on the alert channel so this one update buzzes and pops up. */
+    fun ongoing(context: Context, state: FollowState, alert: Boolean = false): Notification {
         ensureChannels(context)
         val followed = state.followed
         val minutes = state.minutes
-        val arrival = state.arrivalAt
         val nowMs = System.currentTimeMillis()
-        val text = if (minutes == null) context.getString(R.string.follow_waiting) else arrivingText(context, minutes, nowMs)
-        val where = followed.stopName
         val color = routeColor(followed.color).toArgb()
-        val builder = Notification.Builder(context, FOLLOW_CHANNEL)
+        val (title, text) = if (minutes == null) context.getString(R.string.follow_waiting) to null else arrivingAtText(context, followed.stopName, minutes, nowMs)
+        val builder = Notification.Builder(context, if (alert) ALERT_CHANNEL else FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
-            .setContentTitle("${followed.shortName} → ${followed.destination}")
+            .setLargeIcon(LineIcon.of(context, followed.shortName, followed.color))
+            .setContentTitle(title)
             .setContentText(text)
-            .setSubText(where)
             .setColor(color)
             .setCategory(Notification.CATEGORY_NAVIGATION)
             .setOngoing(true)
-            .setOnlyAlertOnce(true)
+            .setOnlyAlertOnce(!alert)
+            .setShowWhen(false)
             // Not bridged: the watch shows its own.
             .setLocalOnly(true)
             .setContentIntent(openStop(context, followed.stopId))
@@ -78,9 +77,6 @@ object FollowNotifications {
                     stopIntent(context, state),
                 ).build(),
             )
-        val counting = minutes != null && minutes > 0 && arrival != null
-        builder.setShowWhen(counting).setUsesChronometer(counting).setChronometerCountDown(counting)
-        if (counting) builder.setWhen(arrival!!)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             // Live Updates need Android 16 QPR1.
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
@@ -105,27 +101,8 @@ object FollowNotifications {
             .setStyledByProgress(true)
             .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100).setColor(color)))
             .setProgressPoints(listOf(Notification.ProgressStyle.Point(100).setColor(color)))
-            .setProgressTrackerIcon(Icon.createWithResource(context, R.drawable.ic_bus))
+            .setProgressTrackerIcon(trackerIcon(context, R.drawable.ic_bus))
             .setProgress(done)
-    }
-
-    fun alert(context: Context, followed: Followed, minutes: Int) {
-        ensureChannels(context)
-        val text = if (minutes <= 0) context.getString(R.string.follow_now)
-        else context.getString(R.string.follow_arriving, context.getString(R.string.eta_minutes, minutes))
-        val notification = Notification.Builder(context, ALERT_CHANNEL)
-            .setSmallIcon(R.drawable.ic_bus)
-            .setContentTitle("${followed.shortName} → ${followed.destination}")
-            .setContentText(text)
-            .setSubText(followed.stopName)
-            .setColor(routeColor(followed.color).toArgb())
-            .setCategory(Notification.CATEGORY_REMINDER)
-            .setLocalOnly(true)
-            .setAutoCancel(true)
-            .setTimeoutAfter(3 * 60_000L)
-            .setContentIntent(openStop(context, followed.stopId))
-            .build()
-        runCatching { manager(context).notify(ALERT_NOTIFICATION_ID, notification) }
     }
 
     fun ended(context: Context, followed: Followed, reason: String?) {
@@ -134,13 +111,12 @@ object FollowNotifications {
             "none" -> context.getString(R.string.follow_no_bus)
             else -> null
         }
-        manager(context).cancel(ALERT_NOTIFICATION_ID)
         if (message == null) return
         ensureChannels(context)
         val done = Notification.Builder(context, FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
-            .setContentTitle("${followed.shortName} → ${followed.destination}")
-            .setContentText(message)
+            .setLargeIcon(LineIcon.of(context, followed.shortName, followed.color))
+            .setContentTitle(message)
             .setColor(routeColor(followed.color).toArgb())
             .setLocalOnly(true)
             .setAutoCancel(true)

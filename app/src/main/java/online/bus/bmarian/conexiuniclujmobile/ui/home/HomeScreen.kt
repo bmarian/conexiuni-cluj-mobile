@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Place
@@ -54,7 +53,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
-import online.bus.bmarian.conexiuniclujmobile.ui.dragHandle
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.FollowingCard
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.JourneyCard
 import online.bus.bmarian.conexiuniclujmobile.ui.longPressDrag
@@ -157,7 +155,6 @@ fun HomeScreen() {
                         FavoriteRouteChip(
                             chip = chip,
                             modifier = Modifier.weight(1f).reorderItem(routeReorder, fav).longPressDrag(routeReorder, fav),
-                            handle = Modifier.dragHandle(routeReorder, fav),
                             onClick = { openRoute(chip.route, fav.direction) },
                             onRemove = { Services.favorites.toggleRoute(fav.routeId, fav.direction) },
                         )
@@ -173,7 +170,6 @@ fun HomeScreen() {
                     for (stop in favoriteStops) key(stop.stopId) {
                         FavoriteRow(
                             modifier = Modifier.reorderItem(stopReorder, stop.stopId).longPressDrag(stopReorder, stop.stopId),
-                            handle = Modifier.dragHandle(stopReorder, stop.stopId),
                             icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, size = 30.dp) },
                             title = stop.name,
                             kicker = null,
@@ -193,7 +189,6 @@ fun HomeScreen() {
                         val key = planKey(plan)
                         FavoriteRow(
                             modifier = Modifier.reorderItem(planReorder, key).longPressDrag(planReorder, key),
-                            handle = Modifier.dragHandle(planReorder, key),
                             icon = { RowIcon(Icons.Rounded.Map, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, size = 30.dp) },
                             title = plan.label ?: plan.name,
                             titlePrefix = if (plan.label == null && plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
@@ -211,7 +206,6 @@ fun HomeScreen() {
             items(recents, key = { "recent-${planKey(it)}" }) { plan ->
                 FavoriteRow(
                     modifier = Modifier.animateItem(),
-                    handle = null,
                     icon = { RowIcon(Icons.Rounded.Schedule, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, size = 30.dp) },
                     title = plan.name,
                     titlePrefix = if (plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
@@ -240,7 +234,6 @@ fun HomeScreen() {
 private fun FavoriteRouteChip(
     chip: RouteChip,
     modifier: Modifier,
-    handle: Modifier,
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -250,8 +243,7 @@ private fun FavoriteRouteChip(
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
-        Row(Modifier.padding(start = 2.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.DragIndicator, null, handle.size(20.dp), tint = MaterialTheme.colorScheme.outlineVariant)
+        Row(Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             LineBadge(chip.route.shortName, chip.route.color, height = 28.dp, minWidth = 36.dp, corner = 8.dp)
             Text(
                 "→ ${chip.destination}",
@@ -271,7 +263,6 @@ private fun FavoriteRouteChip(
 @Composable
 private fun FavoriteRow(
     modifier: Modifier,
-    handle: Modifier?,
     icon: @Composable () -> Unit,
     title: String,
     kicker: String?,
@@ -282,11 +273,10 @@ private fun FavoriteRow(
 ) {
     Row(
         modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).clickable(onClick = onClick)
-            .padding(start = if (handle != null) 4.dp else 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (handle != null) Icon(Icons.Rounded.DragIndicator, null, handle.size(22.dp), tint = MaterialTheme.colorScheme.outlineVariant)
         icon()
         Column(Modifier.weight(1f)) {
             kicker?.let {

@@ -15,11 +15,12 @@ import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowNotifications
+import online.bus.bmarian.conexiuniclujmobile.follow.LineIcon
+import online.bus.bmarian.conexiuniclujmobile.follow.trackerIcon
 import online.bus.bmarian.conexiuniclujmobile.follow.chipText
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
 internal const val JOURNEY_NOTIFICATION_ID = 11
-private const val JOURNEY_ALERT_ID = 12
 private const val JOURNEY_ARRIVED_ID = 13
 private const val WALK_GREY = 0xFF8A9590.toInt()
 
@@ -40,27 +41,25 @@ class JourneyProgress(val parts: List<Part>, val doneMinutes: Double, val riding
 object JourneyNotifications {
     private fun manager(context: Context) = context.getSystemService(NotificationManager::class.java)
 
-    fun ongoing(context: Context, journey: Journey, sync: JourneySync, progress: JourneyProgress): Notification {
+    /** [alert] re-posts it on the alert channel so this one update buzzes and pops up. */
+    fun ongoing(context: Context, journey: Journey, sync: JourneySync, progress: JourneyProgress, alert: Boolean = false): Notification {
         FollowNotifications.ensureChannels(context)
         val color = sync.color?.let { routeColor(it).toArgb() } ?: routeColor(journey.legs.first().colors.firstOrNull()).toArgb()
-        val builder = Notification.Builder(context, FollowNotifications.FOLLOW_CHANNEL)
+        val builder = Notification.Builder(context, if (alert) FollowNotifications.ALERT_CHANNEL else FollowNotifications.FOLLOW_CHANNEL)
             .setSmallIcon(if (progress.riding) R.drawable.ic_bus else R.drawable.ic_walk)
             .setContentTitle(sync.step)
             .setContentText(sync.detail)
-            .setSubText(context.getString(R.string.journey_to, journey.destination.name))
             .setColor(color)
             .setCategory(Notification.CATEGORY_NAVIGATION)
             .setOngoing(true)
-            .setOnlyAlertOnce(true)
+            .setOnlyAlertOnce(!alert)
+            .setShowWhen(false)
             // Not bridged: the watch shows its own.
             .setLocalOnly(true)
             .setContentIntent(open(context, journey))
             .addAction(action(context, R.string.journey_next, JourneyActionReceiver.NEXT, 20))
             .addAction(action(context, R.string.journey_end, JourneyActionReceiver.END, 21))
-        val arrival = sync.arrivalAt
-        val counting = arrival != null && arrival > System.currentTimeMillis()
-        builder.setShowWhen(counting).setUsesChronometer(counting).setChronometerCountDown(counting)
-        if (counting) builder.setWhen(arrival!!)
+        sync.line?.let { builder.setLargeIcon(LineIcon.of(context, it, sync.color)) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
             builder.setShortCriticalText(chip(context, sync))
@@ -97,32 +96,11 @@ object JourneyNotifications {
             .setStyledByProgress(true)
             .setProgressSegments(segments)
             .setProgressPoints(points)
-            .setProgressTrackerIcon(Icon.createWithResource(context, if (progress.riding) R.drawable.ic_bus else R.drawable.ic_walk))
+            .setProgressTrackerIcon(trackerIcon(context, if (progress.riding) R.drawable.ic_bus else R.drawable.ic_walk))
             .setProgress((progress.doneMinutes / total * 1000).toInt().coerceIn(0, 1000))
     }
 
-    fun alert(context: Context, journey: Journey, sync: JourneySync) {
-        FollowNotifications.ensureChannels(context)
-        val notification = Notification.Builder(context, FollowNotifications.ALERT_CHANNEL)
-            .setSmallIcon(R.drawable.ic_bus)
-            .setContentTitle(sync.step)
-            .setContentText(sync.detail)
-            .setColor(routeColor(sync.color).toArgb())
-            .setCategory(Notification.CATEGORY_REMINDER)
-            .setLocalOnly(true)
-            .setAutoCancel(true)
-            .setTimeoutAfter(2 * 60_000L)
-            .setContentIntent(open(context, journey))
-            .build()
-        runCatching { manager(context).notify(JOURNEY_ALERT_ID, notification) }
-    }
-
-    fun clearAlert(context: Context) {
-        manager(context).cancel(JOURNEY_ALERT_ID)
-    }
-
     fun arrived(context: Context, journey: Journey) {
-        clearAlert(context)
         val notification = Notification.Builder(context, FollowNotifications.FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_walk)
             .setContentTitle(context.getString(R.string.journey_arrived))
