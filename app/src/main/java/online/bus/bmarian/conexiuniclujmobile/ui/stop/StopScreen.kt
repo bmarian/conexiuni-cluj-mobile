@@ -1,0 +1,469 @@
+package online.bus.bmarian.conexiuniclujmobile.ui.stop
+
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.AddToHomeScreen
+import androidx.compose.material.icons.rounded.Directions
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.NotificationAdd
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Watch
+import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
+import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
+import online.bus.bmarian.conexiuniclujmobile.data.directionFromTripId
+import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
+import online.bus.bmarian.conexiuniclujmobile.follow.Followed
+import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
+import online.bus.bmarian.conexiuniclujmobile.logic.tripIdForRouteAtStop
+import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
+import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
+import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
+import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
+import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
+import online.bus.bmarian.conexiuniclujmobile.ui.RealtimeIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.SectionLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
+import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
+import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberFollowToggle
+import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
+import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
+import online.bus.bmarian.conexiuniclujmobile.ui.route.RouteHandoff
+import online.bus.bmarian.conexiuniclujmobile.ui.share
+import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
+import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
+import online.bus.bmarian.conexiuniclujmobile.widget.WidgetPinning
+
+@Composable
+fun stopViewModel(stopId: Int): StopViewModel = viewModel(key = "stop-$stopId") { StopViewModel(stopId) }
+
+fun routeDestination(name: String): String {
+    val i = name.lastIndexOf(" - ")
+    return if (i >= 0) name.substring(i + 3) else name
+}
+
+fun routeOrigin(name: String): String {
+    val i = name.lastIndexOf(" - ")
+    return if (i >= 0) name.substring(0, i) else ""
+}
+
+@Composable
+fun StopScreen(stopId: Int) {
+    val vm = stopViewModel(stopId)
+    val nav = LocalNavigator.current
+    val map = LocalMap.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(vm) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.live() } }
+
+    val name by vm.name.collectAsStateWithLifecycle()
+    val info by vm.info.collectAsStateWithLifecycle()
+    val failed by vm.failed.collectAsStateWithLifecycle()
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val routesHere by vm.routesHere.collectAsStateWithLifecycle()
+    val layer by vm.mapLayer.collectAsStateWithLifecycle()
+    val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
+    val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
+    val isFavorite = stopId in favoriteStops
+    val following by FollowManager.state.collectAsStateWithLifecycle()
+    val toggleFollow = rememberFollowToggle()
+    val haptics = LocalHapticFeedback.current
+
+    // The favorite lines' routes and buses on the map, and this stop bouncing.
+    val owner = remember { Any() }
+    DisposableEffect(owner) {
+        map.claim(owner)
+        map.selectedStopId = stopId
+        onDispose { map.release(owner) }
+    }
+    // Opening a stop, from search, a favourite, a link or a notification, brings the map to it.
+    val allStops by Services.repository.stops.collectAsStateWithLifecycle()
+    var centred by rememberSaveable(stopId) { mutableStateOf(false) }
+    LaunchedEffect(allStops.isNotEmpty()) {
+        if (centred) return@LaunchedEffect
+        val stop = allStops.firstOrNull { it.stopId == stopId } ?: return@LaunchedEffect
+        centred = true
+        map.flyTo(stop.lat, stop.lon)
+    }
+    LaunchedEffect(layer) {
+        map.showShapes(layer.shapes)
+        map.vehicles = layer.vehicles
+    }
+
+    val departures = remember(ui, favoriteRoutes) {
+        ui?.departures?.sortedWith(compareBy({ if (vm.isDepartureFavorite(it)) 0 else 1 }, { it.minutesLeft }))
+    }
+    val keyedDepartures = remember(departures) { departures?.let { list -> withUniqueKeys(list) { it.shortName } } }
+
+    fun openDeparture(departure: StopDeparture) {
+        val shape = info?.shapesInfo?.find { it.routeId == departure.routeId } ?: return
+        RouteHandoff.set(shape, departure.tripId, stopId, name.orEmpty())
+        nav.route(departure.routeId, directionFromTripId(departure.tripId), fromStopId = stopId)
+    }
+
+    fun openRoute(shape: ShapeInfo) {
+        val current = info
+        val tripId = current?.let { tripIdForRouteAtStop(it.outgoingTripIds, it.incomingTripIds, shape.routeId) }
+            ?: tripIdFor(shape.routeId, "0")
+        RouteHandoff.set(shape, tripId, stopId, name.orEmpty())
+        nav.route(shape.routeId, directionFromTripId(tripId), fromStopId = stopId)
+    }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val here = remember(allStops, stopId) { allStops.find { it.stopId == stopId } }
+    val menu = buildList {
+        add(MenuAction(stringResource(R.string.add_to_home), Icons.Rounded.AddToHomeScreen) { Shortcuts.pinStop(context, stopId, name.orEmpty()) })
+        if (WidgetPinning.supported(context)) {
+            add(MenuAction(stringResource(R.string.add_widget), Icons.Rounded.Widgets) { WidgetPinning.pinStop(context, stopId, name.orEmpty()) })
+        }
+        add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
+    }
+
+    Column(Modifier.fillMaxSize()) {
+    SheetTopBar(name, listState.pastHeader(), menu = menu)
+    LazyColumn(Modifier.weight(1f), state = listState) {
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(
+                    Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.DirectionsBus, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                }
+                Column(Modifier.weight(1f).padding(top = 2.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            stringResource(R.string.w_bus_stop),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        info?.stopCode?.takeIf { it.isNotEmpty() }?.let {
+                            Text("#$it", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                    Text(
+                        name ?: "…",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+        item(key = "actions") {
+            ActionChips(
+                listOfNotNull(
+                    here?.let { s ->
+                        ChipAction(stringResource(R.string.directions), Icons.Rounded.Directions, primary = true) {
+                            nav.plan(PlanQuery.to(s.lat, s.lon, s.name))
+                        }
+                    },
+                    ChipAction(
+                        stringResource(if (isFavorite) R.string.saved else R.string.save),
+                        if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        selected = isFavorite,
+                        tint = if (isFavorite) Palette.Rose else Color.Unspecified,
+                    ) {
+                        haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+                        Services.favorites.toggleStop(stopId)
+                    },
+                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, "/stop/$stopId") },
+                    if (watch) ChipAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/stop/$stopId") } } else null,
+                ),
+                Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        when {
+            failed && info == null -> item {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(R.string.load_failed), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FilledTonalButton(onClick = vm::load) { Text(stringResource(R.string.retry)) }
+                }
+            }
+            else -> {
+                item { DeparturesLabel() }
+                when {
+                    departures == null -> items(3) { DepartureSkeleton() }
+                    departures.isEmpty() -> item { MessageText(stringResource(R.string.w_no_schedule)) }
+                    else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { _, (_, departure) ->
+                        val isFollowed = following?.followed?.let {
+                            it.stopId == stopId && it.routeId == departure.routeId && it.tripId == departure.tripId
+                        } == true
+                        DepartureCard(
+                            departure, ui!!.now, vm.isDepartureFavorite(departure),
+                            following = isFollowed,
+                            onFollow = {
+                                toggleFollow(
+                                    Followed(
+                                        stopId, name.orEmpty(), departure.routeId, departure.tripId,
+                                        departure.shortName, departure.color, routeDestination(departure.longName),
+                                    ),
+                                )
+                            },
+                        ) { openDeparture(departure) }
+                    }
+                }
+                if (routesHere.isNotEmpty()) {
+                    item {
+                        SectionLabel(
+                            stringResource(R.string.w_all_routes_at_stop),
+                            Modifier.padding(top = 16.dp),
+                            icon = Icons.Rounded.Map,
+                        )
+                    }
+                    items(routesHere, key = { "r-${it.routeId}" }) { shape ->
+                        RouteRow(
+                            shortName = shape.shortName,
+                            color = shape.color,
+                            name = shape.timetable.routeLongName,
+                            favorite = Services.favorites.isRouteFavorite(shape.routeId),
+                        ) { openRoute(shape) }
+                    }
+                }
+                item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+    }
+}
+
+@Composable
+private fun DeparturesLabel() {
+    val pulse = rememberInfiniteTransition(label = "pulse")
+    val alpha by pulse.animateFloat(1f, 0.35f, infiniteRepeatable(tween(1000), RepeatMode.Reverse), label = "alpha")
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(Modifier.size(8.dp).alpha(alpha).clip(CircleShape).background(liveColor()))
+        Text(
+            stringResource(R.string.w_next_departures),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun DepartureSkeleton() {
+    Card(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).height(64.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {}
+}
+
+@Composable
+fun DepartureCard(
+    departure: StopDeparture,
+    now: java.time.LocalDateTime,
+    favorite: Boolean,
+    following: Boolean = false,
+    onFollow: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    val live = !departure.isStatic
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        border = if (favorite) BorderStroke(1.dp, Palette.Rose.copy(alpha = 0.45f)) else null,
+    ) {
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                Modifier.width(4.dp).fillMaxHeight().padding(vertical = 10.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (live) liveColor() else Color.Transparent),
+            )
+            LineBadge(
+                departure.shortName, departure.color,
+                Modifier.sharedBadge(badgeKey(departure.routeId, departure.tripId)),
+                height = 36.dp, minWidth = 44.dp, corner = 12.dp,
+            )
+            Column(Modifier.weight(1f).padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (live) LiveBadge()
+                    Text(
+                        "→ ${routeDestination(departure.longName)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                val origin = routeOrigin(departure.longName)
+                if (origin.isNotEmpty()) {
+                    Text(
+                        origin,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    departure.nextTimes.forEachIndexed { i, time ->
+                        val label = minutesLabel(time.minutes, now)
+                        TimePill(
+                            text = if (i == 0 && departure.isStatic) "~ $label" else label,
+                            live = i == 0 && live,
+                            extra = i > 0,
+                        )
+                    }
+                }
+            }
+            // The watch's Follow: a countdown that stays when the app is closed, on the watch too.
+            if (onFollow != null) {
+                IconToggleButton(checked = following, onCheckedChange = { onFollow() }) {
+                    Icon(
+                        if (following) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationAdd,
+                        stringResource(if (following) R.string.stop_following else R.string.follow),
+                        tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                Icon(
+                    Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    null,
+                    Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LiveBadge() {
+    Row(
+        Modifier.clip(RoundedCornerShape(6.dp)).background(LocalLiveColors.current.container).padding(horizontal = 5.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        RealtimeIcon(LocalLiveColors.current.onContainer, size = 9.dp)
+        Text(
+            stringResource(R.string.w_live),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = LocalLiveColors.current.onContainer,
+        )
+    }
+}
+
+/** A line in the lists: its badge, its name, and a chevron. */
+@Composable
+fun RouteRow(shortName: String, color: String, name: String, favorite: Boolean = false, busy: Boolean = false, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !busy, onClick = onClick)
+            .background(if (favorite) Palette.Rose.copy(alpha = 0.06f) else Color.Transparent)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .alpha(if (busy) 0.6f else 1f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        LineBadge(shortName, color, height = 28.dp, minWidth = 40.dp, corner = 6.dp)
+        Text(
+            name,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (busy) {
+            androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+        } else {
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+        }
+    }
+}

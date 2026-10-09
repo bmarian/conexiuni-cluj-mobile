@@ -1,0 +1,302 @@
+package online.bus.bmarian.conexiuniclujmobile.ui.home
+
+import android.icu.text.Collator
+import android.icu.text.RuleBasedCollator
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
+import online.bus.bmarian.conexiuniclujmobile.data.Route
+import online.bus.bmarian.conexiuniclujmobile.logic.sortedRoutes
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
+import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
+import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.stop.RouteRow
+import java.util.Locale
+
+/** The planner query for a saved or recent place, with its own start when it has one. */
+fun planQueryFor(plan: FavoritePlan): PlanQuery {
+    val withOrigin = plan.originLat != null && plan.originLon != null && !plan.originName.isNullOrEmpty()
+    return PlanQuery.to(
+        plan.lat, plan.lon, plan.name,
+        if (withOrigin) plan.originLat else null,
+        if (withOrigin) plan.originLon else null,
+        if (withOrigin) plan.originName else null,
+    )
+}
+
+/**
+ * Search as its own screen over the map, the way Maps opens it from its search bar: recent
+ * places and every line and stop while empty, results as you type. Back closes it.
+ */
+@Composable
+fun SearchOverlay(visible: Boolean, state: SearchState, onClose: () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { -it / 16 },
+        exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { -it / 16 },
+    ) {
+        SearchContent(state, onClose)
+    }
+}
+
+@Composable
+private fun SearchContent(state: SearchState, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    val nav = LocalNavigator.current
+    val focus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val routes by Services.repository.routes.collectAsStateWithLifecycle()
+    val stops by Services.repository.stops.collectAsStateWithLifecycle()
+    val online by Services.online.collectAsStateWithLifecycle()
+    val me by Services.location.collectAsStateWithLifecycle()
+    val locale by Services.settings.locale.collectAsStateWithLifecycle()
+    val recentPlans by Services.favorites.recentPlans.collectAsStateWithLifecycle()
+    val favoritePlans by Services.favorites.plans.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(state.query, online) { state.searchPlaces(state.query, online, locale, me) }
+    BackHandler(onBack = onClose)
+
+    val prefs = remember { context.getSharedPreferences("home", android.content.Context.MODE_PRIVATE) }
+    var showAllRoutes by remember { mutableStateOf(prefs.getBoolean("showAllRoutes", false)) }
+    var showAllStops by remember { mutableStateOf(prefs.getBoolean("showAllStops", false)) }
+    val sortedAll = remember(routes) { sortedRoutes(routes) }
+    val collator = remember(locale) {
+        (Collator.getInstance(Locale.forLanguageTag(locale)) as RuleBasedCollator).apply { numericCollation = true }
+    }
+    val sortedStops = remember(stops, collator) { stops.sortedWith { a, b -> collator.compare(a.name, b.name) } }
+    val recents = remember(recentPlans, favoritePlans) {
+        recentPlans.filterNot { p -> favoritePlans.any { it.samePlace(p) } }.take(8)
+    }
+
+    // Whatever is picked, search closes behind it.
+    fun go(action: () -> Unit) {
+        focusManager.clearFocus()
+        onClose()
+        action()
+    }
+    fun openRoute(route: Route) = go { nav.route(route.routeId, "auto") }
+
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.w_back))
+                }
+                TextField(
+                    value = state.query,
+                    onValueChange = { state.query = it },
+                    modifier = Modifier.weight(1f).focusRequester(focus),
+                    placeholder = { Text(stringResource(R.string.w_search_placeholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    trailingIcon = if (state.query.isNotEmpty()) {
+                        { IconButton(onClick = { state.query = "" }) { Icon(Icons.Rounded.Close, contentDescription = null) } }
+                    } else null,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            LazyColumn(Modifier.weight(1f).navigationBarsPadding()) {
+                if (state.active) {
+                    searchResults(
+                        state = state,
+                        routes = sortedAll,
+                        stops = stops,
+                        me = me,
+                        online = online,
+                        navigatingRouteId = null,
+                        onPlace = { place ->
+                            go {
+                                val lat = place.latitude
+                                val lon = place.longitude
+                                if (lat != null && lon != null) Services.favorites.addRecentPlan(FavoritePlan(place.label, lat = lat, lon = lon))
+                                nav.plan(PlanQuery(lat = place.lat, lon = place.lon, name = place.label))
+                            }
+                        },
+                        onRoute = ::openRoute,
+                        onStop = { stop -> go { nav.stop(stop.stopId) } },
+                        onDropPin = {
+                            go { nav.plan(PlanQuery(lat = "46.7712", lon = "23.6236", name = resources.getString(R.string.w_dropped_pin))) }
+                        },
+                    )
+                    item { Spacer(Modifier.height(24.dp)) }
+                    return@LazyColumn
+                }
+
+                if (online && recents.isNotEmpty()) {
+                    item { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = 8.dp)) }
+                    items(recents, key = { "recent-${it.lat}-${it.lon}-${it.originLat}" }) { plan ->
+                        ResultRow(
+                            icon = { RowIcon(Icons.Rounded.Schedule, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant) },
+                            title = plan.name,
+                            distance = null,
+                            subtitle = plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" },
+                            onClick = { go { nav.plan(planQueryFor(plan)) } },
+                        )
+                    }
+                }
+                if (online && favoritePlans.isNotEmpty()) {
+                    item { SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = 8.dp)) }
+                    items(favoritePlans, key = { "saved-${it.lat}-${it.lon}-${it.originLat}" }) { plan ->
+                        ResultRow(
+                            icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
+                            title = plan.label ?: plan.name,
+                            distance = null,
+                            onClick = { go { nav.plan(planQueryFor(plan)) } },
+                        )
+                    }
+                }
+
+                item {
+                    CollapseRow(
+                        icon = { RowIcon(Icons.Rounded.Map, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, size = 32.dp) },
+                        title = stringResource(R.string.w_all_routes),
+                        count = sortedAll.size,
+                        open = showAllRoutes,
+                        modifier = Modifier.padding(top = 12.dp),
+                    ) {
+                        showAllRoutes = !showAllRoutes
+                        prefs.edit { putBoolean("showAllRoutes", showAllRoutes) }
+                    }
+                }
+                if (showAllRoutes) {
+                    if (routes.isEmpty()) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp)) }
+                    items(sortedAll, key = { "all-r-${it.routeId}" }, contentType = { "route" }) { route ->
+                        RouteRow(route.shortName, route.color, route.longName) { openRoute(route) }
+                    }
+                }
+                item {
+                    CollapseRow(
+                        icon = { RowIcon(Icons.Rounded.DirectionsBus, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, size = 32.dp) },
+                        title = stringResource(R.string.w_all_stops),
+                        count = sortedStops.size,
+                        open = showAllStops,
+                    ) {
+                        showAllStops = !showAllStops
+                        prefs.edit { putBoolean("showAllStops", showAllStops) }
+                    }
+                }
+                if (showAllStops) {
+                    if (stops.isEmpty()) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp)) }
+                    items(sortedStops, key = { "all-s-${it.stopId}" }, contentType = { "stop" }) { stop ->
+                        ResultRow(
+                            icon = { RowIcon(Icons.Rounded.DirectionsBus, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, size = 32.dp) },
+                            title = stop.name,
+                            distance = null,
+                            onClick = { go { nav.stop(stop.stopId) } },
+                        )
+                    }
+                }
+                item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollapseRow(
+    icon: @Composable () -> Unit,
+    title: String,
+    count: Int,
+    open: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val rotation by animateFloatAsState(if (open) 90f else 0f, label = "chevron")
+    Row(
+        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        icon()
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+        if (count > 0) {
+            Box(Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                Text("$count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (count == 0 && open) {
+            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+        } else {
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(18.dp).rotate(rotation), tint = MaterialTheme.colorScheme.outline)
+        }
+    }
+}

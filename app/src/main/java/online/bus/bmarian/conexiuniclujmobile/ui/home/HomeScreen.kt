@@ -1,0 +1,341 @@
+package online.bus.bmarian.conexiuniclujmobile.ui.home
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragIndicator
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
+import online.bus.bmarian.conexiuniclujmobile.data.Route
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
+import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
+import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.SectionLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.dragHandle
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.FollowingCard
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.JourneyCard
+import online.bus.bmarian.conexiuniclujmobile.ui.longPressDrag
+import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
+import online.bus.bmarian.conexiuniclujmobile.ui.moved
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberReorderState
+import online.bus.bmarian.conexiuniclujmobile.ui.reorderItem
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
+
+private class RouteChip(val route: Route, val destination: String, val name: String)
+
+private fun planKey(p: FavoritePlan) = "${p.lat}_${p.lon}_${p.originLat ?: ""}_${p.originLon ?: ""}"
+
+/**
+ * Home in the sheet: the trip or bus you're on, buses near you, then your favourites and recent
+ * places. Search lives in the bar over the map.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun HomeScreen() {
+    val context = LocalContext.current
+    val nav = LocalNavigator.current
+    val map = LocalMap.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val repository = Services.repository
+    val routes by repository.routes.collectAsStateWithLifecycle()
+    val stops by repository.stops.collectAsStateWithLifecycle()
+    val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
+    val favoriteStopIds by Services.favorites.stops.collectAsStateWithLifecycle()
+    val favoritePlans by Services.favorites.plans.collectAsStateWithLifecycle()
+    val recentPlans by Services.favorites.recentPlans.collectAsStateWithLifecycle()
+    val online by Services.online.collectAsStateWithLifecycle()
+    val following by FollowManager.state.collectAsStateWithLifecycle()
+    val journey by JourneyManager.state.collectAsStateWithLifecycle()
+    val watchInReach by WearLink.watchInReach.collectAsStateWithLifecycle()
+    val nearby: NearbyViewModel = viewModel()
+    val nearbyUi by nearby.ui.collectAsStateWithLifecycle()
+    LaunchedEffect(nearby) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { nearby.live() } }
+
+    val listState = rememberLazyListState()
+
+    // Favorite stops in red on the map.
+    val owner = remember { Any() }
+    DisposableEffect(owner) {
+        map.claim(owner)
+        onDispose { map.release(owner) }
+    }
+    LaunchedEffect(favoriteStopIds) { map.highlightedStops = favoriteStopIds.associateWith { StopHighlight.Red } }
+
+    val routesById = remember(routes) { routes.associateBy { it.routeId } }
+    val stopsById = remember(stops) { stops.associateBy { it.stopId } }
+    val chips = remember(routesById, favoriteRoutes) {
+        favoriteRoutes.mapNotNull { fav ->
+            val route = routesById[fav.routeId] ?: return@mapNotNull null
+            val longName = route.longName
+            val i = longName.lastIndexOf(" - ")
+            val origin = if (i >= 0) longName.substring(0, i) else ""
+            val end = if (i >= 0) longName.substring(i + 3) else longName
+            fav to if (fav.direction == "1" && origin.isNotEmpty()) RouteChip(route, origin, "$end - $origin") else RouteChip(route, end, longName)
+        }
+    }
+    val favoriteStops = remember(stopsById, favoriteStopIds) { favoriteStopIds.mapNotNull { stopsById[it] } }
+    val hasFavorites = favoriteRoutes.isNotEmpty() || favoriteStopIds.isNotEmpty() || (online && favoritePlans.isNotEmpty())
+    val recents = remember(recentPlans, favoritePlans) {
+        recentPlans.filterNot { p -> favoritePlans.any { it.samePlace(p) } }.take(5)
+    }
+
+    fun openRoute(route: Route, direction: String?) = nav.route(route.routeId, direction ?: "auto")
+
+    fun openPlan(plan: FavoritePlan) {
+        if (online) nav.plan(planQueryFor(plan))
+    }
+
+    val routeReorder = rememberReorderState(favoriteRoutes) { from, to -> Services.favorites.reorderRoutes(favoriteRoutes.moved(from, to)) }
+    val stopReorder = rememberReorderState(favoriteStopIds) { from, to -> Services.favorites.reorderStops(favoriteStopIds.moved(from, to)) }
+    val planReorder = rememberReorderState(favoritePlans.map(::planKey)) { from, to -> Services.favorites.reorderPlans(favoritePlans.moved(from, to)) }
+
+    LazyColumn(Modifier.fillMaxSize(), state = listState) {
+        journey?.let { trip ->
+            item(key = "journey") {
+                JourneyCard(
+                    trip,
+                    watch = watchInReach,
+                    onNext = { JourneyManager.next(context) },
+                    onEnd = { JourneyManager.stop(context) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
+                    onOpen = JourneyManager::openNavigation,
+                )
+            }
+        }
+        following?.let { follow ->
+            item(key = "following") {
+                FollowingCard(
+                    follow,
+                    watch = watchInReach,
+                    onOpen = { nav.stop(follow.followed.stopId) },
+                    onStop = { FollowManager.stop(context) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
+                )
+            }
+        }
+
+        nearbyUi?.let { ui -> nearbySection(ui, onStop = nav::stop) }
+
+        if (hasFavorites || (online && recents.isNotEmpty())) {
+            item(key = "favorites-label") {
+                SectionLabel(stringResource(R.string.w_favorites), Modifier.padding(top = 12.dp), icon = Icons.Rounded.Favorite, iconTint = Palette.Rose)
+            }
+        }
+        if (chips.isNotEmpty()) {
+            item(key = "routes-label") { SubLabel(stringResource(R.string.w_favorite_routes)) }
+            item(key = "routes") {
+                FlowRow(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    maxItemsInEachRow = 2,
+                ) {
+                    for ((fav, chip) in chips) key(fav) {
+                        FavoriteRouteChip(
+                            chip = chip,
+                            modifier = Modifier.weight(1f).reorderItem(routeReorder, fav).longPressDrag(routeReorder, fav),
+                            handle = Modifier.dragHandle(routeReorder, fav),
+                            onClick = { openRoute(chip.route, fav.direction) },
+                            onRemove = { Services.favorites.toggleRoute(fav.routeId, fav.direction) },
+                        )
+                    }
+                    if (chips.size % 2 == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+        if (favoriteStops.isNotEmpty()) {
+            item(key = "stops-label") { SubLabel(stringResource(R.string.w_favorite_stops), Modifier.padding(top = 8.dp)) }
+            item(key = "stops") {
+                Column {
+                    for (stop in favoriteStops) key(stop.stopId) {
+                        FavoriteRow(
+                            modifier = Modifier.reorderItem(stopReorder, stop.stopId).longPressDrag(stopReorder, stop.stopId),
+                            handle = Modifier.dragHandle(stopReorder, stop.stopId),
+                            icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, size = 30.dp) },
+                            title = stop.name,
+                            kicker = null,
+                            removeLabel = stringResource(R.string.w_remove_from_favorites),
+                            onClick = { nav.stop(stop.stopId) },
+                            onRemove = { Services.favorites.toggleStop(stop.stopId) },
+                        )
+                    }
+                }
+            }
+        }
+        if (online && favoritePlans.isNotEmpty()) {
+            item(key = "plans-label") { SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = 8.dp)) }
+            item(key = "plans") {
+                Column {
+                    for (plan in favoritePlans) key(planKey(plan)) {
+                        val key = planKey(plan)
+                        FavoriteRow(
+                            modifier = Modifier.reorderItem(planReorder, key).longPressDrag(planReorder, key),
+                            handle = Modifier.dragHandle(planReorder, key),
+                            icon = { RowIcon(Icons.Rounded.Map, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, size = 30.dp) },
+                            title = plan.label ?: plan.name,
+                            titlePrefix = if (plan.label == null && plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
+                            kicker = if (plan.label == null) plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" } else null,
+                            removeLabel = stringResource(R.string.w_remove_from_favorites),
+                            onClick = { openPlan(plan) },
+                            onRemove = { Services.favorites.togglePlan(plan) },
+                        )
+                    }
+                }
+            }
+        }
+        if (online && recents.isNotEmpty()) {
+            item(key = "recents-label") { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = 8.dp)) }
+            items(recents, key = { "recent-${planKey(it)}" }) { plan ->
+                FavoriteRow(
+                    modifier = Modifier.animateItem(),
+                    handle = null,
+                    icon = { RowIcon(Icons.Rounded.Schedule, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, size = 30.dp) },
+                    title = plan.name,
+                    titlePrefix = if (plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
+                    kicker = plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" },
+                    removeLabel = stringResource(R.string.w_remove_from_recents),
+                    onClick = { openPlan(plan) },
+                    onRemove = { Services.favorites.removeRecentPlan(plan) },
+                )
+            }
+        }
+        if (!hasFavorites && !(online && recents.isNotEmpty())) {
+            item(key = "empty") {
+                Text(
+                    stringResource(R.string.w_no_favorites),
+                    Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        item(key = "end") { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun FavoriteRouteChip(
+    chip: RouteChip,
+    modifier: Modifier,
+    handle: Modifier,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Row(Modifier.padding(start = 2.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.DragIndicator, null, handle.size(20.dp), tint = MaterialTheme.colorScheme.outlineVariant)
+            LineBadge(chip.route.shortName, chip.route.color, height = 28.dp, minWidth = 36.dp, corner = 8.dp)
+            Text(
+                "→ ${chip.destination}",
+                Modifier.weight(1f).padding(start = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.w_remove_from_favorites), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoriteRow(
+    modifier: Modifier,
+    handle: Modifier?,
+    icon: @Composable () -> Unit,
+    title: String,
+    kicker: String?,
+    removeLabel: String,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
+    titlePrefix: String? = null,
+) {
+    Row(
+        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).clickable(onClick = onClick)
+            .padding(start = if (handle != null) 4.dp else 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (handle != null) Icon(Icons.Rounded.DragIndicator, null, handle.size(22.dp), tint = MaterialTheme.colorScheme.outlineVariant)
+        icon()
+        Column(Modifier.weight(1f)) {
+            kicker?.let {
+                Text(
+                    it.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                buildString {
+                    titlePrefix?.let(::append)
+                    append(title)
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = onRemove) {
+            Icon(Icons.Rounded.Close, contentDescription = removeLabel, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+        }
+    }
+}

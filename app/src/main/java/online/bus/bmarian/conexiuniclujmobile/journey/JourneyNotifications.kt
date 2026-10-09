@@ -1,0 +1,174 @@
+package online.bus.bmarian.conexiuniclujmobile.journey
+
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.Icon
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.net.toUri
+import online.bus.bmarian.conexiuniclujmobile.BuildConfig
+import online.bus.bmarian.conexiuniclujmobile.MainActivity
+import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowNotifications
+import online.bus.bmarian.conexiuniclujmobile.follow.chipText
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+
+internal const val JOURNEY_NOTIFICATION_ID = 11
+private const val JOURNEY_ALERT_ID = 12
+private const val JOURNEY_ARRIVED_ID = 13
+private const val WALK_GREY = 0xFF8A9590.toInt()
+
+/** The trip in parts, walks and rides, in minutes, and how far along it is. */
+class JourneyProgress(val parts: List<Part>, val doneMinutes: Double, val riding: Boolean) {
+    class Part(val leg: Int, val ride: Boolean, val minutes: Double, val color: String?)
+
+    companion object {
+        fun parts(journey: Journey): List<Part> = buildList {
+            journey.legs.forEachIndexed { i, leg ->
+                if (leg.walkMinutes >= 0.5) add(Part(i, false, leg.walkMinutes, null))
+                add(Part(i, true, leg.rideMinutes.takeIf { it > 0 } ?: (leg.stops.lastIndex * 2.0), leg.colors.firstOrNull()))
+            }
+            if (!journey.endsAtStop) add(Part(-1, false, journey.walkEndMinutes.coerceAtLeast(1.0), null))
+        }
+    }
+}
+
+/** The journey's Live Update: the step, a bar of walks and rides, Next and End. */
+object JourneyNotifications {
+    private fun manager(context: Context) = context.getSystemService(NotificationManager::class.java)
+
+    fun ongoing(context: Context, journey: Journey, sync: JourneySync, progress: JourneyProgress): Notification {
+        FollowNotifications.ensureChannels(context)
+        val color = sync.color?.let { routeColor(it).toArgb() } ?: routeColor(journey.legs.first().colors.firstOrNull()).toArgb()
+        val builder = Notification.Builder(context, FollowNotifications.FOLLOW_CHANNEL)
+            .setSmallIcon(if (progress.riding) R.drawable.ic_bus else R.drawable.ic_walk)
+            .setContentTitle(sync.step)
+            .setContentText(sync.detail)
+            .setSubText(context.getString(R.string.journey_to, journey.destination.name))
+            .setColor(color)
+            .setCategory(Notification.CATEGORY_NAVIGATION)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            // The watch shows its own copy of the step.
+            .setLocalOnly(true)
+            .setContentIntent(open(context, journey))
+            .addAction(action(context, R.string.journey_next, JourneyActionReceiver.NEXT, 20))
+            .addAction(action(context, R.string.journey_end, JourneyActionReceiver.END, 21))
+        val arrival = sync.arrivalAt
+        val counting = arrival != null && arrival > System.currentTimeMillis()
+        builder.setShowWhen(counting).setUsesChronometer(counting).setChronometerCountDown(counting)
+        if (counting) builder.setWhen(arrival!!)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
+            builder.setShortCriticalText(chip(context, sync))
+            builder.setStyle(bar(context, progress))
+        }
+        return builder.build()
+    }
+
+    // What the status bar chip says: the countdown or the stops left, short.
+    private fun chip(context: Context, sync: JourneySync): String {
+        val arrival = sync.arrivalAt
+        if (arrival != null) {
+            val nowMs = System.currentTimeMillis()
+            return chipText(context, ((arrival - nowMs) / 60_000).toInt(), nowMs)
+        }
+        return sync.line ?: context.getString(R.string.journey_card_label)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun bar(context: Context, progress: JourneyProgress): Notification.ProgressStyle {
+        val total = progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)
+        // Segments must add up to the bar's length; the last one takes the rounding.
+        val lengths = progress.parts.map { (it.minutes / total * 1000).toInt().coerceAtLeast(1) }.toMutableList()
+        lengths[lengths.lastIndex] += 1000 - lengths.sum()
+        val segments = progress.parts.mapIndexed { i, part ->
+            Notification.ProgressStyle.Segment(lengths[i].coerceAtLeast(1))
+                .setColor(part.color?.let { routeColor(it).toArgb() } ?: WALK_GREY)
+        }
+        var at = 0
+        val points = lengths.dropLast(1).map { length ->
+            at += length
+            Notification.ProgressStyle.Point(at)
+        }
+        return Notification.ProgressStyle()
+            .setStyledByProgress(true)
+            .setProgressSegments(segments)
+            .setProgressPoints(points)
+            .setProgressTrackerIcon(Icon.createWithResource(context, if (progress.riding) R.drawable.ic_bus else R.drawable.ic_walk))
+            .setProgress((progress.doneMinutes / total * 1000).toInt().coerceIn(0, 1000))
+    }
+
+    /** A step that needs you now: the bus is here, or yours is the next stop. */
+    fun alert(context: Context, journey: Journey, sync: JourneySync) {
+        FollowNotifications.ensureChannels(context)
+        val notification = Notification.Builder(context, FollowNotifications.ALERT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_bus)
+            .setContentTitle(sync.step)
+            .setContentText(sync.detail)
+            .setColor(routeColor(sync.color).toArgb())
+            .setCategory(Notification.CATEGORY_REMINDER)
+            .setLocalOnly(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(2 * 60_000L)
+            .setContentIntent(open(context, journey))
+            .build()
+        runCatching { manager(context).notify(JOURNEY_ALERT_ID, notification) }
+    }
+
+    fun clearAlert(context: Context) {
+        manager(context).cancel(JOURNEY_ALERT_ID)
+    }
+
+    fun arrived(context: Context, journey: Journey) {
+        clearAlert(context)
+        val notification = Notification.Builder(context, FollowNotifications.FOLLOW_CHANNEL)
+            .setSmallIcon(R.drawable.ic_walk)
+            .setContentTitle(context.getString(R.string.journey_arrived))
+            .setContentText(journey.destination.name)
+            .setLocalOnly(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(2 * 60_000L)
+            .build()
+        runCatching { manager(context).notify(JOURNEY_ARRIVED_ID, notification) }
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun open(context: Context, journey: Journey): PendingIntent {
+        return PendingIntent.getActivity(
+            context, 22,
+            Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setData("conexiunicluj://bus.bmarian.online/journey".toUri()),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    private fun action(context: Context, label: Int, action: String, code: Int) = Notification.Action.Builder(
+        Icon.createWithResource(context, R.drawable.ic_bus),
+        context.getString(label),
+        PendingIntent.getBroadcast(
+            context, code,
+            Intent(context, JourneyActionReceiver::class.java).setAction(action),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        ),
+    ).build()
+}
+
+/** The Live Update's Next step and End buttons. */
+class JourneyActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            NEXT -> JourneyManager.next(context)
+            END -> JourneyManager.stop(context)
+        }
+    }
+
+    companion object {
+        const val NEXT = "online.bmarian.bus.JOURNEY_NEXT"
+        const val END = "online.bmarian.bus.JOURNEY_END"
+    }
+}

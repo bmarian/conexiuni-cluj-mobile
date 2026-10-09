@@ -1,0 +1,396 @@
+package online.bus.bmarian.conexiuniclujmobile.ui.nav
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
+import androidx.compose.material.icons.rounded.SubdirectoryArrowRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Navigation
+import androidx.compose.material.icons.rounded.Route
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
+import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
+import online.bus.bmarian.conexiuniclujmobile.journey.Journey
+import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
+import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
+import online.bus.bmarian.conexiuniclujmobile.journey.JourneyProgress
+import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
+import online.bus.bmarian.conexiuniclujmobile.journey.StepType
+import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
+import online.bus.bmarian.conexiuniclujmobile.logic.ShapeIndex
+import online.bus.bmarian.conexiuniclujmobile.logic.buildShapeIndex
+import online.bus.bmarian.conexiuniclujmobile.logic.findClosestShapeIdx
+import online.bus.bmarian.conexiuniclujmobile.logic.indexVehicles
+import online.bus.bmarian.conexiuniclujmobile.ui.CREDITS
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
+import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
+import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
+import online.bus.bmarian.conexiuniclujmobile.ui.map.MapColors
+import online.bus.bmarian.conexiuniclujmobile.ui.map.MapPin
+import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
+import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
+import online.bus.bmarian.conexiuniclujmobile.ui.map.NavCamera
+import online.bus.bmarian.conexiuniclujmobile.ui.map.NavScene
+import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+
+/** The buses of the leg under way, from a while before your stop to the one you get off at. */
+class NavigationViewModel : ViewModel() {
+    private val _vehicles = MutableStateFlow<List<MapVehicle>>(emptyList())
+    val vehicles: StateFlow<List<MapVehicle>> = _vehicles
+
+    init {
+        viewModelScope.launch {
+            combine(JourneyManager.journey, JourneyManager.state.map { it?.legIndex ?: 0 }.distinctUntilChanged()) { j, leg -> j to leg }
+                .collectLatest { (journey, legIndex) ->
+                    _vehicles.value = emptyList()
+                    val leg = journey?.legs?.getOrNull(legIndex) ?: return@collectLatest
+                    val shapes = runCatching { Services.repository.shapes(leg.tripIds) }.getOrDefault(emptyMap())
+                    val indices = withContext(Dispatchers.Default) { shapes.filterValues { it.isNotEmpty() }.mapValues { buildShapeIndex(it.value) } }
+                    VehicleStream.vehicles(leg.tripIds).collect { byTrip ->
+                        _vehicles.value = withContext(Dispatchers.Default) { busesFor(leg, indices, byTrip) }
+                    }
+                }
+        }
+    }
+}
+
+private fun busesFor(leg: JourneyLeg, indices: Map<String, ShapeIndex>, byTrip: Map<String, List<Vehicle>>): List<MapVehicle> {
+    val nowMs = System.currentTimeMillis()
+    val shown = mutableListOf<MapVehicle>()
+    leg.tripIds.forEachIndexed { i, tripId ->
+        val index = indices[tripId] ?: return@forEachIndexed
+        val line = leg.lines.getOrNull(i) ?: leg.lines.first()
+        val color = leg.colors.getOrNull(i) ?: leg.colors.first()
+        val board = findClosestShapeIdx(leg.boarding.lat, leg.boarding.lon, index.shape)
+        val alight = findClosestShapeIdx(leg.alighting.lat, leg.alighting.lon, index.shape)
+        val range = (minOf(board, alight) - 60).coerceAtLeast(0)..maxOf(board, alight) + 1
+        indexVehicles(line, color, index, nowMs, byTrip[tripId].orEmpty())
+            .filter { it.shapeIdx in range }
+            .forEach { shown += MapVehicle("${it.vehicle.id}", it.vehicle, line, color, it.heading) }
+    }
+    return shown.distinctBy { it.id }
+}
+
+/** The trip as the map draws it while navigating: rides in their colours, walks dotted, buses live. */
+fun navScene(journey: Journey, vehicles: List<MapVehicle>): NavScene {
+    val shapes = journey.legs.mapIndexed { i, leg ->
+        val points = leg.path.takeIf { it.size >= 2 }?.map { LatLon(it.lat, it.lon) } ?: leg.stops.map { LatLon(it.lat, it.lon) }
+        MapShape(leg.tripIds.firstOrNull() ?: "leg$i", leg.lines.first(), leg.colors.first(), points)
+    }
+    val highlights = LinkedHashMap<Int, StopHighlight>()
+    journey.legs.forEachIndexed { i, leg ->
+        highlights[leg.boarding.id] = if (i == 0) StopHighlight.Green else StopHighlight.Purple
+        highlights[leg.alighting.id] = if (i == journey.legs.lastIndex) StopHighlight.Red else StopHighlight.Amber
+    }
+    val destination = if (journey.endsAtStop) null else MapPin(journey.destination.lat, journey.destination.lon, journey.destination.name)
+    return NavScene(shapes, journey.walks.map { w -> w.map { LatLon(it.lat, it.lon) } }, highlights, vehicles, destination)
+}
+
+/** What comes after the step on show, like Maps' "Then" chip. */
+@Composable
+private fun thenText(journey: Journey, sync: JourneySync): String? {
+    val leg = journey.legs.getOrNull(sync.legIndex) ?: return null
+    val next = journey.legs.getOrNull(sync.legIndex + 1)
+    return when (sync.stepType) {
+        StepType.WALK -> stringResource(R.string.nav_then_take, leg.lineLabel, leg.alighting.name)
+        StepType.WAIT -> stringResource(R.string.nav_then_get_off, leg.alighting.name)
+        StepType.RIDE -> when {
+            next != null -> stringResource(R.string.nav_then_change, next.lineLabel, next.boarding.name)
+            !journey.endsAtStop -> stringResource(R.string.nav_then_walk, journey.destination.name)
+            else -> null
+        }
+        else -> null
+    }
+}
+
+private fun stepIcon(type: String?): ImageVector = when (type) {
+    StepType.WAIT -> Icons.Rounded.HourglassTop
+    StepType.RIDE -> Icons.Rounded.DirectionsBus
+    StepType.ARRIVED -> Icons.Rounded.Flag
+    else -> Icons.AutoMirrored.Rounded.DirectionsWalk
+}
+
+/**
+ * Turn-by-turn for a bus trip, the way Maps' transit navigation looks: the step in a banner at
+ * the top, what comes next under it, the map following you, tilted, in the middle, and when you
+ * get there at the bottom. Back puts it away; the trip goes on in the notification and on Home.
+ */
+@Composable
+fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) -> Unit) {
+    val context = LocalContext.current
+    val map = LocalMap.current
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val state by JourneyManager.state.collectAsStateWithLifecycle()
+    val journey by JourneyManager.journey.collectAsStateWithLifecycle()
+    val clockMs by Services.clock.collectAsStateWithLifecycle()
+    val vm: NavigationViewModel = viewModel()
+    val vehicles by vm.vehicles.collectAsStateWithLifecycle()
+    var bannerBottom by remember { mutableFloatStateOf(0f) }
+    var panelHeight by remember { mutableFloatStateOf(0f) }
+    var overview by remember { mutableStateOf(false) }
+    var epoch by remember { mutableIntStateOf(0) }
+
+    // Your position every second and the screen on, only while this is up.
+    DisposableEffect(Unit) {
+        Services.fastLocation(true)
+        view.keepScreenOn = true
+        onDispose {
+            Services.fastLocation(false)
+            view.keepScreenOn = false
+            map.navigation = null
+            map.navCamera = null
+            map.trackingLost = false
+        }
+    }
+    LaunchedEffect(journey, vehicles) { journey?.let { map.navigation = navScene(it, vehicles) } }
+    LaunchedEffect(bannerBottom, panelHeight) { onInsets(bannerBottom, panelHeight) }
+    BackHandler(onBack = onClose)
+
+    val sync = state ?: return
+    val trip = journey
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val height = constraints.maxHeight.toFloat()
+        // Walking: close and tilted; on the bus: further out to see the stops coming; waiting: flat.
+        LaunchedEffect(sync.stepType, overview, epoch, bannerBottom, panelHeight, height) {
+            if (overview || bannerBottom <= 0f) {
+                map.navCamera = null
+                return@LaunchedEffect
+            }
+            // You low in the free space, so more of the way ahead shows.
+            val top = bannerBottom + (height - bannerBottom - panelHeight) * 0.35f
+            map.navCamera = when (sync.stepType) {
+                StepType.RIDE -> NavCamera(15.3, 50.0, top, panelHeight, epoch)
+                StepType.WAIT -> NavCamera(17.0, 0.0, top, panelHeight, epoch)
+                else -> NavCamera(17.2, 45.0, top, panelHeight, epoch)
+            }
+        }
+
+        Column(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding().padding(8.dp)
+                .onGloballyPositioned { bannerBottom = it.boundsInRoot().bottom },
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = RoundedCornerShape(24.dp),
+                shadowElevation = 6.dp,
+            ) {
+                AnimatedContent(sync.step to sync.detail, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "step") { (step, detail) ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Icon(stepIcon(sync.stepType), null, Modifier.size(40.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(step, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                        }
+                        sync.line?.let { LineBadge(it, sync.color ?: "#64748b", height = 32.dp, minWidth = 44.dp, corner = 8.dp) }
+                    }
+                }
+            }
+            val then = trip?.let { thenText(it, sync) }
+            AnimatedVisibility(then != null, enter = fadeIn(), exit = fadeOut()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    shadowElevation = 3.dp,
+                    modifier = Modifier.padding(top = 6.dp, start = 12.dp),
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.SubdirectoryArrowRight, null, Modifier.size(18.dp))
+                        Text(then.orEmpty(), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+
+        val panelDp = with(density) { panelHeight.toDp() }
+        Column(
+            Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = panelDp + 16.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AnimatedVisibility(!overview, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+                SmallFloatingActionButton(
+                    onClick = {
+                        overview = true
+                        map.overview()
+                    },
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
+                ) { Icon(Icons.Rounded.Route, contentDescription = stringResource(R.string.nav_overview)) }
+            }
+            AnimatedVisibility(overview || map.trackingLost, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        overview = false
+                        map.trackingLost = false
+                        epoch++
+                    },
+                    icon = { Icon(Icons.Rounded.Navigation, null) },
+                    text = { Text(stringResource(R.string.nav_recenter)) },
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        Text(
+            CREDITS,
+            Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = panelDp + 2.dp),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Surface(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { panelHeight = it.height.toFloat() },
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 8.dp,
+        ) {
+            Column(Modifier.navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FilledIconButton(
+                        onClick = { JourneyManager.stop(context) },
+                        modifier = Modifier.size(48.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                    ) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.journey_end)) }
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        val eta = sync.etaAt
+                        val left = eta?.let { ((it - clockMs) / 60_000.0).let { m -> Math.round(m).toInt().coerceAtLeast(0) } }
+                        Text(
+                            left?.let { stringResource(R.string.eta_minutes, it) } ?: "—",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = liveColor(),
+                        )
+                        val clock = eta?.let { DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(it).atZone(CLUJ_ZONE)) }
+                        Text(
+                            listOfNotNull(clock?.let { stringResource(R.string.nav_arrive_at, it) }, trip?.destination?.name).joinToString(" · "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    FilledTonalButton(onClick = { JourneyManager.next(context) }) { Text(stringResource(R.string.journey_next)) }
+                }
+                if (trip != null) TripProgress(trip, sync.progress ?: 0f)
+            }
+        }
+    }
+}
+
+/** The trip as a bar of walks and rides in their colours, filled as far as you have come. */
+@Composable
+private fun TripProgress(journey: Journey, progress: Float) {
+    val parts = remember(journey) { JourneyProgress.parts(journey) }
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    // Walks in the dotted walking lines' sky blue, rides in their lines' colours.
+    val walk = MapColors.Walk
+    Canvas(Modifier.fillMaxWidth().height(8.dp)) {
+        val total = parts.sumOf { it.minutes }.coerceAtLeast(1.0)
+        val gap = 3.dp.toPx()
+        val usable = size.width - gap * (parts.size - 1).coerceAtLeast(0)
+        val done = progress * total
+        var x = 0f
+        var start = 0.0
+        val r = CornerRadius(size.height / 2)
+        for (part in parts) {
+            val w = (part.minutes / total * usable).toFloat()
+            drawRoundRect(track, Offset(x, 0f), Size(w, size.height), r)
+            val filled = ((done - start) / part.minutes).coerceIn(0.0, 1.0).toFloat()
+            if (filled > 0f) {
+                val color = if (part.ride) routeColor(part.color ?: "#64748b") else walk
+                drawRoundRect(color, Offset(x, 0f), Size(w * filled, size.height), r)
+            }
+            x += w + gap
+            start += part.minutes
+        }
+    }
+}

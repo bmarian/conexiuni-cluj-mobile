@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the launcher icon: search, plan a trip, and the favourite stops added in code. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutId="search"
+        android:shortcutLongLabel="@string/shortcut_search_long"
+        android:shortcutShortLabel="@string/shortcut_search">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="conexiunicluj://bus.bmarian.online/search"
+            android:targetClass="online.bus.bmarian.conexiuniclujmobile.MainActivity"
+            android:targetPackage="online.bmarian.bus" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_plan"
+        android:shortcutId="plan"
+        android:shortcutLongLabel="@string/shortcut_plan"
+        android:shortcutShortLabel="@string/shortcut_plan">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="conexiunicluj://bus.bmarian.online/plan"
+            android:targetClass="online.bus.bmarian.conexiuniclujmobile.MainActivity"
+            android:targetPackage="online.bmarian.bus" />
+    </shortcut>
+</shortcuts>

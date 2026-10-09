@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- A followed bus: a live countdown in the status bar until it comes. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- A journey follows you along the trip, so it can say which stop is next. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Only when "Departures at a favourite stop" is turned on in Settings. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- "Remind me to leave" on the minute; asked for when first needed, inexact without it. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
+        android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
+        android:theme="@style/Theme.ConexiuniClujMobile">
+        <service
+            android:name=".follow.FollowService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Live arrival countdown for a public transport departure the user chose to follow" />
+        </service>
+        <receiver
+            android:name=".follow.StopFollowingReceiver"
+            android:exported="false" />
+        <!-- A trip step by step: walk, wait, ride, get off. Uses the position while it runs. -->
+        <service
+            android:name=".journey.JourneyService"
+            android:exported="false"
+            android:foregroundServiceType="location|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Step-by-step public transport trip guidance the user started" />
+        </service>
+        <receiver
+            android:name=".journey.LeaveReminderReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".journey.ExactAlarmPermissionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".journey.JourneyActionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".journey.AtStopReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".journey.AtStopRestoreReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <!-- A stop's next departures on the home screen. -->
+        <receiver
+            android:name=".widget.StopWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_stop_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stop_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.WidgetPinnedReceiver"
+            android:exported="false" />
+        <activity
+            android:name=".widget.StopWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ConexiuniClujMobile">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <!-- The watch app starting, updating or stopping a follow. -->
+        <service
+            android:name=".follow.WearListener"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+
+                <data
+                    android:host="*"
+                    android:pathPrefix="/follow"
+                    android:scheme="wear" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/journey"
+                    android:scheme="wear" />
+            </intent-filter>
+            <!-- Favourites changed on the watch. -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+
+                <data
+                    android:host="*"
+                    android:pathPrefix="/sync"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboard|keyboardHidden|navigation"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.ConexiuniClujMobile.Starting"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Shared links to the website open here: stops, lines, the planner and transfer codes. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="bus.bmarian.online" />
+                <data android:pathPrefix="/stop/" />
+                <data android:pathPrefix="/route/" />
+                <data android:path="/plan" />
+                <data android:path="/settings" />
+            </intent-filter>
+            <!-- The app's own links: from the watch's "Open on phone", shortcuts and notifications. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="conexiunicluj" />
+                <data android:host="bus.bmarian.online" />
+            </intent-filter>
+            <!-- Share a place from Maps or a chat to plan a trip there. -->
+            <intent-filter android:label="@string/shortcut_plan">
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+    </application>
+
+</manifest>

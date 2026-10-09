@@ -1,0 +1,35 @@
+plugins {
+    alias(libs.plugins.android.test)
+    alias(libs.plugins.baselineprofile)
+}
+
+android {
+    namespace = "online.bus.bmarian.conexiuniclujmobile.baselineprofile"
+    compileSdk {
+        version = release(37)
+    }
+
+    defaultConfig {
+        minSdk = 34
+        targetSdk = 37
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    targetProjectPath = ":app"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+// Runs on whatever ANDROID_SERIAL names: a phone or a phone emulator. The test run uninstalls the app.
+baselineProfile {
+    useConnectedDevices = true
+}
+
+dependencies {
+    implementation(libs.androidx.junit)
+    implementation(libs.uiautomator)
+    implementation(libs.benchmark.macro.junit4)
+}

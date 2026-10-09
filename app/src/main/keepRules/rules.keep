@@ -1,0 +1,2 @@
+# WorkManager creates its Room database reflectively.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
