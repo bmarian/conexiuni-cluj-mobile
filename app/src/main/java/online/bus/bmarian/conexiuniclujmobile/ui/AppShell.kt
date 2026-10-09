@@ -22,9 +22,12 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -115,6 +118,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.settings.SettingsScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.shell.GreenFridayBanner
 import online.bus.bmarian.conexiuniclujmobile.ui.shell.OfflinePill
 import online.bus.bmarian.conexiuniclujmobile.ui.shell.ToastHost
+import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.StopScreen
 import org.maplibre.android.MapLibre
 import org.maplibre.android.module.http.HttpRequestUtil
@@ -268,9 +272,11 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                     Box(Modifier.statusBarsPadding().navigationBarsPadding().imePadding()) { content() }
                 }
                 if (!wide && !showNav) {
+                    val press = remember { MutableInteractionSource() }
                     SmallFloatingActionButton(
                         onClick = { scope.launch { sidePanel.toggle() } },
-                        modifier = Modifier.align(Alignment.CenterStart).then(panelOffset).padding(start = 8.dp),
+                        modifier = Modifier.align(Alignment.CenterStart).then(panelOffset).padding(start = 8.dp).squish(press, 0.85f),
+                        interactionSource = press,
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     ) {
                         Icon(
@@ -382,7 +388,8 @@ private fun Modifier.besidePanel(panel: SideSheetState, endReserve: Dp = 0.dp, m
 
 private val PAGE_IN = tween<Float>(210, delayMillis = 90, easing = LinearOutSlowInEasing)
 private val PAGE_OUT = tween<Float>(90, easing = FastOutLinearInEasing)
-private val PAGE_SLIDE = spring(stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold)
+private val PAGE_SLIDE = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold)
+private val PAGE_SCALE = spring<Float>(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow)
 
 @Composable
 private fun AnimatedContentScope.Page(content: @Composable () -> Unit) =
@@ -396,10 +403,10 @@ private fun AppNavHost(navController: NavHostController) {
     NavHost(
         navController,
         startDestination = "home",
-        enterTransition = { fadeIn(PAGE_IN) + slideInHorizontally(PAGE_SLIDE) { it / 10 } },
-        exitTransition = { fadeOut(PAGE_OUT) + slideOutHorizontally(PAGE_SLIDE) { -it / 10 } },
-        popEnterTransition = { fadeIn(PAGE_IN) + slideInHorizontally(PAGE_SLIDE) { -it / 10 } },
-        popExitTransition = { fadeOut(PAGE_OUT) + slideOutHorizontally(PAGE_SLIDE) { it / 10 } },
+        enterTransition = { fadeIn(PAGE_IN) + slideInHorizontally(PAGE_SLIDE) { it / 4 } + scaleIn(PAGE_SCALE, initialScale = 0.9f) },
+        exitTransition = { fadeOut(PAGE_OUT) + slideOutHorizontally(PAGE_SLIDE) { -it / 8 } + scaleOut(PAGE_SCALE, targetScale = 0.95f) },
+        popEnterTransition = { fadeIn(PAGE_IN) + slideInHorizontally(PAGE_SLIDE) { -it / 4 } + scaleIn(PAGE_SCALE, initialScale = 0.9f) },
+        popExitTransition = { fadeOut(PAGE_OUT) + slideOutHorizontally(PAGE_SLIDE) { it / 8 } + scaleOut(PAGE_SCALE, targetScale = 0.95f) },
     ) {
         composable("home") { Page { HomeScreen() } }
         composable("weather") { Page { WeatherPage() } }

@@ -73,7 +73,7 @@ private val PEEK_CONTENT = 64.dp
 private val FlingThreshold = 400.dp
 private val ReverseSlop = 32.dp
 
-internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.86f, stiffness = 420f)
+internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.78f, stiffness = 420f)
 
 @Stable
 class SheetState(initial: SheetSnap) {
@@ -245,6 +245,8 @@ fun BottomSheet(
                 },
             ) { above() }
         }
+        // Under the sheet's bottom edge when its spring overshoots the top.
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(64.dp).background(MaterialTheme.colorScheme.surfaceContainerLow))
         Surface(
             Modifier
                 .fillMaxSize()

@@ -56,11 +56,9 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -109,7 +107,9 @@ import online.bus.bmarian.conexiuniclujmobile.data.Transfer
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.journey.AtStop
+import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
+import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
@@ -201,14 +201,9 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
                 Icon(Icons.Rounded.WarningAmber, null, Modifier.size(18.dp), tint = Palette.Amber)
                 Text(stringResource(R.string.w_language_desc), style = MaterialTheme.typography.bodySmall)
             }
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                listOf("ro" to "Română", "en" to "English").forEachIndexed { i, (tag, label) ->
-                    SegmentedButton(
-                        selected = locale == tag,
-                        onClick = { settings.setLocale(tag) },
-                        shape = SegmentedButtonDefaults.itemShape(i, 2),
-                    ) { Text(label) }
-                }
+            val languages = listOf("ro" to "Română", "en" to "English")
+            ChoiceRow(languages.map { it.first }, locale, settings::setLocale, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { tag ->
+                Text(languages.first { it.first == tag }.second)
             }
 
             Section(stringResource(R.string.w_display))
@@ -291,7 +286,13 @@ private fun Toggle(icon: ImageVector, title: String, description: String, checke
             }
         },
         supportingContent = { Text(description) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
+        trailingContent = {
+            Switch(
+                checked = checked,
+                onCheckedChange = onChange,
+                thumbContent = { PopIcon(if (checked) Icons.Rounded.Check else Icons.Rounded.Close, checked, Modifier.size(SwitchDefaults.IconSize)) },
+            )
+        },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     )
 }
@@ -305,11 +306,11 @@ private fun TransferPanel(vm: TransferViewModel) {
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { vm.openSend() }, modifier = Modifier.weight(1f)) {
+            Button(shapes = ButtonDefaults.shapes(), onClick = { vm.openSend() }, modifier = Modifier.weight(1f)) {
                 Icon(Icons.AutoMirrored.Rounded.Send, null, Modifier.size(18.dp))
                 Text(stringResource(R.string.w_transfer_send), Modifier.padding(start = 8.dp))
             }
-            Button(onClick = vm::openReceive, modifier = Modifier.weight(1f)) {
+            Button(shapes = ButtonDefaults.shapes(), onClick = vm::openReceive, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Rounded.QrCode2, null, Modifier.size(18.dp))
                 Text(stringResource(R.string.w_transfer_receive), Modifier.padding(start = 8.dp))
             }
@@ -320,11 +321,11 @@ private fun TransferPanel(vm: TransferViewModel) {
             else -> {}
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = vm::openExport, modifier = Modifier.weight(1f)) {
+            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::openExport, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp))
                 Text(stringResource(R.string.w_export_settings), Modifier.padding(start = 8.dp))
             }
-            FilledTonalButton(onClick = vm::openImport, modifier = Modifier.weight(1f)) {
+            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::openImport, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp))
                 Text(stringResource(R.string.w_import_settings), Modifier.padding(start = 8.dp))
             }
@@ -347,6 +348,7 @@ private fun TransferPanel(vm: TransferViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (export) {
                     Button(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = {
                             val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
                             context.startActivity(Intent.createChooser(send, null))
@@ -360,6 +362,7 @@ private fun TransferPanel(vm: TransferViewModel) {
                     }
                 } else {
                     Button(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = vm::doImport,
                         enabled = text.isNotBlank() && importState == "idle",
                         modifier = Modifier.weight(1f),
@@ -374,7 +377,7 @@ private fun TransferPanel(vm: TransferViewModel) {
                         )
                     }
                 }
-                OutlinedButton(onClick = vm::cancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_cancel)) }
+                OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = vm::cancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_cancel)) }
             }
         }
     }
@@ -411,6 +414,7 @@ private fun SendPanel(vm: TransferViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val failed = state == SendState.Unknown || state == SendState.Limited || state == SendState.Failed
                 Button(
+                    shapes = ButtonDefaults.shapes(),
                     onClick = vm::doSend,
                     enabled = vm.canSend() || state != SendState.Idle,
                     modifier = Modifier.weight(1f),
@@ -431,7 +435,7 @@ private fun SendPanel(vm: TransferViewModel) {
                         },
                     )
                 }
-                OutlinedButton(onClick = vm::cancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_cancel)) }
+                OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = vm::cancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_cancel)) }
             }
         }
     }
@@ -480,16 +484,16 @@ private fun ReceivePanel(vm: TransferViewModel) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (state) {
-                    ReceiveState.Done -> Button(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) {
+                    ReceiveState.Done -> Button(shapes = ButtonDefaults.shapes(), onClick = {}, enabled = false, modifier = Modifier.weight(1f)) {
                         Text("✓ " + stringResource(R.string.w_receive_done))
                     }
-                    ReceiveState.Review -> Button(onClick = vm::accept, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_receive_replace)) }
+                    ReceiveState.Review -> Button(shapes = ButtonDefaults.shapes(), onClick = vm::accept, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_receive_replace)) }
                     ReceiveState.Expired, ReceiveState.Failed, ReceiveState.Broken ->
-                        Button(onClick = vm::startReceive, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_transfer_new_code)) }
+                        Button(shapes = ButtonDefaults.shapes(), onClick = vm::startReceive, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_transfer_new_code)) }
                     else -> {}
                 }
                 if (state != ReceiveState.Done) {
-                    TextButton(onClick = vm::cancel, modifier = Modifier.weight(1f)) {
+                    TextButton(shapes = ButtonDefaults.shapes(), onClick = vm::cancel, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Rounded.Close, null, Modifier.size(16.dp))
                         Text(stringResource(R.string.w_cancel), Modifier.padding(start = 4.dp))
                     }
@@ -525,14 +529,11 @@ private fun ThemeRow(theme: ThemeMode, onChange: (ThemeMode) -> Unit) {
         Triple(ThemeMode.Dark, Icons.Rounded.DarkMode, R.string.w_theme_dark),
         Triple(ThemeMode.System, Icons.Rounded.BrightnessMedium, R.string.w_theme_system),
     )
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        options.forEachIndexed { i, (mode, icon, label) ->
-            SegmentedButton(
-                selected = theme == mode,
-                onClick = { onChange(mode) },
-                shape = SegmentedButtonDefaults.itemShape(i, options.size),
-                icon = { Icon(icon, null, Modifier.size(16.dp)) },
-            ) { Text(stringResource(label), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        }
+    ChoiceRow(
+        options.map { it.first }, theme, onChange,
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        icon = { mode -> options.first { it.first == mode }.second },
+    ) { mode ->
+        Text(stringResource(options.first { it.first == mode }.third), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

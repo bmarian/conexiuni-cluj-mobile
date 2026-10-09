@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -249,8 +250,8 @@ fun RoutePong(shortName: String, color: String, onExit: () -> Unit) {
                 )
                 Text("${g?.scoreR ?: 0} – ${g?.scoreL ?: 0}", style = MaterialTheme.typography.titleMedium, color = ink)
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { round++ }) { Text(stringResource(R.string.w_pong_play_again)) }
-                    FilledTonalButton(onClick = onExit) { Text(stringResource(R.string.w_pong_exit)) }
+                    Button(shapes = ButtonDefaults.shapes(), onClick = { round++ }) { Text(stringResource(R.string.w_pong_play_again)) }
+                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onExit) { Text(stringResource(R.string.w_pong_exit)) }
                 }
             }
         }

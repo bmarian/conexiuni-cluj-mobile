@@ -14,8 +14,8 @@
     <string name="follow_arriving">Arriving in %1$s</string>
     <string name="follow_now">Arriving now</string>
     <string name="follow_waiting">Looking for the bus…</string>
-    <string name="follow_ended">The bus has left %1$s.</string>
-    <string name="follow_no_bus">No more departures to follow.</string>
+    <string name="follow_done">Arrived at %1$s</string>
+    <string name="follow_no_bus">No more buses to follow</string>
     <string name="eta_minutes" translatable="false">%1$d min</string>
     <string name="now">now</string>
     <string name="more_options">More options</string>
@@ -36,8 +36,10 @@
     <string name="journey_next">Next step</string>
     <string name="journey_end">End</string>
     <string name="journey_start">Start</string>
-    <string name="journey_wake_me">Wake me before my stop</string>
-    <string name="journey_pick_stop">Tap the stop where you get off</string>
+    <string name="stop_menu_notify">Notify me when the bus gets here</string>
+    <string name="stop_menu_notify_off">Stop notifying me</string>
+    <string name="stop_menu_wake">Wake me before this stop</string>
+    <string name="stops_hold_hint">hold a stop for alerts</string>
     <plurals name="journey_stops_left">
         <item quantity="one">%d stop left</item>
         <item quantity="other">%d stops left</item>

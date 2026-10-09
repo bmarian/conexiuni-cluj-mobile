@@ -33,6 +33,8 @@ data class FollowSync(
     val arrivalAt: Long? = null,
     // "left", "none" or "stopped" once over.
     val end: String? = null,
+    // Buzz for this update.
+    val alert: Boolean = false,
 )
 
 data class FollowState(
@@ -44,7 +46,7 @@ data class FollowState(
     val arrivalAt: Long? = null,
     val remote: Boolean = false,
 ) {
-    fun toSync(end: String? = null) = FollowSync(id, followed, minutes, live, later, arrivalAt, end)
+    fun toSync(end: String? = null, alert: Boolean = false) = FollowSync(id, followed, minutes, live, later, arrivalAt, end, alert)
 }
 
 object FollowManager {

@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.toArgb
 
 internal const val FOLLOW_NOTIFICATION_ID = 7
 private const val MIRROR_NOTIFICATION_ID = 9
-private const val ENDED_NOTIFICATION_ID = 8
+private const val DONE_SHOWN_MS = 2 * 60_000L
 
 object FollowNotifications {
     const val FOLLOW_CHANNEL = "follow"
@@ -59,7 +59,7 @@ object FollowNotifications {
         val (title, text) = if (minutes == null) context.getString(R.string.follow_waiting) to null else arrivingAtText(context, followed.stopName, minutes, nowMs)
         val builder = Notification.Builder(context, if (alert) ALERT_CHANNEL else FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
-            .setLargeIcon(LineIcon.of(context, followed.shortName, followed.color))
+            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
             .setContentTitle(title)
             .setContentText(text)
             .setColor(color)
@@ -81,49 +81,50 @@ object FollowNotifications {
             // Live Updates need Android 16 QPR1.
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
             builder.setShortCriticalText(if (minutes == null) followed.shortName else chipText(context, minutes, nowMs))
-            builder.setStyle(progress(context, state, color))
+            builder.setStyle(progress(context, state.followed, color, percentDone(state)))
         }
         return builder.build()
     }
 
-    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    private fun progress(context: Context, state: FollowState, color: Int): Notification.ProgressStyle {
-        val minutes = state.minutes
+    private fun percentDone(state: FollowState): Int {
+        val minutes = state.minutes ?: return 0
         val from = progressFrom?.takeIf { it.first == state.id }?.second
-        val start = when {
-            minutes == null -> null
-            from == null || minutes > from -> minutes.coerceAtLeast(1)
-            else -> from
-        }
-        if (start != null) progressFrom = state.id to start
-        val done = if (start == null || minutes == null) 0 else ((start - minutes.coerceAtLeast(0)) * 100 / start).coerceIn(0, 100)
-        return Notification.ProgressStyle()
-            .setStyledByProgress(true)
-            .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100).setColor(color)))
-            .setProgressPoints(listOf(Notification.ProgressStyle.Point(100).setColor(color)))
-            .setProgressTrackerIcon(trackerIcon(context, R.drawable.ic_bus))
-            .setProgress(done)
+        val start = if (from == null || minutes > from) minutes.coerceAtLeast(1) else from
+        progressFrom = state.id to start
+        return ((start - minutes.coerceAtLeast(0)) * 100 / start).coerceIn(0, 100)
     }
 
-    fun ended(context: Context, followed: Followed, reason: String?) {
-        val message = when (reason) {
-            "left" -> context.getString(R.string.follow_ended, followed.stopName)
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun progress(context: Context, followed: Followed, color: Int, done: Int): Notification.ProgressStyle =
+        Notification.ProgressStyle()
+            .setStyledByProgress(true)
+            .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100).setColor(color)))
+            .setProgressTrackerIcon(NotificationArt.bus(context, followed.color))
+            .setProgressEndIcon(NotificationArt.stop(context))
+            .setProgress(done)
+
+    /** The follow card's final state, posted over it once the bus has come. Null when it should just go. */
+    fun done(context: Context, followed: Followed, reason: String?): Notification? {
+        val title = when (reason) {
+            "left" -> context.getString(R.string.follow_done, followed.stopName)
             "none" -> context.getString(R.string.follow_no_bus)
-            else -> null
+            else -> return null
         }
-        if (message == null) return
         ensureChannels(context)
-        val done = Notification.Builder(context, FOLLOW_CHANNEL)
+        val color = routeColor(followed.color).toArgb()
+        val builder = Notification.Builder(context, FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
-            .setLargeIcon(LineIcon.of(context, followed.shortName, followed.color))
-            .setContentTitle(message)
-            .setColor(routeColor(followed.color).toArgb())
+            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
+            .setContentTitle(title)
+            .setColor(color)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
             .setLocalOnly(true)
             .setAutoCancel(true)
-            .setTimeoutAfter(5 * 60_000L)
+            .setTimeoutAfter(DONE_SHOWN_MS)
             .setContentIntent(openStop(context, followed.stopId))
-            .build()
-        runCatching { manager(context).notify(ENDED_NOTIFICATION_ID, done) }
+        if (reason == "left" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) builder.setStyle(progress(context, followed, color, 100))
+        return builder.build()
     }
 
     fun showMirror(context: Context, state: FollowState) {
@@ -136,8 +137,8 @@ object FollowNotifications {
     }
 
     fun endMirror(context: Context, sync: FollowSync) {
-        clearMirror(context)
-        ended(context, sync.followed, sync.end)
+        val done = done(context, sync.followed, sync.end) ?: return clearMirror(context)
+        runCatching { manager(context).notify(MIRROR_NOTIFICATION_ID, done) }
     }
 
     fun clearMirror(context: Context) {

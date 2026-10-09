@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -158,7 +159,7 @@ fun LoadingRow(modifier: Modifier = Modifier, text: String? = null) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CircularProgressIndicator(Modifier.size(32.dp))
+        LoadingIndicator(Modifier.size(56.dp))
         if (text != null) {
             Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -206,11 +207,10 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         if (live) RealtimeIcon(content, size = 10.dp)
-        Text(
+        Ticker(
             text,
             style = TextStyle(fontSize = 13.sp, fontWeight = if (extra) FontWeight.Medium else FontWeight.Bold),
             color = content,
-            maxLines = 1,
         )
     }
 }

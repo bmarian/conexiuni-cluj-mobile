@@ -1,12 +1,14 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,9 +38,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -48,8 +54,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.WeatherApi
+import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
+import online.bus.bmarian.conexiuniclujmobile.ui.squish
 
 @Composable
 fun HomeChrome(onSearch: () -> Unit, modifier: Modifier = Modifier) {
@@ -134,18 +142,29 @@ private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspec
 fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
         AnimatedVisibility(map.shapes.isNotEmpty(), enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+            val press = remember { MutableInteractionSource() }
             SmallFloatingActionButton(
                 onClick = map::fitShapes,
+                modifier = Modifier.squish(press, 0.85f),
+                interactionSource = press,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
             ) { Icon(Icons.Rounded.CropFree, contentDescription = stringResource(R.string.w_fit_routes)) }
         }
+        val press = remember { MutableInteractionSource() }
+        var spins by remember { mutableIntStateOf(0) }
+        val spin by animateFloatAsState(spins * 90f, Bouncy.pop, label = "spin")
         FloatingActionButton(
-            onClick = map::centerOnUser,
+            onClick = {
+                spins++
+                map.centerOnUser()
+            },
+            modifier = Modifier.squish(press, 0.85f),
+            interactionSource = press,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.primary,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
-        ) { Icon(Icons.Rounded.MyLocation, contentDescription = stringResource(R.string.w_center)) }
+        ) { Icon(Icons.Rounded.MyLocation, contentDescription = stringResource(R.string.w_center), Modifier.rotate(spin)) }
     }
 }

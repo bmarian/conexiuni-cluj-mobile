@@ -1,6 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.theme
 
+import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -130,6 +132,6 @@ fun ConexiuniTheme(dark: Boolean, dynamic: Boolean = true, content: @Composable 
         LocalDarkTheme provides dark,
         LocalLiveColors provides if (dark) LiveDark else LiveLight,
     ) {
-        MaterialTheme(colorScheme = scheme, content = content)
+        MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive(), content = content)
     }
 }

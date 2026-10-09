@@ -1,6 +1,5 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +52,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.formatMeters
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.RouteRow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import java.text.Normalizer
@@ -193,7 +193,7 @@ fun LazyListScope.searchResults(
         item {
             if (online) {
                 Row(
-                    Modifier.fillMaxWidth().clickable(onClick = onDropPin).padding(horizontal = 16.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().squishClickable(onClick = onDropPin).padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -213,7 +213,7 @@ fun LazyListScope.searchResults(
 @Composable
 fun ResultRow(icon: @Composable () -> Unit, title: String, distance: String?, subtitle: String? = null, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

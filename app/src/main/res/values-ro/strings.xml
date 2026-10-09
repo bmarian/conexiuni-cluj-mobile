@@ -13,8 +13,8 @@
     <string name="follow_arriving">Sosește în %1$s</string>
     <string name="follow_now">Sosește acum</string>
     <string name="follow_waiting">Se caută autobuzul…</string>
-    <string name="follow_ended">Autobuzul a plecat din %1$s.</string>
-    <string name="follow_no_bus">Nu mai sunt plecări de urmărit.</string>
+    <string name="follow_done">A ajuns în stația %1$s</string>
+    <string name="follow_no_bus">Nu mai sunt autobuze de urmărit</string>
     <string name="now">acum</string>
     <string name="more_options">Mai multe opțiuni</string>
     <string name="open_on_watch">Deschide pe ceas</string>
@@ -34,8 +34,10 @@
     <string name="journey_next">Pasul următor</string>
     <string name="journey_end">Încheie</string>
     <string name="journey_start">Pornește</string>
-    <string name="journey_wake_me">Anunță-mă înainte de stație</string>
-    <string name="journey_pick_stop">Atinge stația la care cobori</string>
+    <string name="stop_menu_notify">Anunță-mă când vine autobuzul</string>
+    <string name="stop_menu_notify_off">Nu mă mai anunța</string>
+    <string name="stop_menu_wake">Anunță-mă înainte de această stație</string>
+    <string name="stops_hold_hint">ține apăsat pe o stație pentru alerte</string>
     <plurals name="journey_stops_left">
         <item quantity="one">Mai e %d stație</item>
         <item quantity="few">Mai sunt %d stații</item>

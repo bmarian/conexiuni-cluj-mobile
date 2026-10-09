@@ -92,6 +92,7 @@ fun ToastHost(modifier: Modifier = Modifier) {
             action = toast.actionLabel?.let { label ->
                 {
                     TextButton(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = data::performAction,
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inversePrimary),
                     ) { Text(label) }

@@ -30,11 +30,9 @@ import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,6 +55,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 
 private enum class Step { Welcome, Location, Notifications, Watch }
 
@@ -122,39 +121,33 @@ fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
                         Text(stringResource(R.string.w_language), style = MaterialTheme.typography.labelLarge)
                         Spacer(Modifier.height(8.dp))
                         val options = listOf("ro" to "Română", "en" to "English")
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                            options.forEachIndexed { i, (tag, label) ->
-                                SegmentedButton(
-                                    selected = locale == tag,
-                                    onClick = { settings.setLocale(tag) },
-                                    shape = SegmentedButtonDefaults.itemShape(i, options.size),
-                                ) { Text(label) }
-                            }
+                        ChoiceRow(options.map { it.first }, locale, settings::setLocale, Modifier.fillMaxWidth()) { tag ->
+                            Text(options.first { it.first == tag }.second)
                         }
                     }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 when (step) {
-                    Step.Welcome -> Button(onClick = ::next) { Text(stringResource(R.string.onboard_next)) }
+                    Step.Welcome -> Button(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_next)) }
                     Step.Location -> {
-                        TextButton(onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
-                        Button(onClick = {
+                        TextButton(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
+                        Button(shapes = ButtonDefaults.shapes(), onClick = {
                             location.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                         }) { Text(stringResource(R.string.onboard_allow)) }
                     }
                     Step.Notifications -> {
-                        TextButton(onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
-                        Button(onClick = { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text(stringResource(R.string.onboard_allow)) }
+                        TextButton(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
+                        Button(shapes = ButtonDefaults.shapes(), onClick = { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text(stringResource(R.string.onboard_allow)) }
                     }
                     Step.Watch -> {
                         if (!watch) {
-                            TextButton(onClick = {
+                            TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                                 onDone()
                                 onImport()
                             }) { Text(stringResource(R.string.onboard_import)) }
                         }
-                        Button(onClick = onDone) { Text(stringResource(R.string.onboard_done)) }
+                        Button(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(stringResource(R.string.onboard_done)) }
                     }
                 }
             }

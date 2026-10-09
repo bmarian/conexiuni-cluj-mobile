@@ -15,8 +15,7 @@ import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowNotifications
-import online.bus.bmarian.conexiuniclujmobile.follow.LineIcon
-import online.bus.bmarian.conexiuniclujmobile.follow.trackerIcon
+import online.bus.bmarian.conexiuniclujmobile.follow.NotificationArt
 import online.bus.bmarian.conexiuniclujmobile.follow.chipText
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
@@ -59,11 +58,11 @@ object JourneyNotifications {
             .setContentIntent(open(context, journey))
             .addAction(action(context, R.string.journey_next, JourneyActionReceiver.NEXT, 20))
             .addAction(action(context, R.string.journey_end, JourneyActionReceiver.END, 21))
-        sync.line?.let { builder.setLargeIcon(LineIcon.of(context, it, sync.color)) }
+        sync.line?.let { builder.setLargeIcon(NotificationArt.badge(context, it, sync.color)) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
             builder.setShortCriticalText(chip(context, sync))
-            builder.setStyle(bar(context, progress))
+            builder.setStyle(bar(context, progress, sync))
         }
         return builder.build()
     }
@@ -78,14 +77,16 @@ object JourneyNotifications {
     }
 
     @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    private fun bar(context: Context, progress: JourneyProgress): Notification.ProgressStyle {
+    private fun bar(context: Context, progress: JourneyProgress, sync: JourneySync): Notification.ProgressStyle {
         val total = progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)
         // Segments must sum to the bar length; the last one takes the rounding.
         val lengths = progress.parts.map { (it.minutes / total * 1000).toInt().coerceAtLeast(1) }.toMutableList()
         lengths[lengths.lastIndex] += 1000 - lengths.sum()
         val segments = progress.parts.mapIndexed { i, part ->
+            // The current ride takes the colour of the bus actually coming.
+            val color = if (part.ride && part.leg == sync.legIndex) sync.color ?: part.color else part.color
             Notification.ProgressStyle.Segment(lengths[i].coerceAtLeast(1))
-                .setColor(part.color?.let { routeColor(it).toArgb() } ?: WALK_GREY)
+                .setColor(color?.let { routeColor(it).toArgb() } ?: WALK_GREY)
         }
         var at = 0
         val points = lengths.dropLast(1).map { length ->
@@ -96,7 +97,8 @@ object JourneyNotifications {
             .setStyledByProgress(true)
             .setProgressSegments(segments)
             .setProgressPoints(points)
-            .setProgressTrackerIcon(trackerIcon(context, if (progress.riding) R.drawable.ic_bus else R.drawable.ic_walk))
+            .setProgressTrackerIcon(if (progress.riding) NotificationArt.bus(context, sync.color) else NotificationArt.walker(context))
+            .setProgressEndIcon(NotificationArt.destination(context))
             .setProgress((progress.doneMinutes / total * 1000).toInt().coerceIn(0, 1000))
     }
 

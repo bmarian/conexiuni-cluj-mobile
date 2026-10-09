@@ -1,7 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
+import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
@@ -60,8 +61,13 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.moved
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberReorderState
 import online.bus.bmarian.conexiuniclujmobile.ui.reorderItem
+import online.bus.bmarian.conexiuniclujmobile.ui.squish
+import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 
-private class RouteChip(val route: Route, val destination: String, val name: String)
+/** One chip per line: both directions saved show as one and open the direction nearest the user. */
+private class RouteChip(val route: Route, val label: String, val favorites: List<FavoriteRoute>) {
+    val direction get() = favorites.singleOrNull()?.direction ?: "auto"
+}
 
 private fun planKey(p: FavoritePlan) = "${p.lat}_${p.lon}_${p.originLat ?: ""}_${p.originLon ?: ""}"
 
@@ -94,13 +100,19 @@ fun HomeScreen() {
     val routesById = remember(routes) { routes.associateBy { it.routeId } }
     val stopsById = remember(stops) { stops.associateBy { it.stopId } }
     val chips = remember(routesById, favoriteRoutes) {
-        favoriteRoutes.mapNotNull { fav ->
-            val route = routesById[fav.routeId] ?: return@mapNotNull null
+        favoriteRoutes.groupBy { it.routeId }.mapNotNull { (routeId, favorites) ->
+            val route = routesById[routeId] ?: return@mapNotNull null
             val longName = route.longName
             val i = longName.lastIndexOf(" - ")
             val origin = if (i >= 0) longName.substring(0, i) else ""
             val end = if (i >= 0) longName.substring(i + 3) else longName
-            fav to if (fav.direction == "1" && origin.isNotEmpty()) RouteChip(route, origin, "$end - $origin") else RouteChip(route, end, longName)
+            val label = when {
+                origin.isEmpty() -> if (favorites.size > 1) longName else "→ $end"
+                favorites.size > 1 -> "$origin ⇄ $end"
+                favorites[0].direction == "1" -> "→ $origin"
+                else -> "→ $end"
+            }
+            RouteChip(route, label, favorites)
         }
     }
     val favoriteStops = remember(stopsById, favoriteStopIds) { favoriteStopIds.mapNotNull { stopsById[it] } }
@@ -109,13 +121,15 @@ fun HomeScreen() {
         recentPlans.filterNot { p -> favoritePlans.any { it.samePlace(p) } }.take(5)
     }
 
-    fun openRoute(route: Route, direction: String?) = nav.route(route.routeId, direction ?: "auto")
+    fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
 
     fun openPlan(plan: FavoritePlan) {
         if (online) nav.plan(planQueryFor(plan))
     }
 
-    val routeReorder = rememberReorderState(favoriteRoutes) { from, to -> Services.favorites.reorderRoutes(favoriteRoutes.moved(from, to)) }
+    val routeReorder = rememberReorderState(chips.map { it.route.routeId }) { from, to ->
+        Services.favorites.reorderRoutes(chips.moved(from, to).flatMap { it.favorites })
+    }
     val stopReorder = rememberReorderState(favoriteStopIds) { from, to -> Services.favorites.reorderStops(favoriteStopIds.moved(from, to)) }
     val planReorder = rememberReorderState(favoritePlans.map(::planKey)) { from, to -> Services.favorites.reorderPlans(favoritePlans.moved(from, to)) }
 
@@ -151,12 +165,13 @@ fun HomeScreen() {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     maxItemsInEachRow = 2,
                 ) {
-                    for ((fav, chip) in chips) key(fav) {
+                    for (chip in chips) key(chip.route.routeId) {
+                        val id = chip.route.routeId
                         FavoriteRouteChip(
                             chip = chip,
-                            modifier = Modifier.weight(1f).reorderItem(routeReorder, fav).longPressDrag(routeReorder, fav),
-                            onClick = { openRoute(chip.route, fav.direction) },
-                            onRemove = { Services.favorites.toggleRoute(fav.routeId, fav.direction) },
+                            modifier = Modifier.weight(1f).reorderItem(routeReorder, id).longPressDrag(routeReorder, id),
+                            onClick = { openRoute(chip.route, chip.direction) },
+                            onRemove = { chip.favorites.forEach { Services.favorites.toggleRoute(it.routeId, it.direction) } },
                         )
                     }
                     if (chips.size % 2 == 1) Spacer(Modifier.weight(1f))
@@ -237,16 +252,18 @@ private fun FavoriteRouteChip(
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val press = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.squish(press, 0.93f),
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
+        interactionSource = press,
     ) {
         Row(Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             LineBadge(chip.route.shortName, chip.route.color, height = 28.dp, minWidth = 36.dp, corner = 8.dp)
             Text(
-                "→ ${chip.destination}",
+                chip.label,
                 Modifier.weight(1f).padding(start = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
@@ -272,7 +289,7 @@ private fun FavoriteRow(
     titlePrefix: String? = null,
 ) {
     Row(
-        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).clickable(onClick = onClick)
+        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).squishClickable(onClick = onClick)
             .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

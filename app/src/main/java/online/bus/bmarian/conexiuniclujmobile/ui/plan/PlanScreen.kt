@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,11 +52,13 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -63,7 +66,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -127,6 +130,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapPin
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberNow
 import online.bus.bmarian.conexiuniclujmobile.ui.share
+import online.bus.bmarian.conexiuniclujmobile.ui.squish
+import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
@@ -411,7 +416,7 @@ private fun NotFound(onHome: () -> Unit) {
         Icon(Icons.Rounded.DirectionsBus, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outlineVariant)
         Text(stringResource(R.string.w_not_found), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(stringResource(R.string.w_not_found_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        Button(onClick = onHome) { Text(stringResource(R.string.w_home)) }
+        Button(shapes = ButtonDefaults.shapes(), onClick = onHome) { Text(stringResource(R.string.w_home)) }
     }
 }
 
@@ -484,7 +489,7 @@ private fun EndpointRow(dot: Color, top: Rail?, bottom: Rail?, label: String, va
         bottom = bottom,
         dot = TimelineDot.Station,
         color = dot,
-        modifier = Modifier.clickable(enabled = enabled, onClick = onOpen).alpha(if (enabled) 1f else 0.5f),
+        modifier = Modifier.squishClickable(enabled = enabled, onClick = onOpen).alpha(if (enabled) 1f else 0.5f),
         trailing = { Icon(Icons.Rounded.Edit, null, Modifier.padding(8.dp).size(16.dp), tint = MaterialTheme.colorScheme.outline) },
     ) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -541,7 +546,7 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
 @Composable
 private fun SearchResultRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: Color, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).squishClickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -670,7 +675,7 @@ private fun TimeFilter(
                     singleLine = true,
                     label = { Text(stringResource(R.string.w_plan_time_filter_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                 )
                 ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -683,7 +688,7 @@ private fun TimeFilter(
                 }
             }
             if (mode == TimeMode.Leave || mode == TimeMode.Arrive) {
-                FilledTonalButton(onClick = onSearch, enabled = !calculating && value.isNotEmpty() && hasOrigin) {
+                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onSearch, enabled = !calculating && value.isNotEmpty() && hasOrigin) {
                     Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.w_plan_time_search_aria), Modifier.size(18.dp))
                     Text(stringResource(R.string.w_plan_time_search), Modifier.padding(start = 4.dp))
                 }
@@ -723,9 +728,11 @@ private fun PlanCard(
 ) {
     val nowLabel = stringResource(R.string.w_now)
     val first = plan.nextTimes.firstOrNull()
+    val press = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press),
+        interactionSource = press,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
         ),

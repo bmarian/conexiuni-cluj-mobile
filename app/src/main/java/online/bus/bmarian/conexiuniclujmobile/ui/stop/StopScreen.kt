@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,10 +42,12 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -97,11 +100,13 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
 import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
+import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.RealtimeIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SectionLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
+import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberFollowToggle
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
@@ -110,6 +115,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.route.RouteHandoff
 import online.bus.bmarian.conexiuniclujmobile.ui.share
 import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.squish
+import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
@@ -210,6 +217,7 @@ fun StopScreen(stopId: Int) {
         if (WidgetPinning.supported(context)) {
             add(MenuAction(stringResource(R.string.add_widget), Icons.Rounded.Widgets) { WidgetPinning.pinStop(context, stopId, name.orEmpty()) })
         }
+        if (watch) add(MenuAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/stop/$stopId") } })
         add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
     }
 
@@ -265,7 +273,6 @@ fun StopScreen(stopId: Int) {
                         Services.favorites.toggleStop(stopId)
                     },
                     ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, "/stop/$stopId") },
-                    if (watch) ChipAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/stop/$stopId") } } else null,
                 ),
                 Modifier.padding(bottom = 8.dp),
             )
@@ -275,7 +282,7 @@ fun StopScreen(stopId: Int) {
             failed && info == null -> item {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.load_failed), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FilledTonalButton(onClick = vm::load) { Text(stringResource(R.string.retry)) }
+                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::load) { Text(stringResource(R.string.retry)) }
                 }
             }
             else -> {
@@ -283,13 +290,14 @@ fun StopScreen(stopId: Int) {
                 when {
                     departures == null -> items(3) { DepartureSkeleton() }
                     departures.isEmpty() -> item { MessageText(stringResource(R.string.w_no_schedule)) }
-                    else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { _, (_, departure) ->
+                    else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { index, (_, departure) ->
                         val isFollowed = following?.followed?.let {
                             it.stopId == stopId && it.routeId == departure.routeId && it.tripId == departure.tripId
                         } == true
                         DepartureCard(
                             departure, ui!!.now, vm.isDepartureFavorite(departure),
                             following = isFollowed,
+                            modifier = Modifier.animateItem().cascade(index, stopId),
                             onFollow = {
                                 toggleFollow(
                                     Followed(
@@ -358,12 +366,15 @@ fun DepartureCard(
     favorite: Boolean,
     following: Boolean = false,
     onFollow: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val live = !departure.isStatic
+    val press = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press),
+        interactionSource = press,
         colors = CardDefaults.cardColors(
             containerColor = if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -416,10 +427,11 @@ fun DepartureCard(
                 }
             }
             if (onFollow != null) {
-                IconToggleButton(checked = following, onCheckedChange = { onFollow() }) {
-                    Icon(
+                IconToggleButton(checked = following, onCheckedChange = { onFollow() }, shapes = IconButtonDefaults.toggleableShapes()) {
+                    PopIcon(
                         if (following) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationAdd,
-                        stringResource(if (following) R.string.stop_following else R.string.follow),
+                        following,
+                        contentDescription = stringResource(if (following) R.string.stop_following else R.string.follow),
                         tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -457,7 +469,7 @@ fun RouteRow(shortName: String, color: String, name: String, favorite: Boolean =
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(enabled = !busy, onClick = onClick)
+            .squishClickable(enabled = !busy, onClick = onClick)
             .background(if (favorite) Palette.Rose.copy(alpha = 0.06f) else Color.Transparent)
             .padding(horizontal = 16.dp, vertical = 10.dp)
             .alpha(if (busy) 0.6f else 1f),

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -49,6 +51,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberNow
+import online.bus.bmarian.conexiuniclujmobile.ui.squish
 
 @Composable
 fun rememberFollowToggle(): (Followed) -> Unit {
@@ -100,9 +103,11 @@ suspend fun openOnWatch(context: Context, path: String) {
 fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val followed = state.followed
     val now = rememberNow()
+    val press = remember { MutableInteractionSource() }
     Card(
         onClick = onOpen,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().squish(press),
+        interactionSource = press,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
         Row(
@@ -139,7 +144,7 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.minutes?.let { TimePill(minutesLabel(it, now), live = state.live) }
-                FilledTonalButton(onClick = onStop) { Text(stringResource(R.string.stop_following)) }
+                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onStop) { Text(stringResource(R.string.stop_following)) }
             }
         }
     }
@@ -148,9 +153,11 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
 @Composable
 fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modifier: Modifier = Modifier, onOpen: (() -> Unit)? = null) {
     val now = rememberNow()
+    val press = remember { MutableInteractionSource() }
     Card(
         onClick = { onOpen?.invoke() },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().squish(press),
+        interactionSource = press,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
     ) {
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -178,10 +185,10 @@ fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modif
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onEnd) { Text(stringResource(R.string.journey_end)) }
-                TextButton(onClick = onNext) { Text(stringResource(R.string.journey_next)) }
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = onEnd) { Text(stringResource(R.string.journey_end)) }
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = onNext) { Text(stringResource(R.string.journey_next)) }
                 if (onOpen != null) {
-                    Button(onClick = onOpen) {
+                    Button(shapes = ButtonDefaults.shapes(), onClick = onOpen) {
                         Icon(Icons.Rounded.Navigation, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.nav_resume))

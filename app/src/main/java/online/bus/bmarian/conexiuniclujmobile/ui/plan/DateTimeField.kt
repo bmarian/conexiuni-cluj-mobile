@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,12 +82,12 @@ fun DateTimeField(value: String, minMs: Long, label: String, onValue: (String) -
         DatePickerDialog(
             onDismissRequest = { step = 0 },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                     pickedDate = state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } ?: today
                     step = 2
                 }) { Text(stringResource(android.R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { step = 0 }) { Text(stringResource(R.string.w_cancel)) } },
+            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { step = 0 }) { Text(stringResource(R.string.w_cancel)) } },
         ) { DatePicker(state) }
     }
     if (step == 2) {
@@ -94,13 +95,13 @@ fun DateTimeField(value: String, minMs: Long, label: String, onValue: (String) -
         AlertDialog(
             onDismissRequest = { step = 0 },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                     val date = pickedDate ?: today
                     onValue(LocalDateTime.of(date.year, date.month, date.dayOfMonth, time.hour, time.minute).format(MODEL))
                     step = 0
                 }) { Text(stringResource(android.R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { step = 0 }) { Text(stringResource(R.string.w_cancel)) } },
+            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { step = 0 }) { Text(stringResource(R.string.w_cancel)) } },
             text = { TimePicker(time) },
         )
     }

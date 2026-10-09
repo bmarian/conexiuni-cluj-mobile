@@ -30,6 +30,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 
 private const val TICK_MS = 15_000L
+private const val LIVE_WAIT_MS = 6_000L
 private const val STOP_INFO_REFRESH_MS = 120_000L
 private const val SOON_MINUTES = 2
 private const val GIVE_UP_MS = 90 * 60_000L
@@ -80,7 +81,8 @@ class FollowService : Service() {
         val startedAt = System.currentTimeMillis()
         val info = MutableStateFlow(repository.cachedStopInfo(followed.stopId)?.only(followed.routeId))
         val shapes = runCatching { repository.shapes(listOf(followed.tripId)) }.getOrDefault(emptyMap())
-        val vehicles = MutableStateFlow<Map<String, List<Vehicle>>>(emptyMap())
+        // Null until the first live snapshot, so a bus the timetable still shows as due isn't taken as arrived.
+        val vehicles = MutableStateFlow<Map<String, List<Vehicle>>?>(null)
         val clock = MutableStateFlow(startedAt)
 
         launch {
@@ -91,6 +93,10 @@ class FollowService : Service() {
         }
         launch { VehicleStream.vehicles(listOf(followed.tripId)).collect { vehicles.value = it } }
         launch {
+            delay(LIVE_WAIT_MS)
+            if (vehicles.value == null) vehicles.value = emptyMap()
+        }
+        launch {
             while (true) {
                 delay(TICK_MS)
                 clock.value = System.currentTimeMillis()
@@ -98,7 +104,7 @@ class FollowService : Service() {
         }
 
         val progress = Progress()
-        combine(info.filterNotNull(), vehicles, clock) { stop, buses, nowMs ->
+        combine(info.filterNotNull(), vehicles.filterNotNull(), clock) { stop, buses, nowMs ->
             withContext(Dispatchers.Default) {
                 val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
                 computeStopDepartures(stop, shapes, buses, now, nowMs)
@@ -120,16 +126,18 @@ class FollowService : Service() {
         val followed = start.followed
         val first = departure?.nextTimes?.firstOrNull() ?: return end(start, "none")
         val minutes = first.minutes
-        if (progress.arrived && minutes > (progress.lastMinutes ?: 0) + 2) return end(start, "left")
+        // A jump after the bus was close means it passed, even if no reading caught it at 0.
+        if (progress.alertedSoon && minutes > (progress.lastMinutes ?: 0) + 2) return end(start, "left")
+        // Only changes after the first reading buzz: the user just asked.
+        val opening = progress.lastMinutes == null
         var alert = false
-        if (minutes <= SOON_MINUTES && !progress.alertedSoon && minutes > 0) {
+        if (minutes <= SOON_MINUTES && !progress.alertedSoon) {
             progress.alertedSoon = true
-            alert = true
+            alert = !opening && minutes > 0
         }
         if (minutes == 0 && !progress.arrived) {
             progress.arrived = true
-            progress.alertedSoon = true
-            alert = true
+            alert = !opening
         }
         progress.lastMinutes = minutes
 
@@ -144,7 +152,7 @@ class FollowService : Service() {
         current = state
         if (FollowManager.state.value?.id != start.id) return
         FollowManager.mutableState.value = state
-        WearLink.sendState(this, state.toSync())
+        WearLink.sendState(this, state.toSync(alert = alert))
         getSystemService(NotificationManager::class.java)
             .notify(FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state, alert))
     }
@@ -152,9 +160,15 @@ class FollowService : Service() {
     private fun end(state: FollowState, reason: String) {
         ended = true
         WearLink.sendState(this, (current ?: state).toSync(end = reason))
-        FollowNotifications.ended(this, state.followed, reason)
         if (FollowManager.state.value?.id == state.id) FollowManager.mutableState.value = null
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        val done = FollowNotifications.done(this, state.followed, reason)
+        if (done == null) {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        } else {
+            // Detaching re-posts the service's own copy, so the final state goes through it.
+            ServiceCompat.startForeground(this, FOLLOW_NOTIFICATION_ID, done, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+        }
         stopSelf()
         job?.cancel()
     }

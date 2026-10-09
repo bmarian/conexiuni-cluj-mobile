@@ -1,9 +1,10 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.route
 
-import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -34,16 +36,16 @@ import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Watch
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +71,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -81,6 +84,8 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
+import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
@@ -109,6 +114,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.tripHourlyOffsets
 import online.bus.bmarian.conexiuniclujmobile.logic.tripStops
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
+import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LoadingRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
@@ -117,7 +123,9 @@ import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
 import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
+import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
@@ -125,6 +133,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.share
 import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.squish
+import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
@@ -217,8 +227,26 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
-    var pickingStop by rememberSaveable { mutableStateOf(false) }
+    val following by FollowManager.state.collectAsStateWithLifecycle()
+    val withNotifications = rememberWithNotifications()
+    var menuFor by remember { mutableStateOf<Int?>(null) }
     val menu = buildList {
+        val shortName = info?.shortName
+        if (showChanges && shortName != null) {
+            add(
+                MenuAction(
+                    stringResource(if (isFollowing) R.string.line_following else R.string.line_follow),
+                    if (isFollowing) Icons.Rounded.Notifications else Icons.Rounded.NotificationsNone,
+                ) {
+                    val following = Services.routeUpdates.toggleFollow(shortName)
+                    Services.settings.showToast(
+                        resources.getString(if (following) R.string.w_follow_line_toast else R.string.w_unfollow_line_toast, shortName),
+                        resources.getString(if (following) R.string.w_follow_line_toast_body else R.string.w_unfollow_line_toast_body),
+                    )
+                },
+            )
+        }
+        if (watch) add(MenuAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/route/$routeId/$dir") } })
         add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
     }
     val barTitle = info?.let { "${it.shortName} · ${it.timetable.routeLongName.ifEmpty { it.shortName }}" }
@@ -237,7 +265,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             if (failed) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.load_failed))
-                    FilledTonalButton(onClick = vm::load) { Text(stringResource(R.string.retry)) }
+                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::load) { Text(stringResource(R.string.retry)) }
                 }
             } else {
                 LoadingRow(text = stringResource(R.string.w_loading_route))
@@ -271,7 +299,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     }
 
     fun wakeMeAt(idx: Int) {
-        pickingStop = false
         val boarding = stops.indexOfFirst { it.stop.stopId == fromStopId }.takeIf { it in 0 until idx }
             ?: current?.nearestStopIdx?.takeIf { it in 0 until idx }
             ?: 0
@@ -292,21 +319,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
 
     Column(Modifier.fillMaxSize()) {
     SheetTopBar(barTitle, listState.pastHeader(), menu = menu)
-    if (pickingStop) BackHandler { pickingStop = false }
-    if (pickingStop) {
-        Surface(color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                Text(
-                    stringResource(R.string.journey_pick_stop),
-                    Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-                TextButton(onClick = { pickingStop = false }) { Text(stringResource(R.string.w_cancel)) }
-            }
-        }
-    }
     LazyColumn(Modifier.weight(1f), state = listState) {
         activeChange?.let { change ->
             item(key = "change") {
@@ -351,23 +363,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleRoute(routeId, dir)
                     },
-                    ChipAction(stringResource(R.string.journey_wake_me), Icons.Rounded.NotificationsActive) { pickingStop = true },
                     ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, "/route/$routeId/$dir") },
-                    if (showChanges) {
-                        ChipAction(
-                            stringResource(if (isFollowing) R.string.line_following else R.string.line_follow),
-                            if (isFollowing) Icons.Rounded.Notifications else Icons.Rounded.NotificationsNone,
-                            selected = isFollowing,
-                            tint = if (isFollowing) Color(0xFFEAB308) else Color.Unspecified,
-                        ) {
-                            val following = Services.routeUpdates.toggleFollow(route.shortName)
-                            Services.settings.showToast(
-                                resources.getString(if (following) R.string.w_follow_line_toast else R.string.w_unfollow_line_toast, route.shortName),
-                                resources.getString(if (following) R.string.w_follow_line_toast_body else R.string.w_unfollow_line_toast_body),
-                            )
-                        }
-                    } else null,
-                    if (watch) ChipAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/route/$routeId/$dir") } } else null,
                 ),
                 Modifier.padding(bottom = 12.dp),
             )
@@ -376,18 +372,12 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             if (pong) {
                 RoutePong(route.shortName, route.color, onExit = { pong = false })
             } else {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    listOf("0", "1").forEachIndexed { i, d ->
-                        SegmentedButton(
-                            selected = dir == d,
-                            onClick = { onDirection(d) },
-                            enabled = vm.hasDirection(d),
-                            shape = SegmentedButtonDefaults.itemShape(i, 2),
-                            icon = {},
-                        ) {
-                            Text(vm.terminal(d), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
+                ChoiceRow(
+                    listOf("0", "1"), dir, ::onDirection,
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    enabled = vm::hasDirection,
+                ) { d ->
+                    Text(vm.terminal(d), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -399,7 +389,10 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    Text(stringResource(R.string.w_stops), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column {
+                        Text(stringResource(R.string.w_stops), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.stops_hold_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    }
                     HorizontalDivider(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 8.dp))
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
@@ -413,16 +406,54 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             }
             itemsIndexed(stops, key = { idx, s -> "${s.stop.stopId}-$idx" }) { idx, stop ->
                 val arrivals = current?.arrivals?.getOrNull(idx).orEmpty()
-                StopLine(
-                    name = stop.stop.headsign.ifEmpty { "Stop ${idx + 1}" },
-                    mark = mark(idx, stop),
-                    favorite = stop.stop.stopId in favoriteStops,
-                    first = idx == 0,
-                    last = idx == stops.lastIndex,
-                    times = arrivals.map { (if (it.soon) soonLabel else formatMinutesFromNow(it.minutes, current!!.now, nowLabel)) to it.isLive },
-                    trailingText = null,
-                    onClick = { if (pickingStop) wakeMeAt(idx) else nav.stop(stop.stop.stopId) },
-                )
+                val name = stop.stop.headsign.ifEmpty { "Stop ${idx + 1}" }
+                val alerting = following?.followed?.let { it.stopId == stop.stop.stopId && it.routeId == routeId && it.tripId == tripId } == true
+                Box(Modifier.cascade(idx, dir)) {
+                    StopLine(
+                        name = name,
+                        mark = mark(idx, stop),
+                        favorite = stop.stop.stopId in favoriteStops,
+                        first = idx == 0,
+                        last = idx == stops.lastIndex,
+                        times = arrivals.map { (if (it.soon) soonLabel else formatMinutesFromNow(it.minutes, current!!.now, nowLabel)) to it.isLive },
+                        trailingText = null,
+                        alerting = alerting,
+                        onClick = { nav.stop(stop.stop.stopId) },
+                        onLongClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menuFor = idx
+                        },
+                    )
+                    DropdownMenu(expanded = menuFor == idx, onDismissRequest = { menuFor = null }, offset = DpOffset(44.dp, 0.dp)) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(if (alerting) R.string.stop_menu_notify_off else R.string.stop_menu_notify)) },
+                            leadingIcon = { Icon(Icons.Rounded.NotificationsActive, null) },
+                            onClick = {
+                                menuFor = null
+                                if (alerting) {
+                                    FollowManager.stop(context)
+                                } else {
+                                    withNotifications {
+                                        FollowManager.start(
+                                            context,
+                                            Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir)),
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                        if (idx > 0) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.stop_menu_wake)) },
+                                leadingIcon = { Icon(Icons.Rounded.Alarm, null) },
+                                onClick = {
+                                    menuFor = null
+                                    wakeMeAt(idx)
+                                },
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -435,29 +466,20 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 }
             }
             item {
-                Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (t in tabs) {
-                        val label = stringResource(
-                            when (t) {
-                                TimetableTab.Weekdays -> R.string.w_weekdays
-                                TimetableTab.Saturday -> R.string.w_saturday
-                                TimetableTab.Sunday -> R.string.w_sunday
-                            },
-                        )
-                        FilterChip(
-                            selected = selectedTab == t,
-                            onClick = { tab = t },
-                            label = {
-                                Text(
-                                    label,
-                                    color = if (isPastTab(t, today) && selectedTab != t) MaterialTheme.colorScheme.outline else Color.Unspecified,
-                                )
-                            },
-                            trailingIcon = if (t == today) {
-                                { Box(Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) }
-                            } else null,
-                        )
-                    }
+                ChoiceRow(tabs, selectedTab, { tab = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { t ->
+                    val label = stringResource(
+                        when (t) {
+                            TimetableTab.Weekdays -> R.string.w_weekdays
+                            TimetableTab.Saturday -> R.string.w_saturday
+                            TimetableTab.Sunday -> R.string.w_sunday
+                        },
+                    )
+                    Text(
+                        label,
+                        color = if (isPastTab(t, today) && selectedTab != t) MaterialTheme.colorScheme.outline else Color.Unspecified,
+                        maxLines = 1,
+                    )
+                    if (t == today) Box(Modifier.padding(start = 6.dp).size(6.dp).clip(CircleShape).background(LocalContentColor.current))
                 }
             }
             if (suspended) {
@@ -571,7 +593,9 @@ private fun StopLine(
     times: List<Pair<String, Boolean>>,
     trailingText: String?,
     trailingHighlight: Boolean = false,
+    alerting: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val rail = MaterialTheme.colorScheme.outlineVariant
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
@@ -582,7 +606,7 @@ private fun StopLine(
         else -> Color.Transparent
     }
     Row(
-        Modifier.fillMaxWidth().background(rowTint).clickable(onClick = onClick).padding(start = 16.dp, end = 16.dp),
+        Modifier.fillMaxWidth().background(rowTint).squishClickable(onLongClick = onLongClick, onClick = onClick).padding(start = 16.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(20.dp).height(40.dp), contentAlignment = Alignment.Center) {
@@ -631,6 +655,9 @@ private fun StopLine(
             if (favorite) {
                 Icon(Icons.Rounded.Favorite, null, Modifier.size(12.dp), tint = Palette.Rose)
             }
+            if (alerting) {
+                Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+            }
         }
         if (trailingText != null) {
             Text(
@@ -660,9 +687,13 @@ private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect
             for (chip in group.chips) {
                 val isSelected = selected == chip.time
                 val isNext = selected == null && next == chip.time
+                val press = remember { MutableInteractionSource() }
+                val corner by animateDpAsState(if (isSelected) 16.dp else 8.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "time")
                 Surface(
                     onClick = { onSelect(chip.time) },
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.squish(press, 0.88f),
+                    interactionSource = press,
+                    shape = RoundedCornerShape(corner),
                     color = when {
                         isSelected -> MaterialTheme.colorScheme.primary
                         chip.isPast -> Color.Transparent

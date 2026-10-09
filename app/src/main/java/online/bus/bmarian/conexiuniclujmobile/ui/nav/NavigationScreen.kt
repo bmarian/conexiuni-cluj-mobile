@@ -18,6 +18,7 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.ButtonDefaults
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -409,7 +410,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        FilledTonalButton(onClick = { JourneyManager.next(context) }) { Text(stringResource(R.string.journey_next)) }
+                        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { JourneyManager.next(context) }) { Text(stringResource(R.string.journey_next)) }
                     }
                     if (trip != null) TripProgress(trip, sync.progress ?: 0f)
                 }

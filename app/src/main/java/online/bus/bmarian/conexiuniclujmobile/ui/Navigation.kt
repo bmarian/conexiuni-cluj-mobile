@@ -3,8 +3,12 @@ package online.bus.bmarian.conexiuniclujmobile.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,8 +19,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
@@ -200,7 +205,8 @@ fun ActionChips(actions: List<ChipAction>, modifier: Modifier = Modifier) {
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(actions, key = { it.label }) { action ->
+        // Keyed by place: a chip whose label changes (Save → Saved) stays put and resizes.
+        itemsIndexed(actions, key = { i, _ -> i }) { _, action ->
             val scheme = MaterialTheme.colorScheme
             val container = when {
                 action.primary -> scheme.primary
@@ -212,20 +218,32 @@ fun ActionChips(actions: List<ChipAction>, modifier: Modifier = Modifier) {
                 action.selected -> scheme.onSecondaryContainer
                 else -> scheme.onSurface
             }
+            val press = remember { MutableInteractionSource() }
+            val pressed by press.collectIsPressedAsState()
+            val corner by animateDpAsState(
+                when {
+                    pressed -> 8.dp
+                    action.selected -> 12.dp
+                    else -> 18.dp
+                },
+                MaterialTheme.motionScheme.fastSpatialSpec(),
+                label = "chip",
+            )
             Surface(
                 onClick = action.onClick,
-                shape = CircleShape,
+                shape = RoundedCornerShape(corner),
                 color = container,
                 contentColor = content,
                 border = if (action.primary || action.selected) null else BorderStroke(1.dp, scheme.outlineVariant),
-                modifier = Modifier.animateItem(),
+                interactionSource = press,
+                modifier = Modifier.animateItem().squish(press, 0.92f).animateContentSize(MaterialTheme.motionScheme.fastSpatialSpec()),
             ) {
                 Row(
                     Modifier.height(36.dp).padding(start = 12.dp, end = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(action.icon, null, Modifier.size(18.dp), tint = if (action.tint == Color.Unspecified) content else action.tint)
+                    PopIcon(action.icon, action.selected, Modifier.size(18.dp), tint = if (action.tint == Color.Unspecified) content else action.tint)
                     Text(action.label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 }
             }

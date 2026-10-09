@@ -71,6 +71,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
+import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 
 object WeatherFeed {
     private val _weather = MutableStateFlow<Weather?>(null)
@@ -247,7 +248,7 @@ fun NewsPage() {
                         val isNew = change.id in freshIds
                         Row(
                             Modifier.fillMaxWidth()
-                                .clickable(enabled = change.routeId != 0) { openChange(change) }
+                                .squishClickable(enabled = change.routeId != 0) { openChange(change) }
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
