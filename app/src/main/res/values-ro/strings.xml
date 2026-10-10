@@ -108,10 +108,10 @@
     <string name="remind_delete">Șterge</string>
     <string name="remind_saved">Memento salvat</string>
     <string name="remind_exact">Permite alarmele, ca mementourile să vină la timp</string>
-    <string name="remind_location">Permite locația în fundal, ca să-ți calculăm drumul până la stație</string>
+    <string name="remind_location">Permite locația în fundal, ca să-ți calculăm drumul până la stație chiar și când aplicația e închisă</string>
     <string name="remind_allow">Permite</string>
     <string name="remind_today">Azi %1$s</string>
     <string name="remind_tomorrow">Mâine %1$s</string>
     <string name="reminders">Mementouri</string>
-    <string name="departures_hold_hint">ține apăsat pe un autobuz pentru mementouri</string>
+    <string name="departures_hold_hint">ține apăsat pentru mementouri</string>
 </resources>

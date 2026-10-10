@@ -1,6 +1,6 @@
 # Privacy policy
 
-Conexiuni Cluj for Android shows live bus and tram departures in Cluj-Napoca and plans trips. It has no accounts, no ads and no analytics or tracking libraries.
+Conexiuni Cluj for Android and its Wear OS app show live bus and tram departures in Cluj-Napoca and plan trips. They have no accounts, no ads and no analytics or tracking libraries.
 
 ## Location
 
@@ -31,13 +31,19 @@ If you follow a line's changes, the app asks bus.bmarian.online about those line
 
 Like any website, these services see your IP address when the app connects to them. bus.bmarian.online doesn't store it: its logs keep a salted one-way hash instead, with the address of each request (for a planned trip, that includes its start and end), and delete them after 5 days. The same hash is used to count daily users and how often stops and lines are opened.
 
-## With the watch app
+## On the watch
 
-Your favorites, followed buses and trips go between the phone and the Conexiuni Cluj watch app through Google Play services' Wear OS connection, which Google relays when the two aren't connected directly.
+The watch app uses your location, with your permission, to list the stops near you and show where you are on the map. That happens on the watch, and the location is never sent anywhere.
+
+Search on the watch uses its own voice and keyboard input; the app only gets the words, and looks them up in the stops and lines on the watch.
+
+The watch downloads the same things as the phone, from bus.bmarian.online and OpenFreeMap.
+
+Your favorites, followed buses and trips go between the phone and the watch through Google Play services' Wear OS connection, which Google relays when the two aren't connected directly.
 
 ## Favorites and settings
 
-Your favorites, reminders and settings are stored on the phone, and in Android's backup of your phone if you turned that on.
+Your favorites, reminders and settings are stored on your devices, and in Android's backup of your phone if you turned that on.
 
 When you move them to another device, they go through bus.bmarian.online. If the other device scans the code, they are encrypted with a key the server never sees. If the code is typed, the server can read them while it passes them on. They're only ever kept in the server's memory, never written to disk. They're deleted as soon as the other device picks them up, and an unused code expires after 10 minutes.
 

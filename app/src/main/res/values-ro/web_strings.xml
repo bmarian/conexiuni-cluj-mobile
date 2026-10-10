@@ -19,7 +19,7 @@
     <string name="w_frequency_every">La fiecare %1$s min</string>
     <string name="w_frequency_window">între %1$s și %2$s</string>
     <string name="w_bus_stop">Stație</string>
-    <string name="w_next_departures">Următoarele plecări</string>
+    <string name="w_next_departures">Plecări</string>
     <string name="w_all_routes">Toate liniile</string>
     <string name="w_all_stops">Toate stațiile</string>
     <string name="w_all_routes_at_stop">Linii în această stație</string>
@@ -57,10 +57,6 @@
     <string name="w_green_friday_title">Vinerea Verde</string>
     <string name="w_green_friday_desc">Transportul public este gratuit astăzi!</string>
     <string name="w_dismiss">Închide</string>
-    <string name="w_pong_you_win">🎉 Ai câștigat!</string>
-    <string name="w_pong_ai_wins">AI-ul câștigă 😅</string>
-    <string name="w_pong_play_again">Joacă din nou</string>
-    <string name="w_pong_exit">Ieșire</string>
     <string name="w_plan_title">Planifică o călătorie</string>
     <string name="w_plan_title_generic">Planifică o călătorie</string>
     <string name="w_plan_from">De la</string>

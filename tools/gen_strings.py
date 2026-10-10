@@ -5,7 +5,7 @@ from xml.sax.saxutils import escape
 SRC = r"C:\Users\maria\Documents\Projects\conexiuni-cluj\frontend\src\locales"
 DST = r"C:\Users\maria\AndroidStudioProjects\ConexiuniClujMobile\app\src\main\res"
 SKIP = re.compile(
-    r"^(head|kbd|simplified|watch|bsod|paper|arcade|legacyBlue|funMode|metroLegacy|pong(?!YouWin|AiWins|PlayAgain|Exit)|"
+    r"^(head|kbd|simplified|watch|bsod|paper|arcade|legacyBlue|funMode|metroLegacy|pong|"
     r"themeDefault|adminDashboard|settingsAdminDesc|pushUnsupported|pushBrave|pushDeniedToastBody|pushFailed|notFoundFunny|"
     r"offlineBanner|searchRoutes|noRouteData|goBack|scheduledApprox|kbdHelp)"
 )
@@ -85,6 +85,7 @@ APP = {
     "values-ro": {
         "w_route": "Linie",
         "w_bus_stop": "Stație",
+        "w_next_departures": "Plecări",
         "w_all_routes": "Toate liniile",
         "w_all_routes_at_stop": "Linii în această stație",
         "w_favorite_routes": "Linii favorite",

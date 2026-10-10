@@ -57,10 +57,6 @@
     <string name="w_green_friday_title">Green Friday</string>
     <string name="w_green_friday_desc">Public transport is free today!</string>
     <string name="w_dismiss">Dismiss</string>
-    <string name="w_pong_you_win">🎉 You win!</string>
-    <string name="w_pong_ai_wins">😅 AI wins</string>
-    <string name="w_pong_play_again">Play again</string>
-    <string name="w_pong_exit">Exit</string>
     <string name="w_plan_title">Plan a trip</string>
     <string name="w_plan_title_generic">Plan a trip</string>
     <string name="w_plan_from">From</string>

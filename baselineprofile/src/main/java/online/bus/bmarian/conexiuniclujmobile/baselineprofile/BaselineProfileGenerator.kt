@@ -31,7 +31,7 @@ class BaselineProfileGenerator {
         pressHome()
         startActivityAndWait()
         for (step in 1..6) {
-            val done = device.wait(Until.findObject(By.text("Done")), 1_500)
+            val done = device.wait(Until.findObject(By.text("Start")), 1_500)
             if (done != null) {
                 done.click()
                 break
@@ -49,7 +49,7 @@ class BaselineProfileGenerator {
         device.swipe(w / 3, h / 4, w * 2 / 3, h / 5, 30)
         Thread.sleep(1_500)
 
-        await(By.text("Search routes, stops, places...")).click()
+        await(By.text("Search lines, stops, places…")).click()
         device.waitForIdle()
         device.executeShellCommand("input text 25")
         await(By.text(Pattern.compile("Str\\..*"))).click()
@@ -60,6 +60,19 @@ class BaselineProfileGenerator {
         startActivityAndWait(Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/stop/629")).setPackage(PACKAGE))
         Thread.sleep(4_000)
         device.swipe(w / 2, h * 3 / 4, w / 2, h / 3, 30)
+        Thread.sleep(1_000)
+        // The reminder sheet, from a held departure.
+        await(By.text(Pattern.compile("→ .*"))).longClick()
+        await(By.text("Remind me…")).click()
+        Thread.sleep(2_000)
+        device.pressBack()
+        Thread.sleep(1_000)
+        device.pressBack()
+        Thread.sleep(1_000)
+
+        startActivityAndWait(Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/route/14/0")).setPackage(PACKAGE))
+        Thread.sleep(4_000)
+        device.swipe(w / 2, h * 3 / 4, w / 2, h / 4, 30)
         Thread.sleep(1_000)
         device.pressBack()
         Thread.sleep(1_000)

@@ -54,7 +54,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -198,20 +197,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 else -> StopHighlight.Gray
             }
         }.toMap()
-    }
-
-    // Easter egg: five taps on the direction buttons within 2 s.
-    val taps = remember { mutableStateListOf<Long>() }
-    var pong by rememberSaveable { mutableStateOf(false) }
-    fun onDirection(target: String) {
-        vm.direction.value = target
-        val now = System.currentTimeMillis()
-        taps.removeAll { now - it > 2000 }
-        taps += now
-        if (taps.size >= 5) {
-            pong = true
-            taps.clear()
-        }
     }
 
     var tab by rememberSaveable { mutableStateOf<TimetableTab?>(null) }
@@ -374,16 +359,12 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             )
         }
         item {
-            if (pong) {
-                RoutePong(route.shortName, route.color, onExit = { pong = false })
-            } else {
-                ChoiceRow(
-                    listOf("0", "1"), dir, ::onDirection,
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    enabled = vm::hasDirection,
-                ) { d ->
-                    Text(vm.terminal(d), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            ChoiceRow(
+                listOf("0", "1"), dir, { vm.direction.value = it },
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                enabled = vm::hasDirection,
+            ) { d ->
+                Text(vm.terminal(d), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         if (stops.isEmpty()) {

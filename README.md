@@ -106,7 +106,7 @@ Then:
 
 Without the upload key the release build is signed with the debug key, so it still installs from Android Studio.
 
-The privacy policy is [`PRIVACY.md`](PRIVACY.md).
+It lands in `app/build/outputs/bundle/release/app-release.aab`. The listing text, the Data safety answers, the icon, the feature graphics and the screenshots for both apps are in [`store/`](store), and the privacy policy for both is [`PRIVACY.md`](PRIVACY.md).
 
 ## Credits
 

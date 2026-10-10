@@ -110,7 +110,7 @@
     <string name="remind_delete">Delete</string>
     <string name="remind_saved">Reminder set</string>
     <string name="remind_exact">Allow alarms, to get reminders on time</string>
-    <string name="remind_location">Allow location in the background, to time your walk to the station</string>
+    <string name="remind_location">Allow location in the background, to time your walk to the station even when the app is closed</string>
     <string name="remind_allow">Allow</string>
     <string name="remind_today">Today %1$s</string>
     <string name="remind_tomorrow">Tomorrow %1$s</string>
