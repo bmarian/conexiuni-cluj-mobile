@@ -109,9 +109,6 @@ class Settings(private val context: Context) {
     val showTimetableChanges = bool("showTimetableChanges", false)
     val pushNotifications = bool("pushNotifications", false)
 
-    val atFavoriteStop = bool("atFavoriteStop", false)
-    fun setAtFavoriteStop(v: Boolean) = set(atFavoriteStop, "atFavoriteStop", v)
-
     val onboarded = bool("onboarded", false)
     fun setOnboarded() = set(onboarded, "onboarded", true)
 

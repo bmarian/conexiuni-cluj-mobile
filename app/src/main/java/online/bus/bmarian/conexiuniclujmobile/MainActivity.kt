@@ -16,7 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import online.bus.bmarian.conexiuniclujmobile.data.Nominatim
+import online.bus.bmarian.conexiuniclujmobile.data.Photon
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
@@ -76,11 +76,7 @@ class MainActivity : ComponentActivity() {
         val query = text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.startsWith("http") } ?: text.trim()
         Services.settings.showToast(getString(R.string.share_finding, query.take(40)))
         lifecycleScope.launch {
-            val place = if (url != null && Nominatim.isGoogleMapsUrl(url)) {
-                Nominatim.resolveGoogleMapsLink(url)
-            } else {
-                Nominatim.search(query, Services.settings.locale.value, 1).firstOrNull()
-            }
+            val place = Photon.search(query, Services.settings.locale.value, 1).firstOrNull()
             links.value = if (place != null) {
                 (BuildConfig.SITE_ORIGIN + "/plan?" + PlanQuery(lat = place.lat, lon = place.lon, name = place.label).encode()).toUri()
             } else {

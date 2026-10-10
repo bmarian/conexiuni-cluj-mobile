@@ -18,7 +18,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
-import online.bus.bmarian.conexiuniclujmobile.data.Nominatim
+import online.bus.bmarian.conexiuniclujmobile.data.Photon
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
@@ -373,11 +373,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
         isSearching.value = true
         try {
-            searchResults.value = if (Nominatim.isGoogleMapsUrl(q)) {
-                listOfNotNull(Nominatim.resolveGoogleMapsLink(q))
-            } else {
-                Nominatim.search(q, Services.settings.locale.value, 5)
-            }
+            searchResults.value = Photon.search(q, Services.settings.locale.value, 5)
         } finally {
             isSearching.value = false
         }
@@ -442,7 +438,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     }
 
     private suspend fun reverseGeocode(lat: Double, lon: Double): String =
-        runCatching { Nominatim.reverse(lat, lon, Services.settings.locale.value)?.label }.getOrNull()
+        runCatching { Photon.reverse(lat, lon, Services.settings.locale.value)?.label }.getOrNull()
             ?: "${toFixed4(lat)}, ${toFixed4(lon)}"
 
     fun onDestinationDragged(at: LatLon) {

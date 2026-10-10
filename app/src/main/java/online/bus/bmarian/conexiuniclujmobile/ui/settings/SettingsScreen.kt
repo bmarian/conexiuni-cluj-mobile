@@ -45,7 +45,6 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.Watch
-import androidx.compose.material.icons.rounded.WhereToVote
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -104,9 +103,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.data.Transfer
-import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
-import online.bus.bmarian.conexiuniclujmobile.journey.AtStop
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
@@ -130,20 +127,8 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
     val changes by settings.showTimetableChanges.collectAsStateWithLifecycle()
     val push by settings.pushNotifications.collectAsStateWithLifecycle()
-    val atStop by settings.atFavoriteStop.collectAsStateWithLifecycle()
     val watchStatus by WearLink.status.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { WearLink.refreshStatus(context) }
-    // Background location can only be asked for after foreground.
-    val backgroundLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && AtStop.allowed(context)) settings.setAtFavoriteStop(true)
-        else settings.showToast(resources.getString(R.string.at_stop_background_needed))
-    }
-    val foregroundLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.any { it }) {
-            Services.locationPermissionChanged()
-            backgroundLocation.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        }
-    }
     val transfer: TransferViewModel = viewModel()
     val sheet = LocalSheet.current
 
@@ -224,14 +209,6 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             }
             if (changes) {
                 Toggle(Icons.Rounded.NotificationsActive, stringResource(R.string.w_push_notifications), stringResource(R.string.w_push_notifications_desc), push, beta = true) { togglePush() }
-            }
-            Toggle(Icons.Rounded.WhereToVote, stringResource(R.string.at_stop_setting_title), stringResource(R.string.at_stop_setting_body), atStop) { on ->
-                when {
-                    !on -> settings.setAtFavoriteStop(false)
-                    AtStop.allowed(context) -> settings.setAtFavoriteStop(true)
-                    UserLocation.permitted(context) -> backgroundLocation.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                    else -> foregroundLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-                }
             }
 
             Section(stringResource(R.string.watch_section))

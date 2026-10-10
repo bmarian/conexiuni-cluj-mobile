@@ -203,3 +203,8 @@ class ReminderReceiver : BroadcastReceiver() {
         const val EXTRA_AT = "at"
     }
 }
+
+/** Alarms don't survive reboots; starting the app sets them again. */
+class RemindersRestoreReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) = Unit
+}

@@ -64,11 +64,6 @@
     <string name="add_widget">Add widget</string>
     <string name="journey_line_here">%1$s is here</string>
     <string name="widget_loading">Loading…</string>
-    <string name="at_stop_setting_title">At a favorite stop</string>
-    <string name="at_stop_setting_body">Show the next buses when you get to a favorite stop.</string>
-    <string name="at_stop_channel">At a favorite stop</string>
-    <string name="at_stop_title">At %1$s</string>
-    <string name="at_stop_background_needed">Choose “Allow all the time” for location</string>
     <string name="onboard_welcome_title">Buses and trams in Cluj, live</string>
     <string name="onboard_welcome_body">See departures, follow buses and plan trips.</string>
     <string name="onboard_location_title">Location</string>

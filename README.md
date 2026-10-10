@@ -10,15 +10,14 @@ The [Conexiuni Cluj](https://github.com/bmarian/conexiuni-cluj) bus and tram tra
 - A line's stops with the next three arrivals at each, its timetable by day, and any run's time at every stop
 - A route planner: leave now, leave at, arrive by, or the last one today, with live times for the first bus
 - Favorite stops, lines per direction and destinations, in the order you drag them into
-- Search for lines, stops and places, or paste a Google Maps link
-- Follow a bus: a live countdown in the status bar (a Live Update on Android 16), a heads-up two minutes before and when it comes, and it lets go once the bus has left
+- Search for lines, stops and places
+- Follow buses, as many as you like: each gets a live countdown in the status bar (a Live Update on Android 16), a heads-up two minutes before and when it comes, and lets go once the bus has left
 - Navigation: Start on a planned trip for a turn-by-turn screen like Maps' transit navigation: the step in a banner, what comes next under it, the map following you tilted, and when you get there. A Live Update keeps going when you put it away: walk to the stop, the bus's live countdown, the stops left, a heads-up when yours is next, then the next leg or the walk to the end
 - Wake me before my stop: pick the stop on a line page and get the same heads-up one stop before it
-- Remind me to leave: pick one of the next buses and how early to hear about it; the alarm counts the walk to the stop
+- Reminders: hold a bus on a stop or a line, pick a time or the last bus, once or on the days you choose. When it's time, the app times your walk to the stop, shows "Leave in 8 min", buzzes "Leave now" and follows the bus from there. Without your location it comes 20 minutes before
 - With the watch app: follow a bus or take a journey on the phone and it opens on the watch, the journey with a ring for how far it has come and a map of the ride; a bus followed on the watch shows on the phone. Stop it on either and it stops on both. Favourites stay the same on both on their own, and a stop or line opens on the watch from the phone's menu
 - A home-screen widget with a stop's next departures, launcher shortcuts for Search, Plan a trip and favourite stops, and a stop pinned to the home screen
-- Share a place from Google Maps or a chat to the app and it plans the trip there
-- Optional: arrive at a favourite stop and a quiet notification shows its next buses
+- Share a place to the app from a chat or another app and it plans the trip there, finding it by name
 - Follow a line and get a notification when CTP changes its timetable or route
 - Weather, CTP news and the Green Friday reminder, like the website
 - Move favorites and settings between the app, the website and the watch with a code or a QR scan
@@ -40,7 +39,11 @@ The fixtures for the last two come from [`tools/parity`](tools/parity): `fetch.m
 
 The map is [MapLibre](https://maplibre.org/) with [OpenFreeMap](https://openfreemap.org/)'s vector tiles: its light and dark styles are bundled in [`assets/styles`](app/src/main/assets/styles), the tiles, fonts and icons come from OpenFreeMap and stay in MapLibre's cache. The website's routes, stops, buses and pins are drawn on top as GeoJSON layers ([`ui/map/`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/ui/map)), with the marker art turned into bitmaps. MapLibre zoom levels are one below the website's Leaflet ones.
 
-A followed bus is worked out by whichever device started following it, phone or watch, the same way as the stop page. That device sends each change to the other over the Wear OS data layer ([`follow/`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/follow)), and the other shows it in its notifications and, on the watch, on the watch face. Only one bus is followed at a time across both: a new follow on either one replaces the old one.
+A followed bus is worked out by whichever device started following it, phone or watch, the same way as the stop page. That device sends each change to the other over the Wear OS data layer ([`follow/`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/follow)), and the other shows it in its notifications and, on the watch, on the watch face. Several buses can be followed at once, each with its own card on both.
+
+A reminder ([`follow/Reminders.kt`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/follow/Reminders.kt)) keeps the bus's timetable time at the stop for each day type, each departure timed with the travel times for its own hour. An exact alarm wakes the app 75 minutes before the bus to time the walk from where you are, then again 10 minutes before you should leave, and the reminder becomes a follow of that one departure, with "Leave now" at your walk plus 5 minutes.
+
+Place search goes to [Photon](https://photon.komoot.io), Komoot's free OpenStreetMap geocoder, which is made for search as you type. It's a shared service, so the app sends at most one request a second, keeps the last answers, and only ever sends the Cluj area, never your position.
 
 A journey ([`journey/`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/journey)) runs on the phone. It follows the phone's position along the trip's stops to tell walking, waiting and riding apart and to count the stops left; without the location it goes by the bus times and the planned ride time. At the start the whole trip, with its paths, goes to the watch (`/journey/plan`, asked for again with `/journey/plan/request` if the watch missed it); after that each step goes as `/journey/state`, which the watch buzzes for. The navigation screen ([`ui/nav/`](app/src/main/java/online/bus/bmarian/conexiuniclujmobile/ui/nav)) only reads the journey's state; closing it leaves the journey running.
 
@@ -89,7 +92,7 @@ keyAlias=upload
 keyPassword=...
 ```
 
-Raise `versionCode` in [`app/build.gradle.kts`](app/build.gradle.kts) for every upload. Before a release, record the baseline profile on a phone emulator (English, with a location near Cluj stops; the run reinstalls the app there), so startup and the first screens are compiled ahead:
+Raise `versionCode` in [`app/build.gradle.kts`](app/build.gradle.kts) for every upload. The phone and watch apps share one package, so their codes can't collide: the phone's are 1xxxx and the watch's 2xxxx, followed by the release number, the same on both. Before a release, record the baseline profile on a phone emulator (English, with a location near Cluj stops; the run reinstalls the app there), so startup and the first screens are compiled ahead:
 
 ```bash
 ANDROID_SERIAL=emulator-5554 ./gradlew :app:generateBaselineProfile
@@ -103,6 +106,8 @@ Then:
 
 Without the upload key the release build is signed with the debug key, so it still installs from Android Studio.
 
+The privacy policy is [`PRIVACY.md`](PRIVACY.md).
+
 ## Credits
 
-Same sources as [the main app](https://github.com/bmarian/conexiuni-cluj#credits): live positions and GTFS from [Tranzy.ai](https://tranzy.ai/), timetables from [CTP Cluj-Napoca](https://www.ctpcj.ro/), weather from [Open-Meteo](https://open-meteo.com/), map data © [OpenStreetMap](https://www.openstreetmap.org/) contributors, tiles by [OpenFreeMap](https://openfreemap.org/) and [OpenMapTiles](https://openmaptiles.org/), drawn by [MapLibre](https://maplibre.org/), place search by [Nominatim](https://nominatim.org/), routing by [OpenTripPlanner](https://www.opentripplanner.org/). QR codes by [ZXing](https://github.com/zxing/zxing).
+Same sources as [the main app](https://github.com/bmarian/conexiuni-cluj#credits): live positions and GTFS from [Tranzy.ai](https://tranzy.ai/), timetables from [CTP Cluj-Napoca](https://www.ctpcj.ro/), weather from [Open-Meteo](https://open-meteo.com/), map data © [OpenStreetMap](https://www.openstreetmap.org/) contributors, tiles by [OpenFreeMap](https://openfreemap.org/) and [OpenMapTiles](https://openmaptiles.org/), drawn by [MapLibre](https://maplibre.org/), place search by [Photon](https://photon.komoot.io/), routing by [OpenTripPlanner](https://www.opentripplanner.org/). QR codes by [ZXing](https://github.com/zxing/zxing).

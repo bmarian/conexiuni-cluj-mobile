@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
-import online.bus.bmarian.conexiuniclujmobile.data.Nominatim
+import online.bus.bmarian.conexiuniclujmobile.data.Photon
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
@@ -99,14 +99,10 @@ class SearchState {
         placesLoading = true
         delay(350)
         try {
-            if (Nominatim.isGoogleMapsUrl(trimmed)) {
-                places = listOfNotNull(Nominatim.resolveGoogleMapsLink(trimmed))
-            } else {
-                val results = Nominatim.search(trimmed, locale, 3)
-                places = if (me != null && results.size > 1) {
-                    sortByDistance(results, me.lat, me.lon, { it.latitude ?: 0.0 }, { it.longitude ?: 0.0 })
-                } else results
-            }
+            val results = Photon.search(trimmed, locale, 3)
+            places = if (me != null && results.size > 1) {
+                sortByDistance(results, me.lat, me.lon, { it.latitude ?: 0.0 }, { it.longitude ?: 0.0 })
+            } else results
         } finally {
             placesLoading = false
         }

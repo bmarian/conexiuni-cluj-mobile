@@ -59,10 +59,7 @@
             android:name=".journey.JourneyActionReceiver"
             android:exported="false" />
         <receiver
-            android:name=".journey.AtStopReceiver"
-            android:exported="false" />
-        <receiver
-            android:name=".journey.AtStopRestoreReceiver"
+            android:name=".follow.RemindersRestoreReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

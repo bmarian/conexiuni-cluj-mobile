@@ -63,11 +63,6 @@
     <string name="add_widget">Adaugă widget</string>
     <string name="journey_line_here">%1$s a sosit</string>
     <string name="widget_loading">Se încarcă…</string>
-    <string name="at_stop_setting_title">Într-o stație favorită</string>
-    <string name="at_stop_setting_body">Arată următoarele autobuze când ajungi într-o stație favorită.</string>
-    <string name="at_stop_channel">Într-o stație favorită</string>
-    <string name="at_stop_title">În %1$s</string>
-    <string name="at_stop_background_needed">Alege „Permite tot timpul” pentru locație</string>
     <string name="onboard_welcome_title">Autobuze și tramvaie din Cluj, live</string>
     <string name="onboard_welcome_body">Vezi plecările, urmărește autobuze și planifică călătorii.</string>
     <string name="onboard_location_title">Locație</string>

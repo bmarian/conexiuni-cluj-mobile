@@ -28,7 +28,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
-import online.bus.bmarian.conexiuniclujmobile.journey.AtStop
 import online.bus.bmarian.conexiuniclujmobile.work.RouteChangeWorker
 
 class App : Application() {
@@ -99,10 +98,6 @@ object Services {
         RouteChangeWorker.schedule(app)
         WearLink.start(app)
         Reminders.init(app)
-        scope.launch {
-            combine(settings.atFavoriteStop, favorites.stops, repository.stops) { on, ids, stops -> Triple(on, ids, stops) }
-                .collect { (on, ids, stops) -> if (stops.isNotEmpty() || !on) AtStop.sync(app, on, ids, stops) }
-        }
         scope.launch {
             combine(favorites.stops, repository.stops) { ids, stops -> ids to stops }.collect { (ids, stops) ->
                 if (stops.isNotEmpty()) Shortcuts.updateFavoriteStops(app, ids, stops)
