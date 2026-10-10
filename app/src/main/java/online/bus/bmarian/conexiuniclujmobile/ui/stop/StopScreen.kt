@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AddToHomeScreen
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Directions
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Favorite
@@ -45,12 +48,15 @@ import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +77,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -89,6 +96,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.directionFromTripId
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.tripIdForRouteAtStop
@@ -107,6 +115,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberFollowToggle
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
@@ -154,8 +163,11 @@ fun StopScreen(stopId: Int) {
     val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
     val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
     val isFavorite = stopId in favoriteStops
-    val following by FollowManager.state.collectAsStateWithLifecycle()
+    val follows by FollowManager.follows.collectAsStateWithLifecycle()
+    val reminders by Reminders.all.collectAsStateWithLifecycle()
     val toggleFollow = rememberFollowToggle()
+    var menuFor by remember { mutableStateOf<String?>(null) }
+    var reminding by remember { mutableStateOf<Followed?>(null) }
     val haptics = LocalHapticFeedback.current
 
     val owner = remember { Any() }
@@ -290,23 +302,42 @@ fun StopScreen(stopId: Int) {
                 when {
                     departures == null -> items(3) { DepartureSkeleton() }
                     departures.isEmpty() -> item { MessageText(stringResource(R.string.w_no_schedule)) }
-                    else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { index, (_, departure) ->
-                        val isFollowed = following?.followed?.let {
-                            it.stopId == stopId && it.routeId == departure.routeId && it.tripId == departure.tripId
-                        } == true
-                        DepartureCard(
-                            departure, ui!!.now, vm.isDepartureFavorite(departure),
-                            following = isFollowed,
-                            modifier = Modifier.animateItem().cascade(index, stopId),
-                            onFollow = {
-                                toggleFollow(
-                                    Followed(
-                                        stopId, name.orEmpty(), departure.routeId, departure.tripId,
-                                        departure.shortName, departure.color, routeDestination(departure.longName),
-                                    ),
+                    else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { index, (key, departure) ->
+                        val followed = Followed(
+                            stopId, name.orEmpty(), departure.routeId, departure.tripId,
+                            departure.shortName, departure.color, routeDestination(departure.longName),
+                        )
+                        val isFollowed = follows.any { it.matches(stopId, departure.routeId, departure.tripId) }
+                        Box(Modifier.animateItem().cascade(index, stopId)) {
+                            DepartureCard(
+                                departure, ui!!.now, vm.isDepartureFavorite(departure),
+                                following = isFollowed,
+                                reminded = reminders.any { it.isFor(stopId, departure.routeId, departure.tripId) },
+                                onFollow = { toggleFollow(followed) },
+                                onLongClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    menuFor = key
+                                },
+                            ) { openDeparture(departure) }
+                            DropdownMenu(expanded = menuFor == key, onDismissRequest = { menuFor = null }, offset = DpOffset(64.dp, 0.dp)) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(if (isFollowed) R.string.stop_menu_notify_off else R.string.stop_menu_notify)) },
+                                    leadingIcon = { Icon(Icons.Rounded.NotificationsActive, null) },
+                                    onClick = {
+                                        menuFor = null
+                                        toggleFollow(followed)
+                                    },
                                 )
-                            },
-                        ) { openDeparture(departure) }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.remind_menu)) },
+                                    leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
+                                    onClick = {
+                                        menuFor = null
+                                        reminding = followed
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
                 if (routesHere.isNotEmpty()) {
@@ -331,6 +362,7 @@ fun StopScreen(stopId: Int) {
         }
     }
     }
+    reminding?.let { ReminderSheet(it) { reminding = null } }
 }
 
 @Composable
@@ -348,6 +380,8 @@ private fun DeparturesLabel() {
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.weight(1f))
+        Text(stringResource(R.string.departures_hold_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
     }
 }
 
@@ -365,16 +399,18 @@ fun DepartureCard(
     now: java.time.LocalDateTime,
     favorite: Boolean,
     following: Boolean = false,
+    reminded: Boolean = false,
     onFollow: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val live = !departure.isStatic
     val press = remember { MutableInteractionSource() }
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press),
-        interactionSource = press,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press)
+            .clip(CardDefaults.shape)
+            .combinedClickable(interactionSource = press, indication = ripple(), onLongClick = onLongClick, onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -400,10 +436,14 @@ fun DepartureCard(
                     if (live) LiveBadge()
                     Text(
                         "→ ${routeDestination(departure.longName)}",
+                        modifier = Modifier.weight(1f, fill = false),
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (reminded) {
+                        Icon(Icons.Rounded.Alarm, stringResource(R.string.remind_saved), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
                 val origin = routeOrigin(departure.longName)
                 if (origin.isNotEmpty()) {

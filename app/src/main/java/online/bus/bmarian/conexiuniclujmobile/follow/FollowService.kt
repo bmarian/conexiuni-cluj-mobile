@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.follow
 
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
@@ -14,76 +15,113 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import online.bus.bmarian.conexiuniclujmobile.Services
-import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Fix
+import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
+import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
 import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
-import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
+import online.bus.bmarian.conexiuniclujmobile.logic.SCHEDULE_LATE_GRACE_MIN
 import online.bus.bmarian.conexiuniclujmobile.logic.computeStopDepartures
+import online.bus.bmarian.conexiuniclujmobile.logic.minutesOfDay
+import online.bus.bmarian.conexiuniclujmobile.logic.minutesUntil
+import online.bus.bmarian.conexiuniclujmobile.logic.scheduledAtStop
+import online.bus.bmarian.conexiuniclujmobile.logic.targetMinutes
+import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import java.time.Instant
 import java.time.LocalDateTime
 
 private const val TICK_MS = 15_000L
 private const val LIVE_WAIT_MS = 6_000L
 private const val STOP_INFO_REFRESH_MS = 120_000L
+private const val LOCATION_MS = 30_000L
 private const val SOON_MINUTES = 2
 private const val GIVE_UP_MS = 90 * 60_000L
 
+/** Follows every bus in [FollowManager.follows] that's local, each on its own card. */
 class FollowService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var job: Job? = null
-    private var current: FollowState? = null
-    private var ended = false
+    private val jobs = mutableMapOf<String, Job>()
+    private val latest = mutableMapOf<String, FollowState>()
+    private val cards = mutableMapOf<String, Notification>()
+    // The follow whose card keeps the service in the foreground.
+    private var foreground: String? = null
+    private var lastStartId = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val followed = intent?.getStringExtra(EXTRA_FOLLOWED)
-            ?.let { runCatching { Api.json.decodeFromString<Followed>(it) }.getOrNull() }
-        val id = intent?.getStringExtra(EXTRA_ID)
-        if (followed == null || id == null) {
-            stopSelf()
-            return START_NOT_STICKY
+    override fun onCreate() {
+        super.onCreate()
+        // Stopped from the app or a notification: it leaves the list.
+        scope.launch {
+            FollowManager.follows.collect { list ->
+                val ids = list.mapTo(HashSet()) { it.id }
+                jobs.keys.filter { it !in ids }.forEach { finish(it, "stopped", done = null) }
+            }
         }
-        // Restarted by the system: the state comes from the redelivered intent.
-        val state = FollowManager.state.value?.takeIf { it.id == id } ?: FollowState(id, followed)
-        FollowManager.mutableState.value = state
-        current = state
-        ended = false
+    }
 
-        ServiceCompat.startForeground(
-            this, FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-        )
-        WearLink.sendState(this, state.toSync())
-        job?.cancel()
-        job = scope.launch { track(state) }
-        return START_REDELIVER_INTENT
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
+        val id = intent?.getStringExtra(EXTRA_ID)
+        // Restarted by the system after its process was killed: pick the follows back up.
+        val states = if (id == null) FollowManager.restore(this) else FollowManager.follows.value.filter { it.id == id && !it.remote }
+        states.forEach(::begin)
+        if (jobs.isEmpty()) {
+            // Stopped before it started; the system still wants it in the foreground once.
+            ServiceCompat.startForeground(this, FollowNotifications.slot("placeholder"), FollowNotifications.placeholder(this), TYPE)
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            stopSelf(startId)
+        }
+        return START_STICKY
     }
 
     override fun onDestroy() {
         scope.cancel()
-        val state = current
-        if (state != null && !ended) WearLink.sendState(this, state.toSync(end = "stopped"))
-        if (state != null && FollowManager.state.value?.id == state.id) FollowManager.mutableState.value = null
+        for ((id, state) in latest) {
+            WearLink.sendState(this, state.toSync(end = "stopped"))
+            FollowManager.ended(this, id)
+        }
         super.onDestroy()
+    }
+
+    private val manager get() = getSystemService(NotificationManager::class.java)
+
+    private fun begin(state: FollowState) {
+        if (state.id in jobs) return
+        val card = FollowNotifications.ongoing(this, state)
+        cards[state.id] = card
+        latest[state.id] = state
+        val shown = foreground
+        if (shown == null) {
+            ServiceCompat.startForeground(this, FollowNotifications.slot(state.id), card, TYPE)
+            foreground = state.id
+        } else {
+            // Every start request has to be answered with startForeground.
+            ServiceCompat.startForeground(this, FollowNotifications.slot(shown), cards.getValue(shown), TYPE)
+            manager.notify(FollowNotifications.slot(state.id), card)
+        }
+        WearLink.sendState(this, state.toSync())
+        jobs[state.id] = scope.launch { track(state) }
     }
 
     private suspend fun track(start: FollowState) = coroutineScope {
         val followed = start.followed
+        val target = start.target
         val repository = Services.repository
-        val startedAt = System.currentTimeMillis()
         val info = MutableStateFlow(repository.cachedStopInfo(followed.stopId)?.only(followed.routeId))
         val shapes = runCatching { repository.shapes(listOf(followed.tripId)) }.getOrDefault(emptyMap())
         // Null until the first live snapshot, so a bus the timetable still shows as due isn't taken as arrived.
         val vehicles = MutableStateFlow<Map<String, List<Vehicle>>?>(null)
-        val clock = MutableStateFlow(startedAt)
+        val clock = MutableStateFlow(System.currentTimeMillis())
+        val here = MutableStateFlow<Fix?>(null)
 
         launch {
             while (true) {
@@ -102,38 +140,82 @@ class FollowService : Service() {
                 clock.value = System.currentTimeMillis()
             }
         }
+        if (target != null) {
+            launch {
+                here.value = UserLocation.current(this@FollowService)
+                UserLocation.updates(this@FollowService, LOCATION_MS).catch {}.collect { fix -> if (fix != null) here.value = fix }
+            }
+        }
 
         val progress = Progress()
         combine(info.filterNotNull(), vehicles.filterNotNull(), clock) { stop, buses, nowMs ->
-            withContext(Dispatchers.Default) {
-                val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
-                computeStopDepartures(stop, shapes, buses, now, nowMs)
-                    .firstOrNull { it.routeId == followed.routeId && it.tripId == followed.tripId } to nowMs
-            }
-        }.collect { (departure, nowMs) ->
-            if (nowMs - startedAt > GIVE_UP_MS) return@collect end(start, "stopped")
-            update(start, departure, nowMs, progress)
+            withContext(Dispatchers.Default) { reading(stop, shapes, buses, followed, target, nowMs) to nowMs }
+        }.collect { (reading, nowMs) ->
+            if (nowMs - start.startedAt > GIVE_UP_MS) return@collect end(start.id, "stopped")
+            update(start, reading, here.value, nowMs, progress)
         }
+    }
+
+    private class Reading(val minutes: Int, val live: Boolean, val later: List<Int>)
+
+    private fun reading(
+        stop: StopInfo,
+        shapes: Map<String, List<ShapePoint>>,
+        buses: Map<String, List<Vehicle>>,
+        followed: Followed,
+        target: FollowTarget?,
+        nowMs: Long,
+    ): Reading? {
+        val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
+        val departure = computeStopDepartures(stop, shapes, buses, now, nowMs)
+            .firstOrNull { it.routeId == followed.routeId && it.tripId == followed.tripId }
+        if (target == null) {
+            val first = departure?.nextTimes?.firstOrNull() ?: return null
+            return Reading(first.minutes, !departure.isStatic, departure.nextTimes.drop(1).map { it.minutes })
+        }
+        // A reminder follows its own departure, not whichever comes next.
+        val scheduled = scheduledAtStop(stop, followed.routeId, followed.tripId, now)
+        val slot = minutesOfDay(LocalDateTime.ofInstant(Instant.ofEpochMilli(target.atMs), CLUJ_ZONE))
+        val live = departure?.nextTimes?.firstOrNull()?.takeIf { it.isLive }?.minutes
+        val minutes = targetMinutes(scheduled, live, minutesUntil(slot, minutesOfDay(now))) ?: return null
+        return Reading(minutes, minutes == live, scheduled.filter { it > minutes + SCHEDULE_LATE_GRACE_MIN }.take(2))
     }
 
     private class Progress {
         var lastMinutes: Int? = null
         var alertedSoon = false
         var arrived = false
+        var toldToLeave = false
     }
 
-    private fun update(start: FollowState, departure: StopDeparture?, nowMs: Long, progress: Progress) {
-        val followed = start.followed
-        val first = departure?.nextTimes?.firstOrNull() ?: return end(start, "none")
-        val minutes = first.minutes
+    private fun update(start: FollowState, reading: Reading?, here: Fix?, nowMs: Long, progress: Progress) {
+        val id = start.id
+        val target = start.target
+        if (reading == null) return end(id, if (target != null) "left" else "none")
+        val minutes = reading.minutes
         // A jump after the bus was close means it passed, even if no reading caught it at 0.
-        if (progress.alertedSoon && minutes > (progress.lastMinutes ?: 0) + 2) return end(start, "left")
-        // Only changes after the first reading buzz: the user just asked.
-        val opening = progress.lastMinutes == null
+        if (progress.alertedSoon && minutes > (progress.lastMinutes ?: 0) + 2) return end(id, "left")
+        // A plain follow doesn't buzz on its first reading: the user just asked.
+        val opening = progress.lastMinutes == null && target == null
         var alert = false
+        var leaveAt: Long? = null
+        var walk: Int? = null
+        if (target != null) {
+            val minutesToWalk = here?.let { walkMinutes(it.lat, it.lon, target.lat, target.lon) }
+            val leaveIn = minutes - leadMinutes(minutesToWalk)
+            if (leaveIn <= 0 && !progress.toldToLeave) {
+                progress.toldToLeave = true
+                alert = true
+            }
+            // Until the bus is close or the user is already at the stop.
+            if (minutesToWalk != 0 && minutes > SOON_MINUTES) {
+                leaveAt = nowMs + leaveIn * 60_000L
+                walk = minutesToWalk
+            }
+        }
         if (minutes <= SOON_MINUTES && !progress.alertedSoon) {
             progress.alertedSoon = true
-            alert = !opening && minutes > 0
+            alert = alert || (!opening && minutes > 0)
         }
         if (minutes == 0 && !progress.arrived) {
             progress.arrived = true
@@ -141,41 +223,63 @@ class FollowService : Service() {
         }
         progress.lastMinutes = minutes
 
-        val state = FollowState(
-            id = start.id,
-            followed = followed,
+        if (id !in jobs) return
+        val state = start.copy(
             minutes = minutes,
-            live = !departure.isStatic,
-            later = departure.nextTimes.drop(1).map { it.minutes },
+            live = reading.live,
+            later = reading.later,
             arrivalAt = nowMs + minutes * 60_000L,
+            leaveAt = leaveAt,
+            walkMinutes = walk,
         )
-        current = state
-        if (FollowManager.state.value?.id != start.id) return
-        FollowManager.mutableState.value = state
+        latest[id] = state
+        FollowManager.put(state)
         WearLink.sendState(this, state.toSync(alert = alert))
-        getSystemService(NotificationManager::class.java)
-            .notify(FOLLOW_NOTIFICATION_ID, FollowNotifications.ongoing(this, state, alert))
+        val card = FollowNotifications.ongoing(this, state, alert)
+        cards[id] = card
+        manager.notify(FollowNotifications.slot(id), card)
     }
 
-    private fun end(state: FollowState, reason: String) {
-        ended = true
-        WearLink.sendState(this, (current ?: state).toSync(end = reason))
-        if (FollowManager.state.value?.id == state.id) FollowManager.mutableState.value = null
-        val done = FollowNotifications.done(this, state.followed, reason)
-        if (done == null) {
-            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        } else {
-            // Detaching re-posts the service's own copy, so the final state goes through it.
-            ServiceCompat.startForeground(this, FOLLOW_NOTIFICATION_ID, done, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+    private fun end(id: String, reason: String) {
+        val state = latest[id] ?: return
+        finish(id, reason, FollowNotifications.done(this, state.followed, reason))
+    }
+
+    /** [done] is posted over the card, or the card just goes. */
+    private fun finish(id: String, reason: String, done: Notification?) {
+        val job = jobs.remove(id) ?: return
+        latest.remove(id)?.let { WearLink.sendState(this, it.toSync(end = reason)) }
+        cards.remove(id)
+        FollowManager.ended(this, id)
+        val slot = FollowNotifications.slot(id)
+        val next = jobs.keys.firstOrNull()
+        when {
+            next == null -> {
+                foreground = null
+                if (done == null) {
+                    ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                } else {
+                    // Detaching re-posts the service's own copy, so the final state goes through it.
+                    ServiceCompat.startForeground(this, slot, done, TYPE)
+                    ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+                }
+                stopSelf(lastStartId)
+            }
+            foreground == id -> {
+                foreground = next
+                ServiceCompat.startForeground(this, FollowNotifications.slot(next), cards.getValue(next), TYPE)
+                // Moving the service off the card cancels it, so the final state goes up as its own.
+                if (done != null) manager.notify(FollowNotifications.slot("$id-done"), done)
+            }
+            done == null -> manager.cancel(slot)
+            else -> manager.notify(slot, done)
         }
-        stopSelf()
-        job?.cancel()
+        job.cancel()
     }
 
     companion object {
-        const val EXTRA_FOLLOWED = "followed"
         const val EXTRA_ID = "id"
+        private const val TYPE = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
     }
 }
 

@@ -351,7 +351,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
             }
             ToastHost(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp))
             val onboarded by Services.settings.onboarded.collectAsStateWithLifecycle()
-            if (!onboarded) Onboarding(onDone = Services.settings::setOnboarded, onImport = navigator::settings)
+            if (!onboarded) Onboarding(onDone = Services.settings::setOnboarded)
         }
     }
 

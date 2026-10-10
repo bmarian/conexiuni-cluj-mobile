@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Button
@@ -46,6 +47,7 @@ import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowState
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.follow.leaveText
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
@@ -63,10 +65,10 @@ fun rememberFollowToggle(): (Followed) -> Unit {
     }
     val haptics = LocalHapticFeedback.current
     return { followed ->
-        val on = !FollowManager.isFollowing(followed.stopId, followed.routeId, followed.tripId)
-        haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+        val existing = FollowManager.find(followed.stopId, followed.routeId, followed.tripId)
+        haptics.performHapticFeedback(if (existing == null) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
         when {
-            !on -> FollowManager.stop(context)
+            existing != null -> FollowManager.stop(context, existing.id)
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED -> {
                 pending = followed
                 permission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -103,7 +105,10 @@ suspend fun openOnWatch(context: Context, path: String) {
 fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val followed = state.followed
     val now = rememberNow()
+    val context = LocalContext.current
     val press = remember { MutableInteractionSource() }
+    // A reminder still waiting for the user to set off.
+    val leave = state.leaveAt?.let { at -> state.minutes?.let { leaveText(context, followed.shortName, it, at, state.walkMinutes, System.currentTimeMillis()).first } }
     Card(
         onClick = onOpen,
         modifier = modifier.fillMaxWidth().squish(press),
@@ -117,9 +122,14 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Icon(
+                        if (leave != null) Icons.AutoMirrored.Rounded.DirectionsWalk else Icons.Rounded.NotificationsActive,
+                        null,
+                        Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
                     Text(
-                        stringResource(R.string.following),
+                        leave ?: stringResource(R.string.following),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )

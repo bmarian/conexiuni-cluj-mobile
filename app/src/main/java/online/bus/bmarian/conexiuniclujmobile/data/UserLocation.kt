@@ -8,6 +8,8 @@ import android.location.Location
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -16,6 +18,7 @@ import com.google.android.gms.location.Priority
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.tasks.await
 
 class Fix(val lat: Double, val lon: Double, val accuracyMeters: Float, val bearing: Float? = null, val speed: Float? = null)
 
@@ -46,6 +49,21 @@ object UserLocation {
             putLong("lon", fix.lon.toRawBits())
             putFloat("accuracy", fix.accuracyMeters)
         }
+    }
+
+    fun backgroundPermitted(context: Context) =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    /** Where the user is now; null unless the app is open or may use location in the background. */
+    @SuppressLint("MissingPermission")
+    suspend fun current(context: Context): Fix? {
+        if (!permitted(context)) return null
+        val open = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        if (!open && !backgroundPermitted(context)) return null
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val location = runCatching { client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).await() }.getOrNull()
+            ?: runCatching { client.lastLocation.await() }.getOrNull()
+        return location?.takeIf(::inClujCounty)?.let { Fix(it.latitude, it.longitude, it.accuracy) }
     }
 
     private fun inClujCounty(location: Location) =

@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -33,10 +34,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +53,8 @@ import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
+import online.bus.bmarian.conexiuniclujmobile.follow.Followed
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
@@ -56,6 +63,9 @@ import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.FollowingCard
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.JourneyCard
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderRepeat
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
 import online.bus.bmarian.conexiuniclujmobile.ui.longPressDrag
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.moved
@@ -85,7 +95,12 @@ fun HomeScreen() {
     val favoritePlans by Services.favorites.plans.collectAsStateWithLifecycle()
     val recentPlans by Services.favorites.recentPlans.collectAsStateWithLifecycle()
     val online by Services.online.collectAsStateWithLifecycle()
-    val following by FollowManager.state.collectAsStateWithLifecycle()
+    val follows by FollowManager.follows.collectAsStateWithLifecycle()
+    val reminders by Reminders.all.collectAsStateWithLifecycle()
+    val clock by Services.clock.collectAsStateWithLifecycle()
+    var reminding by remember { mutableStateOf<Followed?>(null) }
+    val locale = LocalConfiguration.current.locales[0]
+    val resources = LocalResources.current
     val journey by JourneyManager.state.collectAsStateWithLifecycle()
 
     val listState = rememberLazyListState()
@@ -145,17 +160,42 @@ fun HomeScreen() {
                 )
             }
         }
-        following?.let { follow ->
-            item(key = "following") {
-                FollowingCard(
-                    follow,
-                    onOpen = { nav.stop(follow.followed.stopId) },
-                    onStop = { FollowManager.stop(context) },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
-                )
-            }
+        items(follows, key = { "following-${it.id}" }) { follow ->
+            FollowingCard(
+                follow,
+                onOpen = { nav.stop(follow.followed.stopId) },
+                onStop = { FollowManager.stop(context, follow.id) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
+            )
         }
 
+        if (reminders.isNotEmpty()) {
+            item(key = "reminders-label") { SubLabel(stringResource(R.string.reminders), Modifier.padding(top = 12.dp)) }
+            item(key = "reminders") {
+                Column {
+                    for (reminder in reminders) key(reminder.id) {
+                        val followed = reminder.followed
+                        val next = remember(reminder, clock) { reminder.next(clock) }
+                        FavoriteRow(
+                            modifier = Modifier.animateContentSize(),
+                            icon = { LineBadge(followed.shortName, followed.color, height = 30.dp, minWidth = 38.dp, corner = 8.dp) },
+                            title = listOfNotNull(
+                                next?.let { reminderWhen(resources, it, locale) } ?: stringResource(R.string.remind_no_bus),
+                                "→ ${followed.destination}",
+                            ).joinToString(" "),
+                            kicker = listOfNotNull(
+                                stringResource(R.string.remind_last_bus).takeIf { reminder.time == null },
+                                reminderRepeat(resources, reminder.days, locale),
+                                followed.stopName,
+                            ).joinToString(" · "),
+                            removeLabel = stringResource(R.string.remind_delete),
+                            onClick = { reminding = followed },
+                            onRemove = { Reminders.remove(context, reminder.id) },
+                        )
+                    }
+                }
+            }
+        }
         if (chips.isNotEmpty()) {
             item(key = "routes-label") { SubLabel(stringResource(R.string.w_favorite_routes), Modifier.padding(top = 12.dp)) }
             item(key = "routes") {
@@ -243,6 +283,7 @@ fun HomeScreen() {
         }
         item(key = "end") { Spacer(Modifier.height(24.dp)) }
     }
+    reminding?.let { ReminderSheet(it) { reminding = null } }
 }
 
 @Composable

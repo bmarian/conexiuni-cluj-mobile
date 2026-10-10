@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -86,6 +87,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
@@ -124,6 +126,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
@@ -227,9 +230,11 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
-    val following by FollowManager.state.collectAsStateWithLifecycle()
+    val follows by FollowManager.follows.collectAsStateWithLifecycle()
+    val reminders by Reminders.all.collectAsStateWithLifecycle()
     val withNotifications = rememberWithNotifications()
     var menuFor by remember { mutableStateOf<Int?>(null) }
+    var reminding by remember { mutableStateOf<Followed?>(null) }
     val menu = buildList {
         val shortName = info?.shortName
         if (showChanges && shortName != null) {
@@ -407,7 +412,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             itemsIndexed(stops, key = { idx, s -> "${s.stop.stopId}-$idx" }) { idx, stop ->
                 val arrivals = current?.arrivals?.getOrNull(idx).orEmpty()
                 val name = stop.stop.headsign.ifEmpty { "Stop ${idx + 1}" }
-                val alerting = following?.followed?.let { it.stopId == stop.stop.stopId && it.routeId == routeId && it.tripId == tripId } == true
+                val alerting = follows.firstOrNull { it.matches(stop.stop.stopId, routeId, tripId) }
+                val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir))
                 Box(Modifier.cascade(idx, dir)) {
                     StopLine(
                         name = name,
@@ -417,7 +423,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         last = idx == stops.lastIndex,
                         times = arrivals.map { (if (it.soon) soonLabel else formatMinutesFromNow(it.minutes, current!!.now, nowLabel)) to it.isLive },
                         trailingText = null,
-                        alerting = alerting,
+                        alerting = alerting != null,
+                        reminded = reminders.any { it.isFor(stop.stop.stopId, routeId, tripId) },
                         onClick = { nav.stop(stop.stop.stopId) },
                         onLongClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -426,20 +433,23 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     )
                     DropdownMenu(expanded = menuFor == idx, onDismissRequest = { menuFor = null }, offset = DpOffset(44.dp, 0.dp)) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(if (alerting) R.string.stop_menu_notify_off else R.string.stop_menu_notify)) },
+                            text = { Text(stringResource(if (alerting != null) R.string.stop_menu_notify_off else R.string.stop_menu_notify)) },
                             leadingIcon = { Icon(Icons.Rounded.NotificationsActive, null) },
                             onClick = {
                                 menuFor = null
-                                if (alerting) {
-                                    FollowManager.stop(context)
+                                if (alerting != null) {
+                                    FollowManager.stop(context, alerting.id)
                                 } else {
-                                    withNotifications {
-                                        FollowManager.start(
-                                            context,
-                                            Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir)),
-                                        )
-                                    }
+                                    withNotifications { FollowManager.start(context, followed) }
                                 }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.remind_menu)) },
+                            leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
+                            onClick = {
+                                menuFor = null
+                                reminding = followed
                             },
                         )
                         if (idx > 0) {
@@ -560,6 +570,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         item { Spacer(Modifier.height(32.dp)) }
     }
     }
+    reminding?.let { ReminderSheet(it) { reminding = null } }
 }
 
 @Composable
@@ -594,6 +605,7 @@ private fun StopLine(
     trailingText: String?,
     trailingHighlight: Boolean = false,
     alerting: Boolean = false,
+    reminded: Boolean = false,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
@@ -657,6 +669,9 @@ private fun StopLine(
             }
             if (alerting) {
                 Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+            if (reminded) {
+                Icon(Icons.Rounded.Alarm, stringResource(R.string.remind_saved), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
         if (trailingText != null) {

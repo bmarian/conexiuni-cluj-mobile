@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.logic
 
+import online.bus.bmarian.conexiuniclujmobile.data.OUTGOING_SUFFIX
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
 import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
@@ -65,6 +66,14 @@ fun computeStopDepartures(
         push(departure, eta?.etaMinutes, tracked)
     }
     return results.sortedBy { it.minutesLeft }
+}
+
+/** Minutes until each of the day's timetable arrivals of a route at the stop, unlimited and unrounded. */
+fun scheduledAtStop(info: StopInfo, routeId: Int, tripId: String, now: LocalDateTime): List<Int> {
+    val shape = info.shapesInfo.firstOrNull { it.routeId == routeId } ?: return emptyList()
+    val offset = timeOffsetToStop(shape.stopTimes, tripId, info.stopId)
+    val outgoing = tripId.endsWith(OUTGOING_SUFFIX)
+    return scheduledArrivals(departureMinutes(daySchedule(shape.timetable, now), outgoing), offset, minutesOfDay(now))
 }
 
 class IndexedStop(val stop: StopTime, val offsetFromStart: Int)

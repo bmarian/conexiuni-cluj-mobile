@@ -28,7 +28,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -54,13 +53,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 
-private enum class Step { Welcome, Location, Notifications, Watch }
+private enum class Step { Welcome, Location, Notifications }
 
 @Composable
-fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
+fun Onboarding(onDone: () -> Unit) {
     val context = LocalContext.current
     val settings = Services.settings
     val steps = remember {
@@ -68,7 +66,6 @@ fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
             add(Step.Welcome)
             if (!UserLocation.permitted(context)) add(Step.Location)
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) add(Step.Notifications)
-            add(Step.Watch)
         }
     }
     var index by rememberSaveable { mutableIntStateOf(0) }
@@ -80,7 +77,6 @@ fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
         next()
     }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { next() }
-    val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
     val locale by settings.locale.collectAsStateWithLifecycle()
     val step = steps[index]
 
@@ -105,11 +101,6 @@ fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
                         Step.Welcome -> Triple(Icons.Rounded.DirectionsBus, R.string.onboard_welcome_title, R.string.onboard_welcome_body)
                         Step.Location -> Triple(Icons.Rounded.MyLocation, R.string.onboard_location_title, R.string.onboard_location_body)
                         Step.Notifications -> Triple(Icons.Rounded.NotificationsActive, R.string.onboard_notifications_title, R.string.onboard_notifications_body)
-                        Step.Watch -> Triple(
-                            Icons.Rounded.Watch,
-                            R.string.onboard_watch_title,
-                            if (watch) R.string.onboard_watch_connected else R.string.onboard_watch_none,
-                        )
                     }
                     StepIcon(icon)
                     Spacer(Modifier.height(24.dp))
@@ -129,7 +120,9 @@ fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 when (step) {
-                    Step.Welcome -> Button(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_next)) }
+                    Step.Welcome -> Button(shapes = ButtonDefaults.shapes(), onClick = ::next) {
+                        Text(stringResource(if (index == steps.lastIndex) R.string.onboard_done else R.string.onboard_next))
+                    }
                     Step.Location -> {
                         TextButton(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
                         Button(shapes = ButtonDefaults.shapes(), onClick = {
@@ -139,15 +132,6 @@ fun Onboarding(onDone: () -> Unit, onImport: () -> Unit) {
                     Step.Notifications -> {
                         TextButton(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
                         Button(shapes = ButtonDefaults.shapes(), onClick = { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text(stringResource(R.string.onboard_allow)) }
-                    }
-                    Step.Watch -> {
-                        if (!watch) {
-                            TextButton(shapes = ButtonDefaults.shapes(), onClick = {
-                                onDone()
-                                onImport()
-                            }) { Text(stringResource(R.string.onboard_import)) }
-                        }
-                        Button(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(stringResource(R.string.onboard_done)) }
                     }
                 }
             }

@@ -142,7 +142,7 @@ class AtStopReceiver : BroadcastReceiver() {
     }
 }
 
-/** Fences don't survive reboots or updates; Services.init adds them back. */
+/** Fences and reminder alarms don't survive reboots or updates; Services.init adds them back. */
 class AtStopRestoreReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) = Unit
 }
