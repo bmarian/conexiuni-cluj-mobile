@@ -77,12 +77,6 @@ Everything the Play Console asks for, ready to paste. The phone and the watch ap
 
 ## Permission declarations
 
-**Background location** (`ACCESS_BACKGROUND_LOCATION`)
-
-> Reminders tell you when to leave for a bus you picked. When it's time, the app checks how far you are from the stop and how long the walk takes, even when the app is closed, so the "Leave now" alert comes in time. Location is only read around a reminder, never stored, and reminders still work without it (they then come 20 minutes before the bus). The app asks for it from the reminder screen, after saying what it's for.
-
-Video: set a reminder, allow background location from the reminder screen, close the app, and show the "Leave in … / Leave now" notification arriving.
-
 **Foreground service: special use** (`FollowService`)
 
 > Shows a live countdown for buses the user chose to follow or set a reminder for, and alerts them when it's time to leave and when the bus comes. It stops on its own once the bus has gone.

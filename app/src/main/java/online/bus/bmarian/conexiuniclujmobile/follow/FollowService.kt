@@ -142,7 +142,7 @@ class FollowService : Service() {
         }
         if (target != null) {
             launch {
-                here.value = UserLocation.current(this@FollowService)
+                here.value = UserLocation.current(this@FollowService) ?: UserLocation.recent(this@FollowService)
                 UserLocation.updates(this@FollowService, LOCATION_MS).catch {}.collect { fix -> if (fix != null) here.value = fix }
             }
         }

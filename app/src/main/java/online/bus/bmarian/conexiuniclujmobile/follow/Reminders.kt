@@ -150,7 +150,7 @@ object Reminders {
         if (at <= reminder.handled) return
         val now = System.currentTimeMillis()
         if (at < now - MISSED_MS) return handled(context, reminder, at)
-        val fix = withTimeoutOrNull(LOCATE_MS) { UserLocation.current(context) }
+        val fix = withTimeoutOrNull(LOCATE_MS) { UserLocation.current(context) } ?: UserLocation.recent(context)
         val walk = fix?.let { walkMinutes(it.lat, it.lon, reminder.lat, reminder.lon) }
         val wakeAt = at - (leadMinutes(walk) + HEADS_UP_MIN) * 60_000L
         if (wakeAt > now + REARM_SLACK_MS) return alarm(context, id, at, wakeAt)

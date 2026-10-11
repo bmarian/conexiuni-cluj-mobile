@@ -91,7 +91,10 @@ object Services {
                     }
                 }
                 combine(permissionChecks, locationInterval) { _, ms -> ms }.collectLatest { ms ->
-                    UserLocation.updates(app, ms).collect { fix -> _location.value = fix }
+                    UserLocation.updates(app, ms).collect { fix ->
+                        _location.value = fix
+                        if (fix != null) UserLocation.save(app, fix)
+                    }
                 }
             }
         }

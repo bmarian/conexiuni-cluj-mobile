@@ -1,6 +1,5 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.follow
 
-import android.Manifest
 import android.content.res.Resources
 import android.content.Intent
 import android.provider.Settings
@@ -63,7 +62,6 @@ import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
-import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
@@ -130,7 +128,6 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
     // Bumped when a permission comes back, to read it again.
     var asked by remember { mutableIntStateOf(0) }
     val exactAlarms = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { asked++ }
-    val backgroundLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { asked++ }
 
     val nowMinutes = minutesOfDay(LocalDateTime.now(CLUJ_ZONE))
     // The times shown: from the next day the reminder runs on; a one-off only offers what's still to come.
@@ -256,11 +253,6 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                 if (!Reminders.exactAllowed(context)) {
                     PermissionRow(stringResource(R.string.remind_exact)) {
                         exactAlarms.launch(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "package:${context.packageName}".toUri()))
-                    }
-                }
-                if (UserLocation.permitted(context) && !UserLocation.backgroundPermitted(context)) {
-                    PermissionRow(stringResource(R.string.remind_location)) {
-                        backgroundLocation.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                     }
                 }
             }

@@ -6,7 +6,7 @@ Conexiuni Cluj for Android and its Wear OS app show live bus and tram departures
 
 With your permission, the app uses your location on the phone: to show the stops near you and where you are on the map, to plan trips from where you are, to tell you where to get off during a trip, and to time your walk to the stop for a reminder.
 
-If you also allow location in the background, a reminder can time that walk while the app is closed. Without it, the reminder comes 20 minutes before the bus.
+The app never reads your location in the background. A reminder times the walk from where you were the last time the app was open, if that was within the hour, and otherwise comes 20 minutes before the bus. That last position is kept only on the phone.
 
 Your location only leaves the phone when you plan a trip from where you are: the start, rounded to about 10 metres, and the destination go to [bus.bmarian.online](https://bus.bmarian.online), which works out the trip.
 
