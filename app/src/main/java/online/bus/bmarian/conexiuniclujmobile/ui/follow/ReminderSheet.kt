@@ -123,7 +123,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
     }
     val times by produceState(emptyMap<String, List<Int>>(), info) { info?.let { value = reminderTimes(it, followed) } }
     val today = remember { LocalDate.now(CLUJ_ZONE) }
-    var repeat by remember { mutableStateOf(existing?.once != true) }
+    var repeat by remember { mutableStateOf(existing?.once == false) }
     var days by remember { mutableStateOf(existing?.days?.takeIf { it.isNotEmpty() } ?: (1..7).toList()) }
     var last by remember { mutableStateOf(existing != null && existing.time == null) }
     var time by remember { mutableStateOf(existing?.time) }
