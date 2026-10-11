@@ -9,7 +9,7 @@ Everything the Play Console asks for, ready to paste. The phone and the watch ap
 | Category | Maps & Navigation |
 | Free / paid | Free, no ads, no in-app purchases |
 | Form factors | Phone, and Wear OS (works without the phone too) |
-| Privacy policy | https://github.com/bmarian/conexiuni-cluj-mobile/blob/main/PRIVACY.md |
+| Privacy policy | https://github.com/bmarian/conexiuni-cluj-mobile/blob/master/PRIVACY.md |
 | Website | https://bus.bmarian.online |
 | App icon | `icon-512.png` |
 | Feature graphic | `feature-graphic.png` (English), `feature-graphic-ro.png` (Romanian) |
