@@ -1,6 +1,6 @@
 # Conexiuni Cluj for Android
 
-The [Conexiuni Cluj](https://github.com/bmarian/conexiuni-cluj) bus and tram tracker as an Android app. Same buses and timetables as the website, laid out like Google Maps.
+The [Conexiuni Cluj](https://github.com/bmarian/conexiuni-cluj) bus and tram tracker as an Android app. Same buses and timetables as the website, but designed for mobile.
 
 **[Download the latest APK](https://github.com/bmarian/conexiuni-cluj-mobile/releases/latest/download/conexiuni-cluj.apk)** (Android 14 or newer)
 
