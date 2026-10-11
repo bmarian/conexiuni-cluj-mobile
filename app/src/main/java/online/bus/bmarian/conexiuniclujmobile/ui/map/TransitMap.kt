@@ -481,6 +481,7 @@ private fun VehicleBubble(session: MapSession, id: String, dark: Boolean, extras
                 Text(vehicle.shortName, color = Color(0xFFF1F5F9), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 if (extras) {
                     val gray = Color(0xFF94A3B8)
+                    Text("·", color = gray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Canvas(Modifier.size(12.dp)) {
                         accessibilityIcon(Offset.Zero, size.width, wheelchair = true, ok = vehicle.vehicle.wheelchairAccessible == "WHEELCHAIR_ACCESSIBLE", color = gray)
                     }
@@ -489,7 +490,8 @@ private fun VehicleBubble(session: MapSession, id: String, dark: Boolean, extras
                     }
                 }
             }
-            Text("${Math.round(reported)} km/h", color = Color(0xFF90A1B9), fontSize = 12.sp)
+            val number = vehicle.vehicle.label.takeIf { it.isNotBlank() }?.let { "#$it · " }.orEmpty()
+            Text("$number${Math.round(reported)} km/h", color = Color(0xFF90A1B9), fontSize = 12.sp)
         }
     }
 }
