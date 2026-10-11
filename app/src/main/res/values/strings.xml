@@ -145,4 +145,5 @@
     <string name="alarm_setting_desc">Mementourile sună până le oprești</string>
     <string name="alarm_full_screen_off">Permite notificările pe tot ecranul</string>
     <string name="alarm_label">Memento</string>
+    <string name="app_version">Versiunea %1$s</string>
 </resources>

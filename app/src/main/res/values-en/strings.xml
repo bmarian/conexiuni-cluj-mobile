@@ -139,4 +139,5 @@
     <string name="alarm_setting_desc">Reminders ring until you stop them</string>
     <string name="alarm_full_screen_off">Allow full screen notifications</string>
     <string name="alarm_label">Reminder</string>
+    <string name="app_version">Version %1$s</string>
 </resources>

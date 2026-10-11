@@ -103,6 +103,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
@@ -253,6 +254,13 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TransferPanel(transfer)
+            Text(
+                stringResource(R.string.app_version, BuildConfig.VERSION_NAME),
+                Modifier.fillMaxWidth().padding(top = 24.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
             Spacer(Modifier.height(32.dp))
         }
     }
