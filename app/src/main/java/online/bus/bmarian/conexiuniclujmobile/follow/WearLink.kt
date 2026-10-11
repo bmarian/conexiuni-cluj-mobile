@@ -202,7 +202,6 @@ object WearLink {
         }
     }
 
-    // The watch follows the app's language from here on.
     private suspend fun publishLanguage(context: Context, tag: String) {
         runCatching {
             val request = PutDataMapRequest.create(PATH_LANGUAGE).apply {

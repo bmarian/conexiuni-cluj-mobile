@@ -4,7 +4,6 @@
     <string name="retry">Încearcă din nou</string>
     <string name="push_line">Linia %1$s · %2$s</string>
     <string name="scan_code">Scanează codul</string>
-    <string name="location_off">Locația este oprită</string>
     <string name="push_denied_body">Pornește-le din setările aplicației.</string>
     <string name="follow">Urmărește</string>
     <string name="following">Urmărești</string>
@@ -139,4 +138,11 @@
     <string name="remind_tomorrow">Mâine %1$s</string>
     <string name="reminders">Mementouri</string>
     <string name="departures_hold_hint">ține apăsat pentru mementouri</string>
+    <string name="alarm_channel">Alarme mementouri</string>
+    <string name="alarm_stop">Oprește</string>
+    <string name="alarm_open">Deschide stația</string>
+    <string name="alarm_setting">Alarme pe tot ecranul</string>
+    <string name="alarm_setting_desc">Mementourile sună până le oprești</string>
+    <string name="alarm_full_screen_off">Permite notificările pe tot ecranul</string>
+    <string name="alarm_label">Memento</string>
 </resources>

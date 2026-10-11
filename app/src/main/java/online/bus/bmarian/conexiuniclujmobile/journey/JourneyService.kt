@@ -53,7 +53,6 @@ private const val TICK_MS = 5_000L
 private const val STOP_INFO_REFRESH_MS = 120_000L
 private const val ARRIVED_M = 50.0
 private const val GIVE_UP_MS = 4 * 60 * 60_000L
-// How long a step's announcement waits for its bus time.
 private const val CUE_WAIT_MS = 10_000L
 
 private sealed interface Phase {
@@ -326,7 +325,6 @@ class JourneyService : Service() {
         return nowMs + (minutes * 60_000).toLong()
     }
 
-    /** Says a new step once its bus time is known, and the alerts as they come. */
     private fun announce(journey: Journey, departure: StopDeparture?, nowMs: Long, alert: Boolean) {
         val voice = voice ?: return
         val p = cue
@@ -336,7 +334,6 @@ class JourneyService : Service() {
             val waitsForBus = p is Phase.Walk || p is Phase.Wait
             if (!waitsForBus || bus != null || nowMs - cueSince >= CUE_WAIT_MS) {
                 cue = null
-                // The alert says the same thing sooner.
                 val step = if (alert && (p is Phase.Wait || p is Phase.Ride)) null else spokenStep(journey, p, bus, nowMs)
                 val text = listOfNotNull(getString(R.string.voice_get_off).takeIf { cueAfterRide }, step).joinToString(" ")
                 if (text.isNotEmpty()) voice.say(text)

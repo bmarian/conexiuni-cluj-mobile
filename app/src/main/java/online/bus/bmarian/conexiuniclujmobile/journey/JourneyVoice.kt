@@ -11,7 +11,6 @@ import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
-// Stop names are written short; the voice says them in full.
 private val FIRST_NAMES = listOf(
     Triple("M", "Viteaz", "Mihai"),
     Triple("N", "B[aă]lcescu", "Nicolae"),
@@ -58,19 +57,17 @@ private val SHORT_FORMS = listOf(
     Regex("""\s+V\.?(?=\s*(\(|$))""") to " Vest",
 )
 
-/** A stop name as it's said: "M-Moara V" is "Moara Vest", "P-ța M. Viteazul" is "Piața Mihai Viteazul". */
 internal fun spokenStopName(name: String): String =
     (FIRST_NAMES + SHORT_FORMS).fold(name.trim()) { acc, (pattern, full) -> acc.replace(pattern, full) }
         .replace(Regex("""\s+"""), " ")
         .trim()
 
-// Marks a name inside a sentence, for the Romanian voice.
+// U+2068 and U+2069, around names.
 private const val NAME_START = '⁨'
 private const val NAME_END = '⁩'
 
 internal fun spokenName(name: String) = "$NAME_START${spokenStopName(name)}$NAME_END"
 
-/** The sentence in parts, each marked as a name or not; bare punctuation is dropped. */
 internal fun speechParts(text: String): List<Pair<String, Boolean>> = buildList {
     var rest = text
     while (rest.isNotEmpty()) {
@@ -88,7 +85,6 @@ internal fun speechParts(text: String): List<Pair<String, Boolean>> = buildList 
 
 private val ROMANIAN: Locale = Locale.forLanguageTag("ro-RO")
 
-/** Speaks a trip's steps as navigation audio: music ducks, and it plays through headphones or the car. */
 class JourneyVoice(context: Context) {
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder()
@@ -114,7 +110,7 @@ class JourneyVoice(context: Context) {
         val english = Services.settings.locale.value == "en"
         val locale = if (english) Locale.UK else ROMANIAN
         if (!available(locale)) return
-        // Romanian names in an English sentence are said by the Romanian voice.
+        // Names use the Romanian voice.
         romanianNames = english && available(ROMANIAN)
         tts.setLanguage(locale)
         tts.setAudioAttributes(attributes)
@@ -153,7 +149,6 @@ class JourneyVoice(context: Context) {
         audio.abandonAudioFocusRequest(focus)
     }
 
-    /** Lets what's being said finish, then frees the engine. */
     fun close() {
         closing = true
         pending = null

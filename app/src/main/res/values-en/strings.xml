@@ -3,7 +3,6 @@
     <string name="retry">Try again</string>
     <string name="push_line">Line %1$s · %2$s</string>
     <string name="scan_code">Scan code</string>
-    <string name="location_off">Location is off</string>
     <string name="push_denied_body">Turn them on in the app\'s settings.</string>
     <string name="follow">Follow</string>
     <string name="following">Following</string>
@@ -133,4 +132,11 @@
     <string name="remind_tomorrow">Tomorrow %1$s</string>
     <string name="reminders">Reminders</string>
     <string name="departures_hold_hint">hold a bus for reminders</string>
+    <string name="alarm_channel">Reminder alarms</string>
+    <string name="alarm_stop">Stop</string>
+    <string name="alarm_open">Open stop</string>
+    <string name="alarm_setting">Full screen alarms</string>
+    <string name="alarm_setting_desc">Reminders ring until you stop them</string>
+    <string name="alarm_full_screen_off">Allow full screen notifications</string>
+    <string name="alarm_label">Reminder</string>
 </resources>

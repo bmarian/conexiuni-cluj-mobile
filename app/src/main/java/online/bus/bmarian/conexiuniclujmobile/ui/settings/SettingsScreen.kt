@@ -1,6 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.settings
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Accessible
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -78,6 +80,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.core.net.toUri
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -129,6 +132,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val changes by settings.showTimetableChanges.collectAsStateWithLifecycle()
     val push by settings.pushNotifications.collectAsStateWithLifecycle()
     val voice by settings.journeyVoice.collectAsStateWithLifecycle()
+    val alarms by settings.fullScreenAlarms.collectAsStateWithLifecycle()
     val watchStatus by WearLink.status.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { WearLink.refreshStatus(context) }
     val transfer: TransferViewModel = viewModel()
@@ -165,6 +169,17 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
         }
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) pushOn()
         else notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    val notifications = context.getSystemService(NotificationManager::class.java)
+    val fullScreenAccess = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (!notifications.canUseFullScreenIntent()) settings.showToast(resources.getString(R.string.alarm_full_screen_off))
+    }
+    fun toggleAlarms(on: Boolean) {
+        settings.setFullScreenAlarms(on)
+        if (on && !notifications.canUseFullScreenIntent()) {
+            fullScreenAccess.launch(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, "package:${context.packageName}".toUri()))
+        }
     }
 
     val scroll = rememberScrollState()
@@ -205,9 +220,10 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             Toggle(Icons.Rounded.CropFree, stringResource(R.string.w_auto_fit_map), stringResource(R.string.w_auto_fit_map_desc), fit, onChange = settings::setAutoFitMap)
 
             Section(stringResource(R.string.settings_trips))
-            Toggle(Icons.AutoMirrored.Rounded.VolumeUp, stringResource(R.string.voice_guidance), stringResource(R.string.voice_guidance_desc), voice, onChange = settings::setJourneyVoice)
+            Toggle(Icons.AutoMirrored.Rounded.VolumeUp, stringResource(R.string.voice_guidance), stringResource(R.string.voice_guidance_desc), voice, beta = true, onChange = settings::setJourneyVoice)
 
             Section(stringResource(R.string.w_settings_notifications))
+            Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, beta = true, onChange = ::toggleAlarms)
             Toggle(Icons.Rounded.Notifications, stringResource(R.string.w_timetable_changes), stringResource(R.string.w_timetable_changes_desc), changes, beta = true) { on ->
                 settings.setShowTimetableChanges(on)
                 if (!on && push) settings.setPushNotifications(false)

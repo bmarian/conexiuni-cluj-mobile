@@ -200,12 +200,18 @@ class FollowService : Service() {
         var alert = false
         var leaveAt: Long? = null
         var walk: Int? = null
+        var ring = false
         if (target != null) {
             val minutesToWalk = here?.let { walkMinutes(it.lat, it.lon, target.lat, target.lon) }
             val leaveIn = minutes - leadMinutes(minutesToWalk)
             if (leaveIn <= 0 && !progress.toldToLeave) {
                 progress.toldToLeave = true
                 alert = true
+                if (Services.settings.fullScreenAlarms.value) {
+                    val (title, text) = leaveText(this, start.followed.shortName, minutes, nowMs, minutesToWalk, nowMs)
+                    ReminderAlarm.ring(this, start.followed, nowMs + minutes * 60_000L, title, text)
+                    ring = true
+                }
             }
             // Until the bus is close or the user is already at the stop.
             if (minutesToWalk != 0 && minutes > SOON_MINUTES) {
@@ -235,7 +241,7 @@ class FollowService : Service() {
         latest[id] = state
         FollowManager.put(state)
         WearLink.sendState(this, state.toSync(alert = alert))
-        val card = FollowNotifications.ongoing(this, state, alert)
+        val card = FollowNotifications.ongoing(this, state, alert && !ring)
         cards[id] = card
         manager.notify(FollowNotifications.slot(id), card)
     }

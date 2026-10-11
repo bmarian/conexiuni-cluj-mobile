@@ -35,7 +35,6 @@ object UserLocation {
 
     private fun prefs(context: Context) = context.getSharedPreferences("location", Context.MODE_PRIVATE)
 
-    /** Where the app last saw the user while open, if that was within the hour. */
     fun recent(context: Context): Fix? {
         val prefs = prefs(context)
         if (!permitted(context) || System.currentTimeMillis() - prefs.getLong("at", 0) > RECENT_MS) return null
@@ -58,7 +57,7 @@ object UserLocation {
         }
     }
 
-    /** Where the user is now; null unless the app is open. */
+    /** Null unless the app is open. */
     @SuppressLint("MissingPermission")
     suspend fun current(context: Context): Fix? {
         val open = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)

@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".App"
@@ -39,6 +41,17 @@
         <receiver
             android:name=".follow.StopFollowingReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".follow.AlarmStopReceiver"
+            android:exported="false" />
+        <activity
+            android:name=".follow.AlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:turnScreenOn="true" />
         <receiver
             android:name=".follow.ReminderReceiver"
             android:exported="false">

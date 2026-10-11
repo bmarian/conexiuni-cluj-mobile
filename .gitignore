@@ -23,3 +23,5 @@ keystore.properties
 *.apk
 *.aab
 /app/src/*/generated/baselineProfiles/
+
+/store/

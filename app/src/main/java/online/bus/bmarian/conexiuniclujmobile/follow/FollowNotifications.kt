@@ -14,6 +14,7 @@ import androidx.annotation.RequiresApi
 import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import androidx.compose.ui.graphics.toArgb
 
@@ -169,6 +170,7 @@ object FollowNotifications {
         val minutes = ((atMs - nowMs) / 60_000).toInt().coerceAtLeast(0)
         val leaveAt = atMs - leadMinutes(walk) * 60_000L
         val (title, text) = leaveText(context, followed.shortName, minutes, leaveAt, walk, nowMs)
+        if (Services.settings.fullScreenAlarms.value) return ReminderAlarm.ring(context, followed, atMs, title, text)
         val notification = Notification.Builder(context, ALERT_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
             .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))

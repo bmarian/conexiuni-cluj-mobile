@@ -109,6 +109,7 @@ class Settings(private val context: Context) {
     val showTimetableChanges = bool("showTimetableChanges", false)
     val pushNotifications = bool("pushNotifications", false)
     val journeyVoice = bool("journeyVoice", true)
+    val fullScreenAlarms = bool("fullScreenAlarms", false)
 
     val onboarded = bool("onboarded", false)
     fun setOnboarded() = set(onboarded, "onboarded", true)
@@ -122,6 +123,7 @@ class Settings(private val context: Context) {
     fun setShowTimetableChanges(v: Boolean) = set(showTimetableChanges, "showTimetableChanges", v)
     fun setPushNotifications(v: Boolean) = set(pushNotifications, "pushNotifications", v)
     fun setJourneyVoice(v: Boolean) = set(journeyVoice, "journeyVoice", v)
+    fun setFullScreenAlarms(v: Boolean) = set(fullScreenAlarms, "fullScreenAlarms", v)
 
     private val _toasts = MutableSharedFlow<Toast>(extraBufferCapacity = 4)
     val toasts: SharedFlow<Toast> = _toasts
