@@ -13,7 +13,7 @@ SKIP = re.compile(
 
 # The app's own wording, in the app's voice: lines, stops and trips, short and plain. Already in Android format.
 APP = {
-    "values": {
+    "values-en": {
         "w_route": "Line",
         "w_no_schedule": "No timetable for this direction.",
         "w_bus_stop": "Bus stop",
@@ -82,7 +82,7 @@ APP = {
         "w_send_done": "Sent",
         "w_send_too_many": "Too many tries. Wait a minute.",
     },
-    "values-ro": {
+    "values": {
         "w_route": "Linie",
         "w_bus_stop": "Stație",
         "w_next_departures": "Plecări",
@@ -176,10 +176,11 @@ ro = json.load(open(f"{SRC}\\ro.json", encoding="utf-8"))
 
 orders = {k: list(dict.fromkeys(re.findall(r"\{(\w+)\}", v))) for k, v in en.items()}
 
-for lang, data, folder in (("en", en, "values"), ("ro", ro, "values-ro")):
+# Romanian is the default language.
+for lang, data, folder in (("en", en, "values-en"), ("ro", ro, "values")):
     lines = ['<?xml version="1.0" encoding="utf-8"?>',
              "<!-- Generated from frontend/src/locales/%s.json by tools/gen_strings.py, with the app's own wording; keys keep the website's names. -->" % lang,
-             "<resources>"]
+             '<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="ro">' if folder == "values" else "<resources>"]
     for key, value in data.items():
         if SKIP.match(key):
             continue

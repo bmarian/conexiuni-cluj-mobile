@@ -50,6 +50,7 @@ object WearLink {
     const val PATH_JOURNEY_PLAN = "/journey/plan"
     const val PATH_JOURNEY_PLAN_REQUEST = "/journey/plan/request"
     const val PATH_FAVORITES = "/sync/favorites"
+    const val PATH_LANGUAGE = "/sync/language"
     const val APP_SCHEME = "conexiunicluj"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -65,6 +66,9 @@ object WearLink {
         }
         Services.favorites.onSharedChange = { publishFavorites(app) }
         scope.launch { catchUpFavorites(app) }
+        scope.launch {
+            Services.settings.locale.collect { tag -> if (prefs(app).getString("language", null) != tag) publishLanguage(app, tag) }
+        }
     }
 
     fun refreshReach(context: Context) {
@@ -195,6 +199,18 @@ object WearLink {
                 }.asPutDataRequest().setUrgent()
                 Wearable.getDataClient(context).putDataItem(request).await()
             }
+        }
+    }
+
+    // The watch follows the app's language from here on.
+    private suspend fun publishLanguage(context: Context, tag: String) {
+        runCatching {
+            val request = PutDataMapRequest.create(PATH_LANGUAGE).apply {
+                dataMap.putString("locale", tag)
+                dataMap.putLong("at", System.currentTimeMillis())
+            }.asPutDataRequest().setUrgent()
+            Wearable.getDataClient(context).putDataItem(request).await()
+            prefs(context).edit { putString("language", tag) }
         }
     }
 

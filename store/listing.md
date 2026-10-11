@@ -6,40 +6,18 @@ Everything the Play Console asks for, ready to paste. The phone and the watch ap
 | --- | --- |
 | Package | `online.bmarian.bus` |
 | App name | Conexiuni Cluj |
+| Default language | Romanian (ro-RO), with English (en-US) as a translation |
 | Category | Maps & Navigation |
 | Free / paid | Free, no ads, no in-app purchases |
 | Form factors | Phone, and Wear OS (works without the phone too) |
 | Privacy policy | https://github.com/bmarian/conexiuni-cluj-mobile/blob/master/PRIVACY.md |
 | Website | https://bus.bmarian.online |
 | App icon | `icon-512.png` |
-| Feature graphic | `feature-graphic.png` (English), `feature-graphic-ro.png` (Romanian) |
-| Phone screenshots | `screenshots/phone-en/`, `screenshots/phone-ro/` (1080 × 1920) |
+| Feature graphic | `feature-graphic-ro.png` (Romanian), `feature-graphic-en.png` (English) |
+| Phone screenshots | `screenshots/phone-ro/`, `screenshots/phone-en/` (1080 × 1920) |
 | Wear OS screenshots | `screenshots/watch/` (454 × 454) |
 
-## English (en-US)
-
-**Short description** (80 characters max)
-
-> Live buses and trams in Cluj-Napoca, with reminders and trip planning.
-
-**Full description**
-
-> Live CTP Cluj-Napoca buses and trams, on your phone and your watch.
->
-> • Every bus and tram on the map, live
-> • Departures for any stop, with live countdowns
-> • Lines with their stops, next arrivals and timetables
-> • Trip planning: leave now, leave at, arrive by, or the last bus tonight
-> • Step-by-step trips that tell you where to get off
-> • Follow buses: a live countdown in the status bar, and a buzz when they come
-> • Reminders: pick a bus, or the day's last one, and you'll be told when to leave
-> • Favorite stops, lines and places
-> • A home-screen widget with a stop's next departures
-> • On Wear OS: favorites, departures, maps and followed buses on your wrist, with or without the phone
->
-> Live positions from Tranzy.ai, timetables from CTP Cluj-Napoca, map data © OpenStreetMap contributors, tiles by OpenFreeMap. Not affiliated with CTP Cluj-Napoca.
-
-## Romanian (ro-RO)
+## Romanian (ro-RO), default
 
 **Short description**
 
@@ -61,6 +39,29 @@ Everything the Play Console asks for, ready to paste. The phone and the watch ap
 > • Pe Wear OS: favoritele, plecările, hărțile și autobuzele urmărite pe încheietură, cu sau fără telefon
 >
 > Poziții live de la Tranzy.ai, orare de la CTP Cluj-Napoca, date de hartă © contributorii OpenStreetMap, hărți de la OpenFreeMap. Aplicația nu e afiliată cu CTP Cluj-Napoca.
+
+## English (en-US), translation
+
+**Short description** (80 characters max)
+
+> Live buses and trams in Cluj-Napoca, with reminders and trip planning.
+
+**Full description**
+
+> Live CTP Cluj-Napoca buses and trams, on your phone and your watch.
+>
+> • Every bus and tram on the map, live
+> • Departures for any stop, with live countdowns
+> • Lines with their stops, next arrivals and timetables
+> • Trip planning: leave now, leave at, arrive by, or the last bus tonight
+> • Step-by-step trips that tell you where to get off
+> • Follow buses: a live countdown in the status bar, and a buzz when they come
+> • Reminders: pick a bus, or the day's last one, and you'll be told when to leave
+> • Favorite stops, lines and places
+> • A home-screen widget with a stop's next departures
+> • On Wear OS: favorites, departures, maps and followed buses on your wrist, with or without the phone
+>
+> Live positions from Tranzy.ai, timetables from CTP Cluj-Napoca, map data © OpenStreetMap contributors, tiles by OpenFreeMap. Not affiliated with CTP Cluj-Napoca.
 
 ## Other answers
 

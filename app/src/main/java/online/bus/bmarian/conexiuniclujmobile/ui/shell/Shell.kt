@@ -94,10 +94,12 @@ fun ToastHost(modifier: Modifier = Modifier) {
                     TextButton(
                         shapes = ButtonDefaults.shapes(),
                         onClick = data::performAction,
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inversePrimary),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     ) { Text(label) }
                 }
             },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
             Column {
                 Text(toast.title)
