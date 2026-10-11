@@ -3,6 +3,7 @@ package online.bus.bmarian.conexiuniclujmobile.ui
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.AnchoredDraggableState
@@ -59,6 +60,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -73,7 +75,7 @@ private val PEEK_CONTENT = 64.dp
 private val FlingThreshold = 400.dp
 private val ReverseSlop = 32.dp
 
-internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.78f, stiffness = 420f)
+internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = 600f)
 
 @Stable
 class SheetState(initial: SheetSnap) {
@@ -153,20 +155,27 @@ private class SheetFling(private val sheet: SheetState, private val density: Den
         val target = sheet.targetFor(initialVelocity, density)
         if (target != sheet.snap) sheet.onUserSettle?.invoke(target)
         val to = sheet.anchored.anchors.positionOf(target)
-        var previous = sheet.offsetPx
-        animate(previous, to, initialVelocity, SheetSpring) { value, _ ->
-            scrollBy(value - previous)
-            previous = value
+        val from = sheet.offsetPx
+        animate(from, to, initialVelocity, SheetSpring) { value, _ ->
+            // From where the sheet really is: no overshoot, and no drift back after hitting an edge.
+            val next = if (to >= from) minOf(value, to) else maxOf(value, to)
+            scrollBy(next - sheet.offsetPx)
         }
         return 0f
     }
 }
 
-private fun sheetNestedScroll(sheet: SheetState, fling: FlingBehavior) = object : NestedScrollConnection {
-    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
-        if (available.y < 0 && source == NestedScrollSource.UserInput) {
-            Offset(0f, sheet.anchored.dispatchRawDelta(available.y))
-        } else Offset.Zero
+private fun sheetNestedScroll(sheet: SheetState, fling: FlingBehavior, scope: CoroutineScope) = object : NestedScrollConnection {
+    // A touch stops a settle in progress.
+    private fun grab() {
+        if (sheet.anchored.isAnimationRunning) scope.launch { sheet.anchored.anchoredDrag(MutatePriority.UserInput) {} }
+    }
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        grab()
+        return if (available.y < 0) Offset(0f, sheet.anchored.dispatchRawDelta(available.y)) else Offset.Zero
+    }
 
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
         if (source != NestedScrollSource.UserInput || available.y == 0f) return Offset.Zero
@@ -211,7 +220,8 @@ fun BottomSheet(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val fling = remember(state, density) { SheetFling(state, density) }
-    val connection = remember(state, fling) { sheetNestedScroll(state, fling) }
+    val scope = rememberCoroutineScope()
+    val connection = remember(state, fling, scope) { sheetNestedScroll(state, fling, scope) }
     val drags = remember { MutableInteractionSource() }
     val navigationBar = WindowInsets.navigationBars.getBottom(density)
     val peekPx = with(density) { (SHEET_HANDLE + PEEK_CONTENT).toPx() } + navigationBar
@@ -245,8 +255,6 @@ fun BottomSheet(
                 },
             ) { above() }
         }
-        // Under the sheet's bottom edge when its spring overshoots the top.
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(64.dp).background(MaterialTheme.colorScheme.surfaceContainerLow))
         Surface(
             Modifier
                 .fillMaxSize()

@@ -67,7 +67,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
-import kotlin.math.min
 import kotlin.math.sin
 
 /** The app's springs: presses squash, toggles pop, values roll. */
@@ -105,8 +104,10 @@ fun Modifier.squishClickable(
     )
 }
 
-/** Rises into place after [index] × a beat whenever [key] changes, so lists arrive as a cascade. */
-fun Modifier.cascade(index: Int, key: Any?): Modifier = composed {
+private const val CASCADE_ITEMS = 12
+
+/** Rises into place after [index] × a beat whenever [key] changes, so lists arrive as a cascade. Rows further down just appear. */
+fun Modifier.cascade(index: Int, key: Any?): Modifier = if (index >= CASCADE_ITEMS) this else composed {
     val rise = with(LocalDensity.current) { 28.dp.toPx() }
     val tag = key.toString()
     // Saved with the list item, so scrolling back doesn't replay it.
@@ -116,7 +117,7 @@ fun Modifier.cascade(index: Int, key: Any?): Modifier = composed {
         if (played == tag) return@LaunchedEffect
         played = tag
         progress.snapTo(0f)
-        delay(min(index, 12) * 28L)
+        delay(index * 28L)
         progress.animateTo(1f, Bouncy.land)
     }
     graphicsLayer {
