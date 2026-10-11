@@ -53,6 +53,8 @@ private const val TICK_MS = 5_000L
 private const val STOP_INFO_REFRESH_MS = 120_000L
 private const val ARRIVED_M = 50.0
 private const val GIVE_UP_MS = 4 * 60 * 60_000L
+// How long a step's announcement waits for its bus time.
+private const val CUE_WAIT_MS = 10_000L
 
 private sealed interface Phase {
     val leg: Int
@@ -78,6 +80,10 @@ class JourneyService : Service() {
     private var walkStartM = 0.0
     private val riding = RidingCheck()
     private val legIndex = MutableStateFlow(0)
+    private var voice: JourneyVoice? = null
+    private var cue: Phase? = null
+    private var cueSince = 0L
+    private var cueAfterRide = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -98,7 +104,11 @@ class JourneyService : Service() {
             rideStop = 0
             riding.reset()
             legIndex.value = 0
+            cue = Phase.Walk(0)
+            cueSince = System.currentTimeMillis()
+            cueAfterRide = false
         }
+        if (voice == null) voice = JourneyVoice(this)
         val located = UserLocation.permitted(this)
         val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
             (if (located) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
@@ -112,6 +122,7 @@ class JourneyService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        voice?.close()
         val current = journey
         if (current != null && !ended) {
             JourneyManager.publish(this, JourneySync(current.id, current.destination.name, "", end = true))
@@ -153,6 +164,7 @@ class JourneyService : Service() {
         val departure = MutableStateFlow<StopDeparture?>(null)
         val clock = MutableStateFlow(startedAt)
         launch { locations().collect { fix.value = it } }
+        launch { Services.settings.journeyVoice.collect { on -> if (!on) voice?.stop() } }
         launch {
             while (true) {
                 delay(TICK_MS)
@@ -209,8 +221,14 @@ class JourneyService : Service() {
             if (phase is Phase.WalkEnd) walkEndStartedAt = nowMs
             if (phase is Phase.Walk) walkStartM = fix?.let { distanceTo(it, journey.legs[phase.leg].boarding) } ?: 0.0
             if (phase.leg >= 0) legIndex.value = phase.leg
+            cue = phase
+            cueSince = nowMs
+            cueAfterRide = before is Phase.Ride
         }
-        if (phase == Phase.Done) return finish(journey)
+        if (phase == Phase.Done) {
+            if (before != Phase.Done) voice?.say(listOfNotNull(getString(R.string.voice_get_off).takeIf { cueAfterRide }, getString(R.string.voice_arrived)).joinToString(" "))
+            return finish(journey)
+        }
         val described = describe(journey, fix, departure, nowMs)
         val progress = progress(journey, fix)
         val sync = described.copy(
@@ -225,6 +243,7 @@ class JourneyService : Service() {
             alerted = true
             stepIndex++
         }
+        announce(journey, departure, nowMs, alert)
         val shown = sync.copy(stepIndex = stepIndex)
         JourneyManager.publish(this, shown)
         getSystemService(NotificationManager::class.java)
@@ -305,6 +324,61 @@ class JourneyService : Service() {
             maxOf(bus.toDouble(), left - fromBoarding) + fromBoarding
         } else left
         return nowMs + (minutes * 60_000).toLong()
+    }
+
+    /** Says a new step once its bus time is known, and the alerts as they come. */
+    private fun announce(journey: Journey, departure: StopDeparture?, nowMs: Long, alert: Boolean) {
+        val voice = voice ?: return
+        val p = cue
+        if (p != null) {
+            val leg = journey.legs.getOrNull(p.leg)
+            val bus = departure?.takeIf { leg != null && it.tripId in leg.tripIds }
+            val waitsForBus = p is Phase.Walk || p is Phase.Wait
+            if (!waitsForBus || bus != null || nowMs - cueSince >= CUE_WAIT_MS) {
+                cue = null
+                // The alert says the same thing sooner.
+                val step = if (alert && (p is Phase.Wait || p is Phase.Ride)) null else spokenStep(journey, p, bus, nowMs)
+                val text = listOfNotNull(getString(R.string.voice_get_off).takeIf { cueAfterRide }, step).joinToString(" ")
+                if (text.isNotEmpty()) voice.say(text)
+            }
+        }
+        if (!alert) return
+        when (val now = phase) {
+            is Phase.Wait -> voice.say(getString(R.string.voice_bus_coming, departure?.shortName ?: journey.legs[now.leg].lines.first()))
+            is Phase.Ride -> voice.say(getString(R.string.voice_next_stop, spokenName(journey.legs[now.leg].alighting.name)))
+            else -> {}
+        }
+    }
+
+    private fun spokenStep(journey: Journey, p: Phase, bus: StopDeparture?, nowMs: Long): String? {
+        fun busText(leg: JourneyLeg): String? {
+            val minutes = bus?.nextTimes?.firstOrNull()?.minutes ?: return null
+            val line = bus.shortName.ifEmpty { leg.lines.first() }
+            return when {
+                minutes <= 0 -> getString(R.string.voice_bus_here, line)
+                isClockTime(minutes) -> getString(R.string.voice_bus_at, line, clockAt(nowMs, minutes))
+                else -> resources.getQuantityString(R.plurals.voice_bus_in, minutes, line, minutes)
+            }
+        }
+        return when (p) {
+            is Phase.Walk -> {
+                val leg = journey.legs[p.leg]
+                listOfNotNull(getString(R.string.voice_walk_to, spokenName(leg.boarding.name)), busText(leg)).joinToString(" ")
+            }
+            is Phase.Wait -> {
+                val leg = journey.legs[p.leg]
+                val line = bus?.shortName ?: leg.lines.first()
+                listOfNotNull(getString(R.string.voice_wait_for, line), busText(leg)).joinToString(" ")
+            }
+            is Phase.Ride -> {
+                val leg = journey.legs[p.leg]
+                val left = (leg.stops.lastIndex - rideStop).coerceAtLeast(1)
+                if (left == 1) getString(R.string.voice_next_stop, spokenName(leg.alighting.name))
+                else resources.getQuantityString(R.plurals.voice_ride, left, spokenName(leg.alighting.name), left)
+            }
+            Phase.WalkEnd -> getString(R.string.voice_walk_to, spokenName(journey.destination.name))
+            Phase.Done -> null
+        }
     }
 
     private fun describe(journey: Journey, fix: Fix?, departure: StopDeparture?, nowMs: Long): JourneySync {

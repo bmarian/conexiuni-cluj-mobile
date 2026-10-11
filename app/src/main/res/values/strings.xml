@@ -64,6 +64,29 @@
     <string name="journey_line_at">%1$s la %2$s</string>
     <string name="add_widget">Adaugă widget</string>
     <string name="journey_line_here">%1$s a sosit</string>
+    <string name="voice_walk_to">Mergi la %1$s.</string>
+    <string name="voice_wait_for">Așteaptă %1$s.</string>
+    <string name="voice_bus_here">%1$s e în stație.</string>
+    <string name="voice_bus_at">%1$s vine la %2$s.</string>
+    <plurals name="voice_bus_in">
+        <item quantity="one">%1$s vine în %2$d minut.</item>
+        <item quantity="few">%1$s vine în %2$d minute.</item>
+        <item quantity="other">%1$s vine în %2$d de minute.</item>
+    </plurals>
+    <string name="voice_bus_coming">Vine %1$s.</string>
+    <plurals name="voice_ride">
+        <item quantity="one">Coboară la %1$s, după %2$d stație.</item>
+        <item quantity="few">Coboară la %1$s, după %2$d stații.</item>
+        <item quantity="other">Coboară la %1$s, după %2$d de stații.</item>
+    </plurals>
+    <string name="voice_next_stop">Coboară la următoarea stație, %1$s.</string>
+    <string name="voice_get_off">Coboară aici.</string>
+    <string name="voice_arrived">Ai ajuns.</string>
+    <string name="voice_guidance">Indicații vocale</string>
+    <string name="voice_guidance_desc">Auzi fiecare pas al călătoriei</string>
+    <string name="voice_mute">Fără sunet</string>
+    <string name="voice_unmute">Cu sunet</string>
+    <string name="settings_trips">Călătorii</string>
     <string name="widget_loading">Se încarcă…</string>
     <string name="onboard_welcome_title">Autobuze și tramvaie din Cluj, live</string>
     <string name="onboard_welcome_body">Vezi plecările, urmărește autobuze și planifică călătorii.</string>

@@ -61,6 +61,27 @@
     <string name="journey_line_at">%1$s at %2$s</string>
     <string name="add_widget">Add widget</string>
     <string name="journey_line_here">%1$s is here</string>
+    <string name="voice_walk_to">Walk to %1$s.</string>
+    <string name="voice_wait_for">Wait for the %1$s.</string>
+    <string name="voice_bus_here">The %1$s is at the stop.</string>
+    <string name="voice_bus_at">The %1$s comes at %2$s.</string>
+    <plurals name="voice_bus_in">
+        <item quantity="one">The %1$s comes in %2$d minute.</item>
+        <item quantity="other">The %1$s comes in %2$d minutes.</item>
+    </plurals>
+    <string name="voice_bus_coming">The %1$s is coming.</string>
+    <plurals name="voice_ride">
+        <item quantity="one">Get off at %1$s, after %2$d stop.</item>
+        <item quantity="other">Get off at %1$s, after %2$d stops.</item>
+    </plurals>
+    <string name="voice_next_stop">Get off at the next stop, %1$s.</string>
+    <string name="voice_get_off">Get off here.</string>
+    <string name="voice_arrived">You\'ve arrived.</string>
+    <string name="voice_guidance">Voice guidance</string>
+    <string name="voice_guidance_desc">Hear each step during a trip</string>
+    <string name="voice_mute">Mute</string>
+    <string name="voice_unmute">Unmute</string>
+    <string name="settings_trips">Trips</string>
     <string name="widget_loading">Loading…</string>
     <string name="onboard_welcome_title">Buses and trams in Cluj, live</string>
     <string name="onboard_welcome_body">See departures, follow buses and plan trips.</string>

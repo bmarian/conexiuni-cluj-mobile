@@ -43,6 +43,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Flag
@@ -224,6 +226,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
     val clockMs by Services.clock.collectAsStateWithLifecycle()
     val vm: NavigationViewModel = viewModel()
     val vehicles by vm.vehicles.collectAsStateWithLifecycle()
+    val voice by Services.settings.journeyVoice.collectAsStateWithLifecycle()
     var bannerBottom by remember { mutableFloatStateOf(0f) }
     var panelHeight by remember { mutableFloatStateOf(0f) }
     var overview by remember { mutableStateOf(false) }
@@ -302,6 +305,18 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     }
                 }
             }
+        }
+
+        SmallFloatingActionButton(
+            onClick = { Services.settings.setJourneyVoice(!voice) },
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = with(density) { bannerBottom.toDp() } + 12.dp, end = 16.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
+        ) {
+            Icon(
+                if (voice) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
+                contentDescription = stringResource(if (voice) R.string.voice_mute else R.string.voice_unmute),
+            )
         }
 
         val panelDp = with(density) { panelHeight.toDp() }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Accessible
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Check
@@ -127,6 +128,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
     val changes by settings.showTimetableChanges.collectAsStateWithLifecycle()
     val push by settings.pushNotifications.collectAsStateWithLifecycle()
+    val voice by settings.journeyVoice.collectAsStateWithLifecycle()
     val watchStatus by WearLink.status.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { WearLink.refreshStatus(context) }
     val transfer: TransferViewModel = viewModel()
@@ -201,6 +203,9 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             Section(stringResource(R.string.w_settings_map))
             Toggle(Icons.Rounded.MyLocation, stringResource(R.string.w_auto_center_on_me), stringResource(R.string.w_auto_center_on_me_desc), center, onChange = settings::setAutoCenterOnMe)
             Toggle(Icons.Rounded.CropFree, stringResource(R.string.w_auto_fit_map), stringResource(R.string.w_auto_fit_map_desc), fit, onChange = settings::setAutoFitMap)
+
+            Section(stringResource(R.string.settings_trips))
+            Toggle(Icons.AutoMirrored.Rounded.VolumeUp, stringResource(R.string.voice_guidance), stringResource(R.string.voice_guidance_desc), voice, onChange = settings::setJourneyVoice)
 
             Section(stringResource(R.string.w_settings_notifications))
             Toggle(Icons.Rounded.Notifications, stringResource(R.string.w_timetable_changes), stringResource(R.string.w_timetable_changes_desc), changes, beta = true) { on ->
