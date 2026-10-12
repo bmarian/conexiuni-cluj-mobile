@@ -136,6 +136,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavCamera
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavScene
+import online.bus.bmarian.conexiuniclujmobile.ui.map.RideAs
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
@@ -237,10 +238,17 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             view.keepScreenOn = false
             map.navigation = null
             map.navCamera = null
+            map.rideAs = null
             map.trackingLost = false
         }
     }
-    LaunchedEffect(journey, vehicles) { journey?.let { map.navigation = navScene(it, vehicles) } }
+    val riding = state?.stepType == StepType.RIDE
+    // On board, the traveller is the bus: the feed's copy of it trails behind.
+    LaunchedEffect(journey, vehicles, riding) { journey?.let { map.navigation = navScene(it, if (riding) emptyList() else vehicles) } }
+    LaunchedEffect(journey, riding, state?.legIndex, state?.line, state?.color) {
+        val leg = journey?.legs?.getOrNull(state?.legIndex ?: -1)
+        map.rideAs = if (riding && leg != null) RideAs(state?.color ?: leg.colors.first(), state?.line ?: leg.lines.first()) else null
+    }
     LaunchedEffect(bannerBottom, panelHeight) { onInsets(bannerBottom, panelHeight) }
     BackHandler(onBack = onClose)
 

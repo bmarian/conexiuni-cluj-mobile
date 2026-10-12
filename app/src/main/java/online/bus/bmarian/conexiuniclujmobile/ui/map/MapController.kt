@@ -31,6 +31,9 @@ class NavScene(
     val destination: MapPin?,
 )
 
+/** The line the traveller rides, drawn in place of their location while on board. */
+data class RideAs(val color: String, val label: String)
+
 /** top and bottom in px. */
 data class NavCamera(val zoom: Double, val tilt: Double, val top: Float, val bottom: Float, val epoch: Int = 0)
 
@@ -58,6 +61,7 @@ class MapController {
 
     var navigation by mutableStateOf<NavScene?>(null)
     var navCamera by mutableStateOf<NavCamera?>(null)
+    var rideAs by mutableStateOf<RideAs?>(null)
     var trackingLost by mutableStateOf(false)
     var overviewRequest by mutableIntStateOf(0)
         private set

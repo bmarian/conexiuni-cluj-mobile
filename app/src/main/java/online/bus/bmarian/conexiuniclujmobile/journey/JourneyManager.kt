@@ -35,6 +35,9 @@ data class JourneyLeg(
 }
 
 @Serializable
+data class PlannedRun(val arrive: Long, val departs: List<Long>)
+
+@Serializable
 data class Journey(
     val id: String,
     val destination: JourneyStop,
@@ -42,6 +45,8 @@ data class Journey(
     val planPath: String? = null,
     val walkEndMinutes: Double = 0.0,
     val walks: List<List<JourneyPoint>> = emptyList(),
+    /** The plan's timed runs: when each ride's bus leaves (unix s) and when the run arrives. */
+    val runs: List<PlannedRun> = emptyList(),
 ) {
     val endsAtStop get() = destination.id == legs.last().alighting.id
 }

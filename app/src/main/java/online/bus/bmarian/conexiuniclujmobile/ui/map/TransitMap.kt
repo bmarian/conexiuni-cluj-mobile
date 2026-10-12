@@ -314,6 +314,7 @@ fun TransitMap(
     }
     LaunchedEffect(session, selectedVehicleId) { session?.selectVehicle(selectedVehicleId) }
     LaunchedEffect(session, me) { session?.setMe(me) }
+    LaunchedEffect(session, controller.rideAs) { session?.setRideAs(controller.rideAs) }
     LaunchedEffect(session, controller.pinnedLocation, controller.customOrigin, drag, dragAt, nav) {
         val s = session ?: return@LaunchedEffect
         val d = drag

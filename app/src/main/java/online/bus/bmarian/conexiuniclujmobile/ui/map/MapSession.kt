@@ -27,6 +27,7 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.LocationComponentConstants
 import org.maplibre.android.location.LocationComponentOptions
 import org.maplibre.android.location.OnCameraTrackingChangedListener
 import org.maplibre.android.location.OnLocationCameraTransitionListener
@@ -47,6 +48,7 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconOffset
+import org.maplibre.android.style.layers.PropertyFactory.iconPitchAlignment
 import org.maplibre.android.style.layers.PropertyFactory.iconRotate
 import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
 import org.maplibre.android.style.layers.PropertyFactory.iconTranslate
@@ -115,6 +117,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var walks: List<List<LatLon>> = emptyList()
     private var pins: List<PinMark> = emptyList()
     private var me: Fix? = null
+    private var rideAs: RideAs? = null
+    private var puck: RideAs? = null
+    private var puckStyled = false
     private var selectedVehicleId: String? = null
     private val glide = VehicleGlide { pushVehicles() }
     private var drop: ValueAnimator? = null
@@ -146,6 +151,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         map.setStyle(Style.Builder().fromJson(MapStyles.json(context, dark))) { loaded ->
             style = loaded
             addedImages.clear()
+            puckStyled = false
             addLayers(loaded, dark)
             applyAll()
         }
@@ -208,6 +214,49 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun setMe(fix: Fix?) {
         me = fix
         applyMe()
+    }
+
+    /** On board, the location puck is the bus: it moves as smoothly and needs no feed position. */
+    fun setRideAs(ride: RideAs?) {
+        if (ride == rideAs) return
+        rideAs = ride
+        applyPuck()
+        alignPuck()
+        applyTracking()
+    }
+
+    private fun puckOptions(ride: RideAs?): LocationComponentOptions {
+        // Untinted: tinting flattens the GPS arrow.
+        val builder = LocationComponentOptions.builder(context)
+            .accuracyColor(MapColors.MeAccuracy.toArgb())
+            .accuracyAlpha(if (ride == null) 0.15f else 0f)
+            .pulseEnabled(false)
+            .enableStaleState(false)
+        if (ride != null) {
+            val name = "veh-${ride.color}-${ride.label}"
+            image(name) { images.vehicle(ride.color, ride.label) }
+            image("clear") { android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888) }
+            builder.foregroundName(name).backgroundName("clear")
+        }
+        return builder.build()
+    }
+
+    private fun applyPuck() {
+        val component = map.locationComponent
+        if (style == null || !component.isLocationComponentActivated) return
+        if (puckStyled && puck == rideAs) return
+        puck = rideAs
+        puckStyled = true
+        component.applyStyle(puckOptions(rideAs))
+    }
+
+    // On board the badge stands up off the tilted map like the other buses; the GPS arrow lies flat.
+    private fun alignPuck() {
+        val pitch = if (rideAs != null) Property.ICON_PITCH_ALIGNMENT_VIEWPORT else Property.ICON_PITCH_ALIGNMENT_AUTO
+        for (id in arrayOf(LocationComponentConstants.FOREGROUND_LAYER, LocationComponentConstants.BACKGROUND_LAYER)) {
+            val layer = style?.getLayerAs<SymbolLayer>(id) ?: continue
+            if (layer.iconPitchAlignment.value != pitch) layer.setProperties(iconPitchAlignment(pitch))
+        }
     }
 
     fun setTracking(camera: NavCamera?) {
@@ -533,13 +582,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             return
         }
         if (!component.isLocationComponentActivated) {
-            // Untinted: tinting flattens the GPS arrow.
-            val options = LocationComponentOptions.builder(context)
-                .accuracyColor(MapColors.MeAccuracy.toArgb())
-                .accuracyAlpha(0.15f)
-                .pulseEnabled(false)
-                .enableStaleState(false)
-                .build()
+            val options = puckOptions(rideAs)
+            puck = rideAs
+            puckStyled = true
             component.activateLocationComponent(
                 LocationComponentActivationOptions.builder(context, style)
                     .locationComponentOptions(options)
@@ -556,6 +601,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 override fun onCameraTrackingChanged(currentMode: Int) {}
             })
         }
+        applyPuck()
         val first = !component.isLocationComponentEnabled
         component.isLocationComponentEnabled = true
         component.forceLocationUpdate(
@@ -568,6 +614,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 time = System.currentTimeMillis()
             },
         )
+        alignPuck()
         if (first) applyTracking()
     }
 
@@ -591,7 +638,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             map.easeCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(map.cameraPosition).tilt(0.0).padding(0.0, 0.0, 0.0, 0.0).build()), 600)
             return
         }
-        component.renderMode = RenderMode.GPS
+        // The bus badge keeps its number upright; the camera still turns with the ride.
+        component.renderMode = if (rideAs != null) RenderMode.NORMAL else RenderMode.GPS
         if (settling) return
         if (component.cameraMode == CameraMode.TRACKING_GPS) {
             if (camera == tracked) return

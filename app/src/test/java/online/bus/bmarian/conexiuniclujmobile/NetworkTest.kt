@@ -16,7 +16,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.LiveMerge
 import online.bus.bmarian.conexiuniclujmobile.data.clujClock
 import online.bus.bmarian.conexiuniclujmobile.data.routeIdFromTripId
 import online.bus.bmarian.conexiuniclujmobile.data.shapeHash
-import online.bus.bmarian.conexiuniclujmobile.logic.Planner
+import online.bus.bmarian.conexiuniclujmobile.logic.decodePolyline
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -66,7 +66,7 @@ class NetworkTest {
         val shape = fixture["shape"]!!.jsonObject
         val polyline = shape["polyline"]!!.jsonPrimitive.content
         val expected = shape["points"]!!.jsonArray.map { p -> p.jsonArray.let { it[0].jsonPrimitive.double to it[1].jsonPrimitive.double } }
-        val decoded = Planner.decodePolyline(polyline, precision = 6)
+        val decoded = decodePolyline(polyline, precision = 6)
         assertEquals(expected.size, decoded.size)
         decoded.zip(expected).forEach { (a, b) ->
             assertTrue(Math.abs(a.first - b.first) < 6e-7 && Math.abs(a.second - b.second) < 6e-7)

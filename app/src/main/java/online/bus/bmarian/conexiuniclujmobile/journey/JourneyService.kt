@@ -46,6 +46,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import java.time.Instant
 import java.time.LocalDateTime
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -231,7 +232,7 @@ class JourneyService : Service() {
         val progress = progress(journey, fix)
         val sync = described.copy(
             progress = (progress.doneMinutes / progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f),
-            etaAt = arrivalAt(progress, departure, nowMs),
+            etaAt = arrivalAt(journey, progress, departure, nowMs),
             lat = fix?.lat?.let { Math.round(it * 1e5) / 1e5 },
             lon = fix?.lon?.let { Math.round(it * 1e5) / 1e5 },
             bearing = fix?.bearing,
@@ -310,7 +311,22 @@ class JourneyService : Service() {
         return left
     }
 
-    private fun arrivalAt(progress: JourneyProgress, departure: StopDeparture?, nowMs: Long): Long {
+    /**
+     * The planned run the traveller is on: its bus on this leg leaves nearest to the one they wait for or
+     * boarded, and a late bus makes it that much later. Null when there is no bus to match it by.
+     */
+    private fun plannedArrival(journey: Journey, departure: StopDeparture?, nowMs: Long): Long? {
+        val p = phase
+        if (journey.runs.isEmpty() || (p !is Phase.Walk && p !is Phase.Wait && p !is Phase.Ride)) return null
+        val riding = p is Phase.Ride
+        val bus = if (riding) rideStartedAt else departure?.nextTimes?.firstOrNull()?.let { nowMs + it.minutes * 60_000L } ?: return null
+        val best = journey.runs.filter { it.departs.size > p.leg }.minByOrNull { abs(it.departs[p.leg] * 1000 - bus) } ?: return null
+        val late = if (riding) 0L else max(0L, bus - best.departs[p.leg] * 1000)
+        return best.arrive * 1000 + late
+    }
+
+    private fun arrivalAt(journey: Journey, progress: JourneyProgress, departure: StopDeparture?, nowMs: Long): Long {
+        plannedArrival(journey, departure, nowMs)?.let { return it }
         val parts = progress.parts
         val total = parts.sumOf { it.minutes }
         val left = (total - progress.doneMinutes).coerceAtLeast(0.0)
