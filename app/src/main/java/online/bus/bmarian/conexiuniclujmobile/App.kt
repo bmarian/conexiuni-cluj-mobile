@@ -85,8 +85,6 @@ object Services {
                     online.collect { up ->
                         if (up) {
                             repository.refreshNetwork()
-                            repository.refreshRoutes()
-                            repository.refreshStops()
                         }
                     }
                 }

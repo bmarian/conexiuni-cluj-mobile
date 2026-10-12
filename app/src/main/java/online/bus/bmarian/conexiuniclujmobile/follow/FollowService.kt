@@ -17,25 +17,25 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
-import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
+import online.bus.bmarian.conexiuniclujmobile.data.LiveState
+import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
-import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
-import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
-import online.bus.bmarian.conexiuniclujmobile.logic.SCHEDULE_LATE_GRACE_MIN
-import online.bus.bmarian.conexiuniclujmobile.logic.computeStopDepartures
-import online.bus.bmarian.conexiuniclujmobile.logic.minutesOfDay
+import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
+import online.bus.bmarian.conexiuniclujmobile.logic.exactMinutesOfDay
 import online.bus.bmarian.conexiuniclujmobile.logic.minutesUntil
 import online.bus.bmarian.conexiuniclujmobile.logic.scheduledAtStop
 import online.bus.bmarian.conexiuniclujmobile.logic.targetMinutes
 import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import java.time.Instant
+import kotlin.math.roundToInt
 import java.time.LocalDateTime
 
 private const val TICK_MS = 15_000L
@@ -117,9 +117,9 @@ class FollowService : Service() {
         val target = start.target
         val repository = Services.repository
         val info = MutableStateFlow(repository.cachedStopInfo(followed.stopId)?.only(followed.routeId))
-        val shapes = runCatching { repository.shapes(listOf(followed.tripId)) }.getOrDefault(emptyMap())
-        // Null until the first live snapshot, so a bus the timetable still shows as due isn't taken as arrived.
-        val vehicles = MutableStateFlow<Map<String, List<Vehicle>>?>(null)
+        // Nothing is judged before the first live snapshot, so a bus the timetable still shows as due isn't taken as arrived.
+        val live = MutableStateFlow<LiveState?>(null)
+        val ready = MutableStateFlow(false)
         val clock = MutableStateFlow(System.currentTimeMillis())
         val here = MutableStateFlow<Fix?>(null)
 
@@ -129,10 +129,15 @@ class FollowService : Service() {
                 delay(STOP_INFO_REFRESH_MS)
             }
         }
-        launch { VehicleStream.vehicles(listOf(followed.tripId)).collect { vehicles.value = it } }
+        launch {
+            LiveStream.live(listOf(followed.stopId), emptyList()).collect {
+                live.value = it
+                ready.value = true
+            }
+        }
         launch {
             delay(LIVE_WAIT_MS)
-            if (vehicles.value == null) vehicles.value = emptyMap()
+            ready.value = true
         }
         launch {
             while (true) {
@@ -148,8 +153,8 @@ class FollowService : Service() {
         }
 
         val progress = Progress()
-        combine(info.filterNotNull(), vehicles.filterNotNull(), clock) { stop, buses, nowMs ->
-            withContext(Dispatchers.Default) { reading(stop, shapes, buses, followed, target, nowMs) to nowMs }
+        combine(info.filterNotNull(), live, ready.filter { it }, clock) { stop, state, _, nowMs ->
+            withContext(Dispatchers.Default) { reading(stop, state, followed, target, nowMs) to nowMs }
         }.collect { (reading, nowMs) ->
             if (nowMs - start.startedAt > GIVE_UP_MS) return@collect end(start.id, "stopped")
             update(start, reading, here.value, nowMs, progress)
@@ -158,16 +163,9 @@ class FollowService : Service() {
 
     private class Reading(val minutes: Int, val live: Boolean, val later: List<Int>)
 
-    private fun reading(
-        stop: StopInfo,
-        shapes: Map<String, List<ShapePoint>>,
-        buses: Map<String, List<Vehicle>>,
-        followed: Followed,
-        target: FollowTarget?,
-        nowMs: Long,
-    ): Reading? {
+    private fun reading(stop: StopInfo, live: LiveState?, followed: Followed, target: FollowTarget?, nowMs: Long): Reading? {
         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
-        val departure = computeStopDepartures(stop, shapes, buses, now, nowMs)
+        val departure = stopDepartures(stop, live, now, nowMs)
             .firstOrNull { it.routeId == followed.routeId && it.tripId == followed.tripId }
         if (target == null) {
             val first = departure?.nextTimes?.firstOrNull() ?: return null
@@ -175,10 +173,10 @@ class FollowService : Service() {
         }
         // A reminder follows its own departure, not whichever comes next.
         val scheduled = scheduledAtStop(stop, followed.routeId, followed.tripId, now)
-        val slot = minutesOfDay(LocalDateTime.ofInstant(Instant.ofEpochMilli(target.atMs), CLUJ_ZONE))
+        val slot = exactMinutesOfDay(LocalDateTime.ofInstant(Instant.ofEpochMilli(target.atMs), CLUJ_ZONE))
         val live = departure?.nextTimes?.firstOrNull()?.takeIf { it.isLive }?.minutes
-        val minutes = targetMinutes(scheduled, live, minutesUntil(slot, minutesOfDay(now))) ?: return null
-        return Reading(minutes, minutes == live, scheduled.filter { it > minutes + SCHEDULE_LATE_GRACE_MIN }.take(2))
+        val minutes = targetMinutes(scheduled, live, minutesUntil(slot, exactMinutesOfDay(now)), stop.lateGraceMin) ?: return null
+        return Reading(minutes, minutes == live, scheduled.filter { it > minutes + stop.lateGraceMin }.take(2).map { it.roundToInt() })
     }
 
     private class Progress {

@@ -8,7 +8,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
@@ -17,21 +16,17 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.HourlyStopOffsets
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
+import online.bus.bmarian.conexiuniclujmobile.data.LiveState
+import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
-import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.DirectionShape
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedStop
-import online.bus.bmarian.conexiuniclujmobile.logic.IndexedVehicle
 import online.bus.bmarian.conexiuniclujmobile.logic.MarkedArrival
-import online.bus.bmarian.conexiuniclujmobile.logic.daySchedule
 import online.bus.bmarian.conexiuniclujmobile.logic.directionShape
-import online.bus.bmarian.conexiuniclujmobile.logic.feederFor
-import online.bus.bmarian.conexiuniclujmobile.logic.routeHeaderArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
-import online.bus.bmarian.conexiuniclujmobile.logic.indexVehicles
-import online.bus.bmarian.conexiuniclujmobile.logic.minutesOfDay
+import online.bus.bmarian.conexiuniclujmobile.logic.routeHeaderArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.routeStopArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.stopsForDirection
 import java.time.Instant
@@ -60,7 +55,7 @@ class RouteUi(
     val arrivals: List<List<MarkedArrival>>,
     val headerTimes: List<Int>,
     val shape: DirectionShape?,
-    val vehicles: List<IndexedVehicle>,
+    val vehicles: List<Vehicle>,
     val nearestStopIdx: Int,
     val now: LocalDateTime,
 )
@@ -81,7 +76,7 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
     val direction = MutableStateFlow(resolveDirection(initialDirection))
 
     private val shapes = MutableStateFlow<Map<String, DirectionShape>>(emptyMap())
-    private val vehicles = MutableStateFlow<Map<String, List<Vehicle>>>(emptyMap())
+    private val live = MutableStateFlow<LiveState?>(null)
 
     val activeChange = MutableStateFlow<RouteChange?>(null)
 
@@ -114,26 +109,18 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
     }
 
     val ui: StateFlow<RouteUi?> = combine(
-        shapeInfo, direction, shapes, vehicles, Services.clock, Services.location,
+        shapeInfo, direction, shapes, live, Services.clock, Services.location,
     ) { values ->
         val info = values[0] as ShapeInfo? ?: return@combine null
         val dir = values[1] as String
         @Suppress("UNCHECKED_CAST") val shapes = values[2] as Map<String, DirectionShape>
-        @Suppress("UNCHECKED_CAST") val vehicles = values[3] as Map<String, List<Vehicle>>
+        val live = values[3] as LiveState?
         val loc = values[5] as online.bus.bmarian.conexiuniclujmobile.data.Fix?
         val nowMs = System.currentTimeMillis()
         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
         val tripId = tripIdFor(routeId, dir)
         val stops = stopsForDirection(info, tripId)
-        val shape = shapes[dir]
-        val indexed = if (shape == null) emptyList()
-        else indexVehicles(info.shortName, info.color, shape.index, nowMs, vehicles[tripId].orEmpty())
-        val other = if (dir == "0") "1" else "0"
-        val feederShape = shapes[other]
-        val feeder = feederFor(info, tripId, feederShape, feederShape?.let {
-            indexVehicles(info.shortName, info.color, it.index, nowMs, vehicles[tripIdFor(routeId, other)].orEmpty())
-        }.orEmpty())
-        val header = routeHeaderArrivals(info, stops, dir == "0", shape, indexed, now, nowMs, feeder)
+        val header = routeHeaderArrivals(info, stops, dir == "0", tripId, live, now, nowMs)
         var nearest = -1
         if (loc != null) {
             var best = Double.POSITIVE_INFINITY
@@ -148,10 +135,10 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
         }
         RouteUi(
             stops = stops,
-            arrivals = routeStopArrivals(info, stops, dir == "0", shape, indexed, now, nowMs, feeder),
+            arrivals = routeStopArrivals(info, stops, dir == "0", tripId, live, now, nowMs),
             headerTimes = header.map { it.minutes },
-            shape = shape,
-            vehicles = indexed,
+            shape = shapes[dir],
+            vehicles = live?.vehicles(tripId).orEmpty(),
             nearestStopIdx = nearest,
             now = now,
         )
@@ -200,9 +187,7 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
     private suspend fun loadShapes(info: ShapeInfo) {
         val ids = listOf("0", "1").map { it to tripIdFor(routeId, it) }
         val loaded = runCatching { repository.shapes(ids.map { it.second }) }.getOrDefault(emptyMap())
-        shapes.value = ids.mapNotNull { (dir, tripId) ->
-            directionShape(info, tripId, loaded[tripId].orEmpty())?.let { dir to it }
-        }.toMap()
+        shapes.value = ids.mapNotNull { (dir, tripId) -> directionShape(loaded[tripId].orEmpty())?.let { dir to it } }.toMap()
     }
 
     fun hasDirection(dir: String): Boolean =
@@ -233,10 +218,6 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
     }
 
     suspend fun live() {
-        shapes.collectLatest { loaded ->
-            val ids = loaded.keys.map { tripIdFor(routeId, it) }
-            if (ids.isEmpty()) return@collectLatest
-            VehicleStream.vehicles(ids).collect { vehicles.value = it }
-        }
+        LiveStream.live(emptyList(), listOf(tripIdFor(routeId, "0"), tripIdFor(routeId, "1"))).collect { live.value = it }
     }
 }

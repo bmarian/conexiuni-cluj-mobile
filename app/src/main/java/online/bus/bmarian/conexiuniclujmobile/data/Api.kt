@@ -101,33 +101,8 @@ object Api {
         return fetchText(request)
     }
 
-    suspend fun cachedText(path: String): String? = runCatching {
-        fetch(Request.Builder().url(url(path)).cacheControl(CacheControl.FORCE_CACHE).build()) { response ->
-            if (response.isSuccessful) response.body?.string() else null
-        }
-    }.getOrNull()
-
-    suspend inline fun <reified T> cached(path: String): T? {
-        val text = cachedText(path) ?: return null
-        return withContext(Dispatchers.Default) { runCatching { json.decodeFromString<T>(text) }.getOrNull() }
-    }
-
-    fun stopInfoPath(stopId: Int) = "stop_info?stop_id=$stopId"
-    fun timetablePath(shortName: String) = "timetable?route_short_name=${encode(shortName)}"
-    fun stopTimesPath(shortName: String) = "stop_times?route_short_name=${encode(shortName)}"
-    fun hourlyPath(shortName: String, dayType: String) =
-        "stop_times/hourly?route_short_name=${encode(shortName)}&day_type=$dayType"
-
-    suspend fun routesText(): String = getText("routes")
-    suspend fun stopsText(): String = getText("stops")
-    suspend fun stopInfo(stopId: Int): StopInfo = get(stopInfoPath(stopId))
-    suspend fun timetable(shortName: String): Timetable = get(timetablePath(shortName))
-    suspend fun stopTimes(shortName: String): List<StopTime> = get(stopTimesPath(shortName))
     suspend fun shapePolylines(shapeIds: List<String>): Map<String, String> =
         get("shapes?format=polyline&shape_ids=${shapeIds.joinToString(",")}")
-    suspend fun vehicles(tripIds: List<String>): List<Vehicle> = get("vehicles?trip_ids=${tripIds.joinToString(",")}")
-    suspend fun hourlyOffsets(shortName: String, dayType: String): Map<String, HourlyStopOffsets> =
-        runCatching { get<Map<String, HourlyStopOffsets>>(hourlyPath(shortName, dayType)) }.getOrDefault(emptyMap())
 
     suspend fun networkVersion(): NetworkVersion = getFresh("network/version")
 

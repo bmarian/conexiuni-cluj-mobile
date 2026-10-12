@@ -12,7 +12,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.HourlyStopOffsets
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkBundle
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
-import online.bus.bmarian.conexiuniclujmobile.data.VehicleMerge
+import online.bus.bmarian.conexiuniclujmobile.data.LiveMerge
 import online.bus.bmarian.conexiuniclujmobile.data.clujClock
 import online.bus.bmarian.conexiuniclujmobile.data.routeIdFromTripId
 import online.bus.bmarian.conexiuniclujmobile.data.shapeHash
@@ -81,15 +81,28 @@ class NetworkTest {
     }
 
     @Test
-    fun mergesTheStreamsSnapshotAndDeltas() {
-        val merge = VehicleMerge(listOf("1_0", "2_0"))
-        val bus = """{"id":%d,"trip_id":"%s","route_id":1,"latitude":%s,"longitude":23.5,"timestamp":"t","speed":20,"raw_speed":20,"stationary_since":"s""""
-        merge.apply("snapshot", """{"vehicles":[${bus.format(7, "1_0", "46.1")},"label":"A"},${bus.format(8, "2_0", "46.2")},"label":"B"}]}""")
-        val after = merge.apply("delta", """{"upsert":[${bus.format(7, "1_0", "46.15")}}],"remove":[8]}""")!!
-        assertEquals(1, after["1_0"]!!.size)
-        assertEquals(46.15, after["1_0"]!![0].latitude, 0.0)
-        assertEquals("A", after["1_0"]!![0].label)
-        assertTrue(after["2_0"]!!.isEmpty())
+    fun mergesTheLiveSnapshotAndDeltas() {
+        val merge = LiveMerge()
+        val bus = """{"id":%d,"trip_id":"%s","route_id":1,"latitude":%s,"longitude":23.5,"heading":90,"speed":20,"timestamp":"t","label":"A"}"""
+        val first = merge.apply(
+            "snapshot",
+            """{"as_of":1000,"rows":[{"trip_id":"1_0","stop_id":5,"entries":[{"at":1240,"live":true,"vehicle_id":7},{"at":1720}]}],""" +
+                """"vehicles":[${bus.format(7, "1_0", "46.1")},${bus.format(8, "2_0", "46.2")}]}""",
+        )!!
+        assertEquals(listOf(4, 12), first.entriesAt("1_0", 5, 1000_000)!!.map { it.minutes })
+        assertEquals(listOf(2, 10), first.entriesAt("1_0", 5, 1000_000 + 130_000)!!.map { it.minutes })
+        assertNull(first.entriesAt("1_0", 6, 1000_000))
+        assertEquals(1, first.vehicles("2_0").size)
+
+        val after = merge.apply(
+            "delta",
+            """{"as_of":1060,"rows":[{"trip_id":"1_0","stop_id":5,"entries":[{"at":1240,"live":true,"vehicle_id":7}]}],""" +
+                """"vehicles":{"upsert":[${bus.format(7, "1_0", "46.15")}],"remove":[8]}}""",
+        )!!
+        assertEquals(listOf(3), after.entriesAt("1_0", 5, 1060_000)!!.map { it.minutes })
+        assertEquals(46.15, after.vehicles("1_0")[0].latitude, 0.0)
+        assertEquals("A", after.vehicles("1_0")[0].label)
+        assertTrue(after.vehicles("2_0").isEmpty())
         assertNull(merge.apply("unknown", "{}"))
     }
 }
