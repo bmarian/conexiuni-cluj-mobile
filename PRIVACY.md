@@ -6,7 +6,7 @@ Conexiuni Cluj for Android and its Wear OS app show live bus and tram departures
 
 With your permission, the app uses your location on the phone: to show the stops near you and where you are on the map, to plan trips from where you are, to tell you where to get off during a trip, and to time your walk to the stop for a reminder.
 
-The app never reads your location in the background. A reminder times the walk from where you were the last time the app was open, if that was within the hour, and otherwise comes 20 minutes before the bus. That last position is kept only on the phone.
+Outside a trip you started, the app doesn't read your location in the background. During a trip it keeps following you with the screen off, with a notification showing, until the trip ends. A reminder times the walk from where you were the last time the app was open, if that was within the hour, and otherwise comes 20 minutes before the bus. That last position is kept only on the phone.
 
 Your location only leaves the phone when you plan a trip from where you are: the start, rounded to about 10 metres, and the destination go to [bus.bmarian.online](https://bus.bmarian.online), which works out the trip.
 
@@ -18,7 +18,7 @@ Places are looked up on [Photon](https://photon.komoot.io), a free service by Ko
 
 ## Notifications and reminders
 
-Followed buses, trips and reminders are worked out on the phone. Reminders are kept on the phone and use alarms to wake the app in time.
+Followed buses, trips and reminders are kept on the phone. To keep their times live, the app asks bus.bmarian.online about those stops and buses, the same way it does when you open a stop. Reminders use alarms to wake the app in time.
 
 If you follow a line's changes, the app asks bus.bmarian.online about those lines once an hour between 08:00 and 20:00, sending their numbers.
 
@@ -29,7 +29,7 @@ If you follow a line's changes, the app asks bus.bmarian.online about those line
 - The weather for Cluj-Napoca from [Open-Meteo](https://open-meteo.com/), for the city, not your location.
 - Place search from Photon, as above.
 
-Like any website, these services see your IP address when the app connects to them. bus.bmarian.online doesn't store it: its logs keep a salted one-way hash instead, with the address of each request (for a planned trip, that includes its start and end), and delete them after 5 days. The same hash is used to count daily users and how often stops and lines are opened.
+Like any website, these services see your IP address when the app connects to them. bus.bmarian.online doesn't store it: its logs keep a salted one-way hash instead, with the address of each request (for a planned trip, that includes its start and end), and delete them after 5 days. The same hash counts daily users and is deleted after 5 days too; only the totals are kept.
 
 ## On the watch
 
@@ -55,4 +55,4 @@ The app isn't directed at children and collects nothing about anyone.
 
 Changes to this policy will be published here. Questions go to the [issue tracker](https://github.com/bmarian/conexiuni-cluj-mobile/issues).
 
-Last updated: October 10, 2026.
+Last updated: October 12, 2026.
