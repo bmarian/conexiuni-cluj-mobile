@@ -130,6 +130,14 @@ internal class MapImages(context: Context) {
         drawText(layout, topLeft = Offset(at.x - layout.size.width / 2f, at.y - layout.size.height / 2f))
     }
 
+    /** MapLibre's own location arrow, with the arrow in the line's colour. */
+    fun navArrow(color: String) = draw(75f, 75f) {
+        val k = 1.dp.toPx()
+        drawCircle(Color(0xFF263D57).copy(alpha = 0.16f), 37.5f * k, center)
+        drawCircle(Color.White, 28.5f * k, center)
+        scale(k, k, pivot = Offset.Zero) { drawPath(Glyphs.locationArrow, routeColor(color)) }
+    }
+
     fun heading() = draw(19f, 19f) {
         val c = center
         val br = 8.dp.toPx()

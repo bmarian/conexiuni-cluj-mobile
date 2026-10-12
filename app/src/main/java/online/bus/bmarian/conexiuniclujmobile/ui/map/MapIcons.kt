@@ -23,6 +23,11 @@ object Glyphs {
 
     val busStop: Path by lazy { PathParser().parsePathString(BUS_STOP).toPath() }
     val navArrow: Path by lazy { PathParser().parsePathString(NAV_ARROW).toPath() }
+    val locationArrow: Path by lazy {
+        PathParser().parsePathString(
+            "M39.2,28.46C39.01,27.99 38.54,27.68 38.02,27.69C37.5,27.7 37.02,28.01 36.81,28.49L27.05,45.83C26.83,46.32 26.92,46.89 27.28,47.26C27.65,47.64 28.21,47.75 28.71,47.54L37.07,44.03C37.39,43.89 37.75,43.89 38.06,44.02L46.27,47.34C46.75,47.54 47.33,47.42 47.71,47.03C48.09,46.64 48.21,46.07 48,45.59L39.2,28.46Z",
+        ).toPath()
+    }
     val directionArrow: Path by lazy { PathParser().parsePathString(DIRECTION_ARROW).toPath() }
     val pin: Path by lazy { PathParser().parsePathString(PIN).toPath() }
     val wheelchairBody: Path by lazy { PathParser().parsePathString("M10 8v6h5l2 5").toPath() }
