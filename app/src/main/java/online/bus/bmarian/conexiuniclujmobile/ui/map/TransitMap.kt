@@ -313,7 +313,8 @@ fun TransitMap(
         fit(trip.shapes.flatMap { it.points } + trip.walks.flatten() + listOfNotNull(trip.destination).map { LatLon(it.lat, it.lon) })
     }
     LaunchedEffect(session, selectedVehicleId) { session?.selectVehicle(selectedVehicleId) }
-    LaunchedEffect(session, me) { session?.setMe(me) }
+    val shownMe = if (nav != null) controller.navMe ?: me else me
+    LaunchedEffect(session, shownMe) { session?.setMe(shownMe) }
     LaunchedEffect(session, controller.rideAs) { session?.setRideAs(controller.rideAs) }
     LaunchedEffect(session, controller.pinnedLocation, controller.customOrigin, drag, dragAt, nav) {
         val s = session ?: return@LaunchedEffect

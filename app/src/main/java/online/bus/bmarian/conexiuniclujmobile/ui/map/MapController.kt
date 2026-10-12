@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
 
 enum class StopHighlight { Green, Purple, Red, Gray, Amber }
@@ -31,8 +32,8 @@ class NavScene(
     val destination: MapPin?,
 )
 
-/** The line the traveller rides, drawn in place of their location while on board. */
-data class RideAs(val color: String, val label: String)
+/** The colour of the line the traveller rides: their location arrow takes it while on board. */
+data class RideAs(val color: String)
 
 /** top and bottom in px. */
 data class NavCamera(val zoom: Double, val tilt: Double, val top: Float, val bottom: Float, val epoch: Int = 0)
@@ -62,6 +63,8 @@ class MapController {
     var navigation by mutableStateOf<NavScene?>(null)
     var navCamera by mutableStateOf<NavCamera?>(null)
     var rideAs by mutableStateOf<RideAs?>(null)
+    /** During navigation, where to draw the traveller instead of the raw fix. */
+    var navMe by mutableStateOf<Fix?>(null)
     var trackingLost by mutableStateOf(false)
     var overviewRequest by mutableIntStateOf(0)
         private set

@@ -78,7 +78,9 @@ class JourneyService : Service() {
     private var lastDepartureMinutes: Int? = null
     private var walkEndStartedAt = 0L
     private var walkStartM = 0.0
-    private val riding = RidingCheck()
+    private val motion = Motion()
+    private var rideAlong = 0.0
+    private var rideGeometry: Triple<JourneyLeg, RouteLine, List<Double>>? = null
     private val legIndex = MutableStateFlow(0)
     private var voice: JourneyVoice? = null
     private var cue: Phase? = null
@@ -102,7 +104,7 @@ class JourneyService : Service() {
             alerted = false
             ended = false
             rideStop = 0
-            riding.reset()
+            motion.reset()
             legIndex.value = 0
             cue = Phase.Walk(0)
             cueSince = System.currentTimeMillis()
@@ -208,13 +210,15 @@ class JourneyService : Service() {
 
     private fun step(journey: Journey, fix: Fix?, departure: StopDeparture?, nowMs: Long, skip: Boolean) {
         val before = phase
+        fix?.let { motion.update(it, nowMs, journey.legs.getOrNull(phase.leg)?.let(::ridePace)) }
         phase = advance(journey, phase, fix, departure, nowMs, skip)
         if (phase != before) {
             stepIndex++
             alerted = false
-            riding.reset()
+            motion.reset()
             if (phase is Phase.Ride && before !is Phase.Ride) {
                 rideStop = 0
+                rideAlong = 0.0
                 rideStartedAt = nowMs
             }
             if (phase is Phase.WalkEnd) walkEndStartedAt = nowMs
@@ -232,7 +236,7 @@ class JourneyService : Service() {
         val progress = progress(journey, fix)
         val sync = described.copy(
             progress = (progress.doneMinutes / progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f),
-            etaAt = arrivalAt(journey, progress, departure, nowMs),
+            etaAt = arrivalAt(journey, progress, fix, departure, nowMs),
             lat = fix?.lat?.let { Math.round(it * 1e5) / 1e5 },
             lon = fix?.lon?.let { Math.round(it * 1e5) / 1e5 },
             bearing = fix?.bearing,
@@ -265,7 +269,7 @@ class JourneyService : Service() {
                 when {
                     skip -> Phase.Wait(phase.leg)
                     fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) -> Phase.Wait(phase.leg)
-                    fix != null && riding.onBus(fix, leg) -> Phase.Ride(phase.leg)
+                    fix != null && leftOnBus(fix, leg) && motion.riding(fix, nowMs, ridePace(leg)) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
                 }
@@ -274,7 +278,7 @@ class JourneyService : Service() {
                 val leg = journey.legs[phase.leg]
                 when {
                     skip -> Phase.Ride(phase.leg)
-                    fix != null && (leftOnBus(fix, leg) || riding.onBus(fix, leg)) -> Phase.Ride(phase.leg)
+                    fix != null && leftOnBus(fix, leg) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
                 }
@@ -282,14 +286,19 @@ class JourneyService : Service() {
             is Phase.Ride -> {
                 val leg = journey.legs[phase.leg]
                 val last = leg.stops.lastIndex
+                val (route, stops) = geometry(leg)
                 if (fix != null) {
-                    nearestStop(fix, leg)?.let { rideStop = max(rideStop, it) }
+                    // Only what the fix's own error cannot take back counts as ridden.
+                    val error = fix.accuracyMeters.toDouble()
+                    route.locate(fix.lat, fix.lon, rideAlong - error)?.let { rideAlong = max(rideAlong, it.along - error) }
+                    rideStop = max(rideStop, stops.indexOfLast { it <= rideAlong })
                 } else {
                     val perStop = leg.rideMinutes.takeIf { it > 0 }?.div(last.coerceAtLeast(1)) ?: 2.0
                     rideStop = max(rideStop, ((nowMs - rideStartedAt) / 60_000.0 / perStop).toInt().coerceAtMost(last))
                 }
-                val there = fix != null && distanceTo(fix, leg.alighting) <= max(ARRIVED_M, fix.accuracyMeters.toDouble())
-                if (skip || there || rideStop >= last) afterLeg(phase.leg) else phase
+                val there = fix != null && rideAlong >= stops[last] - AT_STOP_M
+                val gotOff = fix != null && motion.walking() && offLine(fix, leg)
+                if (skip || there || gotOff || rideStop >= last) afterLeg(phase.leg) else phase
             }
             Phase.WalkEnd -> {
                 val walkMin = fix?.let { distanceTo(it, journey.destination) / WALK_SPEED } ?: 0.0
@@ -302,6 +311,15 @@ class JourneyService : Service() {
             }
             Phase.Done -> phase
         }
+    }
+
+    private fun geometry(leg: JourneyLeg): Pair<RouteLine, List<Double>> {
+        val known = rideGeometry
+        if (known != null && known.first === leg) return known.second to known.third
+        val route = rideRoute(leg)
+        val stops = stopsAlong(leg, route)
+        rideGeometry = Triple(leg, route, stops)
+        return route to stops
     }
 
     private fun busLeft(departure: StopDeparture?): Boolean {
@@ -325,12 +343,14 @@ class JourneyService : Service() {
         return best.arrive * 1000 + late
     }
 
-    private fun arrivalAt(journey: Journey, progress: JourneyProgress, departure: StopDeparture?, nowMs: Long): Long {
+    private fun arrivalAt(journey: Journey, progress: JourneyProgress, fix: Fix?, departure: StopDeparture?, nowMs: Long): Long {
         plannedArrival(journey, departure, nowMs)?.let { return it }
         val parts = progress.parts
         val total = parts.sumOf { it.minutes }
-        val left = (total - progress.doneMinutes).coerceAtLeast(0.0)
         val p = phase
+        // Off the bus early, the walk left is longer than the planned one.
+        val walkLeft = if (p == Phase.WalkEnd && fix != null) distanceTo(fix, journey.destination) / WALK_SPEED else 0.0
+        val left = maxOf(total - progress.doneMinutes, walkLeft, 0.0)
         val bus = departure?.nextTimes?.firstOrNull()?.minutes
         val minutes = if ((p is Phase.Walk || p is Phase.Wait) && bus != null) {
             val ride = parts.indexOfFirst { it.leg == p.leg && it.ride }.coerceAtLeast(0)

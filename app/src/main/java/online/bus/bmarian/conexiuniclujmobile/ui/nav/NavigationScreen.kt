@@ -137,6 +137,10 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavCamera
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavScene
 import online.bus.bmarian.conexiuniclujmobile.ui.map.RideAs
+import online.bus.bmarian.conexiuniclujmobile.journey.NavFollow
+import online.bus.bmarian.conexiuniclujmobile.journey.Progress
+import online.bus.bmarian.conexiuniclujmobile.journey.RouteLine
+import online.bus.bmarian.conexiuniclujmobile.journey.rideRoute
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
@@ -176,10 +180,28 @@ private fun busesFor(leg: JourneyLeg, shapes: Map<String, List<ShapePoint>>, byT
     return shown.distinctBy { it.id }
 }
 
-fun navScene(journey: Journey, vehicles: List<MapVehicle>): NavScene {
-    val shapes = journey.legs.mapIndexed { i, leg ->
-        val points = leg.path.takeIf { it.size >= 2 }?.map { LatLon(it.lat, it.lon) } ?: leg.stops.map { LatLon(it.lat, it.lon) }
-        MapShape(leg.tripIds.firstOrNull() ?: "leg$i", leg.lines.first(), leg.colors.first(), points)
+// What is behind the traveller is not drawn: the step's line starts where they are.
+internal fun navScene(journey: Journey, vehicles: List<MapVehicle>, progress: Progress?): NavScene {
+    val step = progress?.stepType
+    val at = progress?.leg ?: 0
+    fun points(line: RouteLine, current: Boolean) = (if (current) line.after(progress!!.along) else line.points).map { LatLon(it.lat, it.lon) }
+    val shapes = journey.legs.mapIndexedNotNull { i, leg ->
+        val passed = step == StepType.WALK_END || step == StepType.ARRIVED || i < at
+        if (passed) return@mapIndexedNotNull null
+        MapShape(leg.tripIds.firstOrNull() ?: "leg$i", leg.lines.first(), leg.colors.first(), points(rideRoute(leg), step == StepType.RIDE && i == at))
+    }
+    val ends = journey.legs.map { it.boarding } + journey.destination
+    val walks = journey.walks.filter { it.size >= 2 }.mapNotNull { walk ->
+        val to = ends.indices.minBy { haversineMeters(walk.last().lat, walk.last().lon, ends[it].lat, ends[it].lon) }
+        val final = to == journey.legs.size
+        val passed = when (step) {
+            StepType.WALK -> to < at
+            StepType.WAIT, StepType.RIDE -> to <= at
+            StepType.WALK_END, StepType.ARRIVED -> !final
+            else -> false
+        }
+        val current = (step == StepType.WALK && to == at) || (step == StepType.WALK_END && final)
+        if (passed) null else points(RouteLine(walk), current)
     }
     val highlights = LinkedHashMap<Int, StopHighlight>()
     journey.legs.forEachIndexed { i, leg ->
@@ -187,7 +209,7 @@ fun navScene(journey: Journey, vehicles: List<MapVehicle>): NavScene {
         highlights[leg.alighting.id] = if (i == journey.legs.lastIndex) StopHighlight.Red else StopHighlight.Amber
     }
     val destination = if (journey.endsAtStop) null else MapPin(journey.destination.lat, journey.destination.lon, journey.destination.name)
-    return NavScene(shapes, journey.walks.map { w -> w.map { LatLon(it.lat, it.lon) } }, highlights, vehicles, destination)
+    return NavScene(shapes, walks, highlights, vehicles, destination)
 }
 
 @Composable
@@ -238,16 +260,26 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             view.keepScreenOn = false
             map.navigation = null
             map.navCamera = null
+            map.navMe = null
             map.rideAs = null
             map.trackingLost = false
         }
     }
     val riding = state?.stepType == StepType.RIDE
     // On board, the traveller is the bus: the feed's copy of it trails behind.
-    LaunchedEffect(journey, vehicles, riding) { journey?.let { map.navigation = navScene(it, if (riding) emptyList() else vehicles) } }
+    val here by Services.location.collectAsStateWithLifecycle()
+    val follow = remember(journey) { journey?.let(::NavFollow) }
+    var progress by remember(journey) { mutableStateOf<Progress?>(null) }
+    LaunchedEffect(here, state?.stepType, state?.legIndex, follow) {
+        val fix = here ?: return@LaunchedEffect
+        val (shown, p) = follow?.update(fix, state?.stepType, state?.legIndex ?: 0) ?: return@LaunchedEffect
+        map.navMe = shown
+        progress = p
+    }
+    LaunchedEffect(journey, vehicles, riding, progress) { journey?.let { map.navigation = navScene(it, if (riding) emptyList() else vehicles, progress) } }
     LaunchedEffect(journey, riding, state?.legIndex, state?.line, state?.color) {
         val leg = journey?.legs?.getOrNull(state?.legIndex ?: -1)
-        map.rideAs = if (riding && leg != null) RideAs(state?.color ?: leg.colors.first(), state?.line ?: leg.lines.first()) else null
+        map.rideAs = if (riding && leg != null) RideAs(state?.color ?: leg.colors.first()) else null
     }
     LaunchedEffect(bannerBottom, panelHeight) { onInsets(bannerBottom, panelHeight) }
     BackHandler(onBack = onClose)
