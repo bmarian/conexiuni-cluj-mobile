@@ -16,6 +16,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.StopBrowse
 import online.bus.bmarian.conexiuniclujmobile.logic.browseStops
 import online.bus.bmarian.conexiuniclujmobile.logic.computeStopDepartures
 import online.bus.bmarian.conexiuniclujmobile.logic.directionShape
+import online.bus.bmarian.conexiuniclujmobile.logic.feederFor
 import online.bus.bmarian.conexiuniclujmobile.logic.indexVehicles
 import online.bus.bmarian.conexiuniclujmobile.logic.initialOf
 import online.bus.bmarian.conexiuniclujmobile.logic.keyedStops
@@ -61,8 +62,12 @@ class ParityTest {
 
     @Test
     fun departuresAndRouteArrivalsMatchTheWebsite() {
-        val fixture = Api.json.decodeFromString<Fixture>(read("parity_a.json"))
-        val expected = Api.json.parseToJsonElement(read("parity_a_expected.json")).jsonArray
+        for (name in listOf("parity_a", "parity_b")) checkParity(name)
+    }
+
+    private fun checkParity(name: String) {
+        val fixture = Api.json.decodeFromString<Fixture>(read("$name.json"))
+        val expected = Api.json.parseToJsonElement(read("${name}_expected.json")).jsonArray
         val byTrip = fixture.vehicles.groupBy { it.tripId.orEmpty() }
         var compared = 0
 
@@ -104,7 +109,12 @@ class ParityTest {
                     val at = "$label route $routeId/$dir"
                     assertEquals(at, w["vehicles"]!!.jsonPrimitive.int, indexed.size)
                     assertEquals(at, w["stops"]!!.jsonArray.map { pair(it) }, stops.map { listOf("${it.stop.stopId}", "${it.offsetFromStart}") })
-                    val rows = routeStopArrivals(info, stops, dir == "0", shape, indexed, now, nowMs)
+                    val otherTrip = tripIdFor(info.routeId, if (dir == "0") "1" else "0")
+                    val otherShape = directionShape(info, otherTrip, fixture.shapes[otherTrip].orEmpty())
+                    val feeder = feederFor(info, tripId, otherShape, otherShape?.let {
+                        indexVehicles(info.shortName, info.color, it.index, nowMs, vehicles[otherTrip].orEmpty())
+                    }.orEmpty())
+                    val rows = routeStopArrivals(info, stops, dir == "0", shape, indexed, now, nowMs, feeder)
                     assertEquals(
                         at,
                         w["rows"]!!.jsonArray.map { row -> row.jsonArray.map { a -> a.jsonArray.map { it.jsonPrimitive.content } } },
@@ -114,7 +124,7 @@ class ParityTest {
                 }
             }
         }
-        println("compared $compared rows across ${expected.size} scenarios")
+        println("$name: compared $compared rows across ${expected.size} scenarios")
     }
 
     private fun pair(element: JsonElement) = element.jsonArray.map { it.jsonPrimitive.content }

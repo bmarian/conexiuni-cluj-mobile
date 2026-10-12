@@ -25,16 +25,14 @@ import online.bus.bmarian.conexiuniclujmobile.logic.DirectionShape
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedStop
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedVehicle
 import online.bus.bmarian.conexiuniclujmobile.logic.MarkedArrival
-import online.bus.bmarian.conexiuniclujmobile.logic.SCHEDULE_HORIZON_MIN
 import online.bus.bmarian.conexiuniclujmobile.logic.daySchedule
-import online.bus.bmarian.conexiuniclujmobile.logic.departureMinutes
 import online.bus.bmarian.conexiuniclujmobile.logic.directionShape
+import online.bus.bmarian.conexiuniclujmobile.logic.feederFor
+import online.bus.bmarian.conexiuniclujmobile.logic.routeHeaderArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import online.bus.bmarian.conexiuniclujmobile.logic.indexVehicles
-import online.bus.bmarian.conexiuniclujmobile.logic.mergeArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.minutesOfDay
 import online.bus.bmarian.conexiuniclujmobile.logic.routeStopArrivals
-import online.bus.bmarian.conexiuniclujmobile.logic.scheduledArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.stopsForDirection
 import java.time.Instant
 import java.time.LocalDateTime
@@ -130,10 +128,12 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
         val shape = shapes[dir]
         val indexed = if (shape == null) emptyList()
         else indexVehicles(info.shortName, info.color, shape.index, nowMs, vehicles[tripId].orEmpty())
-        val departures = departureMinutes(daySchedule(info.timetable, now), dir == "0")
-        // Terminus departures come from the timetable only.
-        val firstOffset = stops.firstOrNull()?.offsetFromStart ?: 0
-        val header = mergeArrivals(null, scheduledArrivals(departures, firstOffset, minutesOfDay(now), SCHEDULE_HORIZON_MIN))
+        val other = if (dir == "0") "1" else "0"
+        val feederShape = shapes[other]
+        val feeder = feederFor(info, tripId, feederShape, feederShape?.let {
+            indexVehicles(info.shortName, info.color, it.index, nowMs, vehicles[tripIdFor(routeId, other)].orEmpty())
+        }.orEmpty())
+        val header = routeHeaderArrivals(info, stops, dir == "0", shape, indexed, now, nowMs, feeder)
         var nearest = -1
         if (loc != null) {
             var best = Double.POSITIVE_INFINITY
@@ -148,7 +148,7 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
         }
         RouteUi(
             stops = stops,
-            arrivals = routeStopArrivals(info, stops, dir == "0", shape, indexed, now, nowMs),
+            arrivals = routeStopArrivals(info, stops, dir == "0", shape, indexed, now, nowMs, feeder),
             headerTimes = header.map { it.minutes },
             shape = shape,
             vehicles = indexed,

@@ -36,6 +36,10 @@ data class StopTime(
     @SerialName("route_short_name") val routeShortName: String = "",
     @SerialName("stop_lat") val lat: Double = 0.0,
     @SerialName("stop_lon") val lon: Double = 0.0,
+    // First stop only: the other direction's bus continues as this trip after turnaroundSec.
+    @SerialName("through_running") val throughRunning: Boolean = false,
+    @SerialName("turnaround_sec") val turnaroundSec: Double = 0.0,
+    @SerialName("turnaround_leaves") val turnaroundLeaves: Boolean = false,
 )
 
 @Serializable
@@ -122,6 +126,8 @@ data class Vehicle(
     @SerialName("route_id") val routeId: Int? = null,
     @SerialName("trip_id") val tripId: String? = null,
     @SerialName("stationary_since") val stationarySince: String? = null,
+    @SerialName("prev_trip_id") val prevTripId: String? = null,
+    @SerialName("trip_changed_at") val tripChangedAt: String? = null,
 )
 
 @Serializable
