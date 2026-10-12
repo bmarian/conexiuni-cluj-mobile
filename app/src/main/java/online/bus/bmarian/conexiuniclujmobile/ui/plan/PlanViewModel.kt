@@ -4,16 +4,13 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
@@ -22,27 +19,20 @@ import online.bus.bmarian.conexiuniclujmobile.data.Photon
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.LiveState
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
-import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyPoint
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyStop
+import online.bus.bmarian.conexiuniclujmobile.journey.PlannedRun
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
-import online.bus.bmarian.conexiuniclujmobile.logic.PLAN_MAX_MINUTES
+import online.bus.bmarian.conexiuniclujmobile.logic.PlanOption
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanResponse
-import online.bus.bmarian.conexiuniclujmobile.logic.PlannedTimeEntry
-import online.bus.bmarian.conexiuniclujmobile.logic.Planner
-import online.bus.bmarian.conexiuniclujmobile.logic.RichPlan
-import online.bus.bmarian.conexiuniclujmobile.logic.StopLookup
-import online.bus.bmarian.conexiuniclujmobile.logic.StoredLiveEta
 import online.bus.bmarian.conexiuniclujmobile.logic.TimeMode
-import online.bus.bmarian.conexiuniclujmobile.logic.VEHICLE_LOOKAHEAD_STOPS
-import online.bus.bmarian.conexiuniclujmobile.logic.WALK_SPEED
 import online.bus.bmarian.conexiuniclujmobile.logic.clampCoord4
-import online.bus.bmarian.conexiuniclujmobile.logic.findClosestShapeIdx
+import online.bus.bmarian.conexiuniclujmobile.logic.decodePolyline
 import online.bus.bmarian.conexiuniclujmobile.logic.formatLocalDateTime
-import online.bus.bmarian.conexiuniclujmobile.logic.lastTransitCutoffString
+import online.bus.bmarian.conexiuniclujmobile.logic.planQuery
 import online.bus.bmarian.conexiuniclujmobile.logic.toFixed4
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
@@ -82,9 +72,8 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
 
     val isCalculating = MutableStateFlow(false)
     val planData = MutableStateFlow<PlanResponse?>(null)
-    val plans = MutableStateFlow<List<RichPlan>>(emptyList())
+    val plans = MutableStateFlow<List<PlanOption>>(emptyList())
     val selectedIndex = MutableStateFlow(0)
-    val selectedLiveEtaMin = MutableStateFlow<Double?>(null)
     val mapLayer = MutableStateFlow(PlanMapLayer())
     val mapVehicles = MutableStateFlow<List<MapVehicle>>(emptyList())
     val locatingTimedOut = MutableStateFlow(false)
@@ -95,68 +84,63 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     val isSearching = MutableStateFlow(false)
 
     private var currentQueryKey: String? = null
-    private var liveEtaByKey: Map<String, List<StoredLiveEta>> = emptyMap()
-    private val shapePoints = MutableStateFlow<Map<String, List<ShapePoint>>>(emptyMap())
+    private var selectedKey: String? = null
     private val live = MutableStateFlow<LiveState?>(null)
     private var calculation: Job? = null
+    private var refresh: Job? = null
     private var dragGeneration = 0
 
     val destLat: Double get() = destLatText.value?.toDoubleOrNull() ?: Double.NaN
     val destLon: Double get() = destLonText.value?.toDoubleOrNull() ?: Double.NaN
     val hasValidCoords: Boolean get() = !destLat.isNaN() && !destLon.isNaN()
 
-    private val stops = object : StopLookup {
-        override fun name(id: Int) = stop(id)?.first
-        override fun position(id: Int) = stop(id)?.second
-    }
-
     /** Port of getStop. */
     fun stop(id: Int): Pair<String, Pair<Double, Double>>? {
-        Services.repository.stops.value.find { it.stopId == id }?.let { return it.name to (it.lat to it.lon) }
         planData.value?.stops?.get("$id")?.let { return it.name to (it.lat to it.lon) }
+        Services.repository.stops.value.find { it.stopId == id }?.let { return it.name to (it.lat to it.lon) }
         return null
     }
 
     fun stopName(id: Int): String = stop(id)?.first ?: if (id != 0) "Stop $id" else ""
 
-    fun planner(): Planner = Planner(planData.value?.shapes.orEmpty(), stops)
+    fun line(id: Int?) = id?.let { planData.value?.lines?.get("$it") }
 
-    fun journeyFor(plan: RichPlan): Journey? {
-        if (plan.legs.isEmpty() || !hasValidCoords) return null
-        val routesById = Services.repository.routes.value.associateBy { it.routeId }
+    fun journeyFor(plan: PlanOption): Journey? {
+        val rides = plan.rides
+        if (rides.isEmpty() || !hasValidCoords) return null
         fun at(id: Int): JourneyStop? = stop(id)?.let { (name, pos) -> JourneyStop(id, name, pos.first, pos.second) }
-        val transfers = (plan.legs.size - 1).coerceAtLeast(1)
-        val points = shapePoints.value
-        fun pathOf(tripId: String?, startStopId: Int, destStopId: Int): List<JourneyPoint> {
-            val pts = tripId?.let { points[it] } ?: return emptyList()
-            val start = stop(startStopId)?.second ?: return emptyList()
-            val dest = stop(destStopId)?.second ?: return emptyList()
-            val a = findClosestShapeIdx(start.first, start.second, pts)
-            val b = findClosestShapeIdx(dest.first, dest.second, pts)
-            return simplifyPath(pts.subList(minOf(a, b), maxOf(a, b) + 1).map { LatLon(it.lat, it.lon) })
-        }
-        val legs = plan.legs.mapIndexed { i, leg ->
-            val stops = (listOf(leg.startStopId) + leg.intermediateStopIds + leg.destStopId).mapNotNull(::at)
+        fun points(path: String) = decodePolyline(path).map { LatLon(it.first, it.second) }
+        val legs = mutableListOf<JourneyLeg>()
+        var walkSeconds = 0L
+        for (leg in plan.legs) {
+            if (!leg.isRide) {
+                walkSeconds += leg.seconds
+                continue
+            }
+            val stops = (listOf(leg.from) + leg.passed + leg.to).mapNotNull(::at)
             if (stops.size < 2) return null
-            JourneyLeg(
-                routeIds = leg.routeIds,
-                tripIds = leg.tripIds,
-                lines = leg.routeIds.map { routesById[it]?.shortName ?: "$it" },
-                colors = leg.routeIds.map { routesById[it]?.color ?: "#64748b" },
+            val trips = plan.legTrips(legs.size)
+            legs += JourneyLeg(
+                routeIds = leg.lines,
+                tripIds = leg.lines.map { trips[it].orEmpty() },
+                lines = leg.lines.map { line(it)?.shortName ?: "$it" },
+                colors = leg.lines.map { line(it)?.color ?: "#64748b" },
                 stops = stops,
-                walkMinutes = if (i == 0) plan.walkStartMeters / WALK_SPEED else plan.walkTransferMeters / WALK_SPEED / transfers,
-                rideMinutes = leg.rideSeconds / 60,
-                path = pathOf(leg.tripIds.firstOrNull(), leg.startStopId, leg.destStopId),
+                walkMinutes = walkSeconds / 60.0,
+                rideMinutes = leg.seconds / 60.0,
+                path = simplifyPath(points(leg.path)),
             )
+            walkSeconds = 0
         }
-        val name = destName.value.ifEmpty { stopName(plan.legs.last().destStopId) }
+        val name = destName.value.ifEmpty { stopName(rides.last().to) }
         return Journey(
             id = JourneyManager.newId(),
             destination = JourneyStop(-1, name, destLat, destLon),
             legs = legs,
             planPath = "/plan?" + currentQuery().encode(),
-            walkEndMinutes = plan.walkEndMeters / WALK_SPEED,
-            walks = plan.walkSegments.map { seg -> simplifyPath(Planner.decodePolyline(seg.geometry).map { LatLon(it.first, it.second) }, 8.0) },
+            walkEndMinutes = walkSeconds / 60.0,
+            walks = plan.legs.filter { !it.isRide }.map { simplifyPath(points(it.path), 8.0) },
+            runs = plan.runs.map { run -> PlannedRun(run.arrive, run.rides.map { it.depart }) },
         )
     }
 
@@ -178,18 +162,11 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
             delay(LOCATING_TIMEOUT_MS)
             locatingTimedOut.value = true
         }
-        viewModelScope.launch { Services.clock.collect { applyTiming() } }
         viewModelScope.launch {
-            plans.map { list -> list.flatMap { p -> p.legs.flatMap { l -> l.routeIds.zip(l.tripIds) } }.toSet() }
-                .distinctUntilChanged()
-                .collectLatest { loadShapes(it) }
+            combine(live, selectedIndex, plans) { l, _, _ -> l }.collect { updateMapVehicles(it) }
         }
         viewModelScope.launch {
-            combine(live, shapePoints) { l, p -> l to p }.collect { (l, p) -> onLive(l, p) }
-        }
-        viewModelScope.launch {
-            combine(selectedIndex, plans.map { list -> list.map { it.key } }.distinctUntilChanged(), shapePoints) { _, _, _ -> }
-                .collect { updateMapLayer() }
+            combine(selectedIndex, plans) { _, _ -> }.collect { updateMapLayer() }
         }
         viewModelScope.launch {
             searchQuery.collect { q -> runSearch(q, 500) }
@@ -230,12 +207,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     private fun queryKey(): String? {
         val origin = originPoint() ?: return null
         if (!hasValidCoords) return null
-        val tk = when (timeMode.value) {
-            TimeMode.Now -> "now"
-            TimeMode.Last -> "last:${lastTransitCutoffString(System.currentTimeMillis())}"
-            else -> "${timeMode.value.key}:${timeValue.value}"
-        }
-        return "plan_routes?from_lat=${origin.first}&from_lng=${origin.second}&to_lat=$destLat&to_lng=$destLon&t=$tk"
+        return planQuery(origin, destLat to destLon, timeMode.value, timeValue.value, Api::encode)
     }
 
     private fun clearPlanSelection() {
@@ -243,34 +215,28 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     }
 
     private fun resetResults() {
+        refresh?.cancel()
         plans.value = emptyList()
         planData.value = null
         currentQueryKey = null
-        liveEtaByKey = emptyMap()
     }
 
-    fun calculateRoutes(force: Boolean = false) {
-        val origin = originPoint() ?: return
-        if (!hasValidCoords) return
-        val qk = queryKey()
-        if (!force && qk != null && qk == currentQueryKey && planData.value?.plans?.isNotEmpty() == true) return
+    /** A silent call only refreshes the timings of what is on screen. */
+    fun calculateRoutes(force: Boolean = false, silent: Boolean = false) {
+        if (originPoint() == null || !hasValidCoords) return
+        val qk = queryKey() ?: return
+        if (!force && !silent && qk == currentQueryKey && planData.value?.options?.isNotEmpty() == true) return
         calculation?.cancel()
-        resetResults()
+        if (!silent) resetResults()
         val lat = destLat
         val lon = destLon
         calculation = viewModelScope.launch {
-            isCalculating.value = true
+            if (!silent) isCalculating.value = true
             try {
-                val params = StringBuilder("plan_routes?from_lat=${toFixed4(origin.first)}&from_lng=${toFixed4(origin.second)}&to_lat=${toFixed4(lat)}&to_lng=${toFixed4(lon)}")
-                when {
-                    timeMode.value == TimeMode.Last -> params.append("&time=${Api.encode(lastTransitCutoffString(System.currentTimeMillis()))}&arrive_by=true")
-                    timeMode.value != TimeMode.Now && timeValue.value.isNotEmpty() ->
-                        params.append("&time=${Api.encode(timeValue.value)}&arrive_by=${timeMode.value == TimeMode.Arrive}")
-                }
-                val data = Api.get<PlanResponse>(params.toString())
+                val data = Api.get<PlanResponse>(qk)
                 setPlanData(data)
                 currentQueryKey = qk
-                if (data.plans.isNotEmpty()) {
+                if (!silent && data.options.isNotEmpty()) {
                     fitRequests.value++
                     if (Services.online.value) {
                         val o = customOrigin.value
@@ -285,52 +251,50 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                planData.value = null
+                if (!silent) planData.value = null
             } finally {
-                isCalculating.value = false
+                if (!silent) isCalculating.value = false
             }
         }
     }
 
     val fitRequests = MutableStateFlow(0)
 
-    private suspend fun setPlanData(data: PlanResponse) {
-        val nowMs = Services.clock.value
-        val mode = timeMode.value
-        val value = timeValue.value
-        val built = withContext(Dispatchers.Default) { Planner(data.shapes, stops).buildPlans(data, nowMs, mode, value) }
+    private fun setPlanData(data: PlanResponse) {
         planData.value = data
-        liveEtaByKey = emptyMap()
-        val target = planParam?.takeIf { it >= 0 && it < built.size } ?: 0
+        val kept = selectedKey?.let { key -> data.options.indexOfFirst { it.key == key } } ?: -1
+        val target = if (kept >= 0) kept else planParam?.takeIf { it >= 0 && it < data.options.size } ?: 0
         selectedIndex.value = target
-        plans.value = built
-        updateSelectedLive()
+        selectedKey = data.options.getOrNull(target)?.key
+        plans.value = data.options
+        refresh?.cancel()
+        if (data.refreshIn > 0 && timeMode.value == TimeMode.Now) {
+            refresh = viewModelScope.launch {
+                delay(data.refreshIn * 1000)
+                calculateRoutes(silent = true)
+            }
+        }
     }
 
     fun refreshRoutes() {
         clearPlanSelection()
         selectedIndex.value = 0
+        selectedKey = null
         resetResults()
         calculateRoutes(force = true)
     }
 
     fun selectPlanAt(idx: Int) {
         selectedIndex.value = idx
+        selectedKey = plans.value.getOrNull(idx)?.key
         planParam = idx.takeIf { it > 0 }
         fitRequests.value++
-        mapVehicles.value = emptyList()
-        updateSelectedLive()
-        viewModelScope.launch { updateMapVehicles(live.value, shapePoints.value) }
     }
 
     fun setTimeMode(mode: TimeMode) {
         if (timeMode.value == mode) return
         timeMode.value = mode
-        if (mode != TimeMode.Now) {
-            liveEtaByKey = emptyMap()
-            selectedLiveEtaMin.value = null
-            mapVehicles.value = emptyList()
-        }
+        if (mode != TimeMode.Now) mapVehicles.value = emptyList()
         if (mode != TimeMode.Now && mode != TimeMode.Last && timeValue.value.isEmpty()) {
             timeValue.value = formatLocalDateTime(System.currentTimeMillis())
         }
@@ -494,164 +458,58 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         Services.favorites.renamePlan(destLat, destLon, customOrigin.value?.lat, customOrigin.value?.lon, label.trim().ifEmpty { null })
     }
 
-    private fun applyTiming() {
-        val data = planData.value ?: return
-        if (plans.value.isEmpty()) return
-        plans.value = Planner(data.shapes, stops).applyTiming(plans.value, Services.clock.value, timeMode.value, timeValue.value, liveEtaByKey)
-        updateSelectedLive()
-    }
-
-    private fun updateSelectedLive() {
-        val plan = plans.value.getOrNull(selectedIndex.value)
-        if (plan == null) {
-            selectedLiveEtaMin.value = null
-            return
-        }
-        val walkStartMin = plan.walkStartMeters / WALK_SPEED
-        val live = planner().getDecayedLiveEntries(liveEtaByKey[plan.key], Services.clock.value)
-        selectedLiveEtaMin.value = live.firstOrNull { it.minutes >= walkStartMin }?.minutes
-    }
-
-    private suspend fun loadShapes(trips: Set<Pair<Int, String>>) {
-        if (trips.isEmpty()) {
-            shapePoints.value = emptyMap()
-            return
-        }
-        val shapes = planData.value?.shapes.orEmpty()
-        val ids = trips.filter { shapes.containsKey("${it.first}") }.map { it.second }.distinct()
-        if (ids.isEmpty()) {
-            shapePoints.value = emptyMap()
-            return
-        }
-        val loaded = runCatching { Services.repository.shapes(ids) }.getOrNull() ?: return
-        shapePoints.value = loaded.filterValues { it.isNotEmpty() }
-    }
-
-    private class Subscription(val stopIds: List<Int>, val tripIds: List<String>)
-
-    /** Every plan's first boarding stop for its rows, every leg's trips for the buses. */
-    private fun subscription(): Subscription {
-        if (timeMode.value != TimeMode.Now || plans.value.isEmpty()) return Subscription(emptyList(), emptyList())
-        val stopIds = plans.value.mapNotNull { it.legs.firstOrNull()?.startStopId }.distinct()
-        return Subscription(stopIds, plans.value.flatMap { p -> p.legs.flatMap { it.tripIds } }.distinct())
+    /** Only the buses the selected option catches. */
+    private fun caughtTrips(): List<String> {
+        if (timeMode.value != TimeMode.Now) return emptyList()
+        val rides = plans.value.getOrNull(selectedIndex.value)?.runs?.firstOrNull()?.rides.orEmpty()
+        return rides.filter { it.vehicleId != 0 }.map { it.tripId }.distinct()
     }
 
     suspend fun live() {
-        combine(plans, timeMode) { _, _ -> subscription() }
-            .distinctUntilChanged { a, b -> a.stopIds == b.stopIds && a.tripIds == b.tripIds }
-            .collectLatest { sub ->
-                if (sub.tripIds.isEmpty()) {
+        combine(plans, selectedIndex, timeMode) { _, _, _ -> caughtTrips() }
+            .distinctUntilChanged()
+            .collectLatest { trips ->
+                if (trips.isEmpty()) {
                     live.value = null
                     return@collectLatest
                 }
-                LiveStream.live(sub.stopIds, sub.tripIds).collect { live.value = it }
+                LiveStream.live(emptyList(), trips).collect { live.value = it }
             }
     }
 
-    private suspend fun onLive(state: LiveState?, points: Map<String, List<ShapePoint>>) {
-        if (timeMode.value != TimeMode.Now) return
-        val data = planData.value ?: return
-        if (state == null) {
-            mapVehicles.value = emptyList()
-            liveEtaByKey = emptyMap()
-            selectedLiveEtaMin.value = null
-            return
-        }
-        val nowMs = Services.clock.value
-        val planner = Planner(data.shapes, stops)
-        val newLive = withContext(Dispatchers.Default) {
-            val result = HashMap<String, List<StoredLiveEta>>()
-            for (plan in plans.value) {
-                val leg = plan.legs.firstOrNull() ?: continue
-                val entries = mutableListOf<StoredLiveEta>()
-                for (i in leg.tripIds.indices) {
-                    val tid = leg.tripIds[i]
-                    val routeId = leg.routeIds.getOrNull(i) ?: continue
-                    val rows = state.entriesAt(tid, leg.startStopId, nowMs) ?: continue
-                    for (row in rows) {
-                        if (!row.live || row.minutes > PLAN_MAX_MINUTES) continue
-                        val entry = PlannedTimeEntry(row.minutes.toDouble(), true, routeId, tid)
-                        if (planner.hasScheduledConnection(plan.plan, entry, nowMs)) entries += StoredLiveEta(entry, System.currentTimeMillis())
-                    }
-                }
-                if (entries.isNotEmpty()) result[plan.key] = entries.sortedBy { it.entry.minutes }.take(3)
-            }
-            result
-        }
-        liveEtaByKey = newLive
-        applyTiming()
-        updateMapVehicles(state, points)
-    }
-
-    private fun lookaheadShapeIdx(stopTimes: List<online.bus.bmarian.conexiuniclujmobile.data.StopTime>, tripId: String, boardingStopId: Int, boardingIdx: Int, pts: List<ShapePoint>): Int {
-        val tripStops = stopTimes.filter { it.tripId == tripId }.sortedBy { it.stopSequence }
-        val boardingPos = tripStops.indexOfFirst { it.stopId == boardingStopId }
-        if (boardingPos <= 0) return boardingIdx
-        val target = tripStops[maxOf(0, boardingPos - VEHICLE_LOOKAHEAD_STOPS)]
-        if (target.lat == 0.0 || target.lon == 0.0) return boardingIdx
-        return findClosestShapeIdx(target.lat, target.lon, pts)
-    }
-
-    private suspend fun updateMapVehicles(state: LiveState?, points: Map<String, List<ShapePoint>>) {
+    private fun updateMapVehicles(state: LiveState?) {
         val plan = plans.value.getOrNull(selectedIndex.value)
-        val data = planData.value
-        if (plan == null || data == null || state == null || points.isEmpty()) {
+        if (plan == null || state == null || timeMode.value != TimeMode.Now) {
             mapVehicles.value = emptyList()
             return
         }
-        mapVehicles.value = withContext(Dispatchers.Default) {
-            val all = mutableListOf<MapVehicle>()
-            for (leg in plan.legs) {
-                for (i in leg.tripIds.indices) {
-                    val tid = leg.tripIds[i]
-                    val routeId = leg.routeIds.getOrNull(i) ?: continue
-                    val shape = data.shapes["$routeId"] ?: continue
-                    val pts = points[tid] ?: continue
-                    val v = state.vehicles(tid)
-                    if (v.isEmpty()) continue
-                    val start = stop(leg.startStopId)?.second ?: continue
-                    val dest = stop(leg.destStopId)?.second ?: continue
-                    val startIdx = findClosestShapeIdx(start.first, start.second, pts)
-                    val destIdx = findClosestShapeIdx(dest.first, dest.second, pts)
-                    val rStart = minOf(startIdx, destIdx)
-                    val rEnd = maxOf(startIdx, destIdx)
-                    val lookahead = lookaheadShapeIdx(shape.stopTimes, tid, leg.startStopId, startIdx, pts)
-                    val lower = maxOf(0, minOf(rStart, lookahead))
-                    v.filter { findClosestShapeIdx(it.latitude, it.longitude, pts) in lower..rEnd + 1 }.forEach {
-                        all += MapVehicle("${it.id}", it, shape.shortName, shape.color, it.heading)
-                    }
-                }
-            }
-            all.distinctBy { it.id }
+        mapVehicles.value = plan.runs.firstOrNull()?.rides.orEmpty().mapNotNull { ride ->
+            val vehicle = state.vehicles(ride.tripId).find { it.id == ride.vehicleId && ride.vehicleId != 0 } ?: return@mapNotNull null
+            val line = line(ride.routeId) ?: return@mapNotNull null
+            MapVehicle("${vehicle.id}", vehicle, line.shortName, line.color, vehicle.heading)
         }
     }
 
     private fun updateMapLayer() {
         val plan = plans.value.getOrNull(selectedIndex.value)
-        val data = planData.value
-        if (plan == null || data == null) {
+        if (plan == null) {
             mapLayer.value = PlanMapLayer()
             return
         }
-        val points = shapePoints.value
-        val shapes = plan.legs.mapNotNull { leg ->
-            val tid = leg.tripIds.firstOrNull() ?: return@mapNotNull null
-            val routeId = leg.routeIds.firstOrNull() ?: return@mapNotNull null
-            val s = data.shapes["$routeId"] ?: return@mapNotNull null
-            val pts = points[tid] ?: return@mapNotNull null
-            val start = stop(leg.startStopId)?.second ?: return@mapNotNull null
-            val dest = stop(leg.destStopId)?.second ?: return@mapNotNull null
-            val a = findClosestShapeIdx(start.first, start.second, pts)
-            val b = findClosestShapeIdx(dest.first, dest.second, pts)
-            MapShape(tid, s.shortName, s.color, pts.subList(minOf(a, b), maxOf(a, b) + 1).map { LatLon(it.lat, it.lon) })
+        fun points(path: String) = decodePolyline(path).map { LatLon(it.first, it.second) }
+        val rides = plan.rides
+        val shapes = rides.mapIndexed { i, leg ->
+            val id = leg.lines.firstOrNull()
+            val line = line(id)
+            MapShape(id?.let { plan.legTrips(i)[it] }.orEmpty(), line?.shortName.orEmpty(), line?.color ?: "#64748b", points(leg.path))
         }
-        val walks = plan.walkSegments.map { seg -> Planner.decodePolyline(seg.geometry).map { LatLon(it.first, it.second) } }
+        val walks = plan.legs.filter { !it.isRide }.map { points(it.path) }
         val highlights = LinkedHashMap<Int, StopHighlight>()
-        plan.legs.forEachIndexed { idx, leg ->
-            highlights[leg.startStopId] = if (idx == 0) StopHighlight.Green else StopHighlight.Purple
-            leg.intermediateStopIds.forEach { highlights[it] = StopHighlight.Gray }
-            if (idx == plan.legs.lastIndex) highlights[leg.destStopId] = StopHighlight.Red
-            else if (leg.destStopId != plan.legs[idx + 1].startStopId) highlights[leg.destStopId] = StopHighlight.Amber
+        rides.forEachIndexed { idx, leg ->
+            highlights[leg.from] = if (idx == 0) StopHighlight.Green else StopHighlight.Purple
+            leg.passed.forEach { highlights[it] = StopHighlight.Gray }
+            if (idx == rides.lastIndex) highlights[leg.to] = StopHighlight.Red
+            else if (leg.to != rides[idx + 1].from) highlights[leg.to] = StopHighlight.Amber
         }
         mapLayer.value = PlanMapLayer(shapes, walks, highlights)
     }

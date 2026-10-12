@@ -7,7 +7,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Transfer
-import online.bus.bmarian.conexiuniclujmobile.logic.Planner
+import online.bus.bmarian.conexiuniclujmobile.logic.decodePolyline
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -58,7 +58,7 @@ class TransferTest {
     @Test
     fun decodesGooglePolylines() {
         // Example from Google's polyline documentation.
-        val points = Planner.decodePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@")
+        val points = decodePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@")
         assertEquals(listOf(38.5 to -120.2, 40.7 to -120.95, 43.252 to -126.453), points)
     }
 }

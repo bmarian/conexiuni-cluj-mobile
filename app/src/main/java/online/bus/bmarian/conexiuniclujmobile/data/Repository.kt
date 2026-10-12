@@ -6,7 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
-import online.bus.bmarian.conexiuniclujmobile.logic.Planner.Companion.decodePolyline
+import online.bus.bmarian.conexiuniclujmobile.logic.decodePolyline
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest

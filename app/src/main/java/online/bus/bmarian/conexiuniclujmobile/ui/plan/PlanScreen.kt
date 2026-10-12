@@ -109,11 +109,10 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
-import online.bus.bmarian.conexiuniclujmobile.logic.PlannedTimeEntry
-import online.bus.bmarian.conexiuniclujmobile.logic.Planner
-import online.bus.bmarian.conexiuniclujmobile.logic.RichPlan
+import online.bus.bmarian.conexiuniclujmobile.logic.PlanOption
+import online.bus.bmarian.conexiuniclujmobile.logic.PlanRide
 import online.bus.bmarian.conexiuniclujmobile.logic.TimeMode
-import online.bus.bmarian.conexiuniclujmobile.logic.WALK_SPEED
+import online.bus.bmarian.conexiuniclujmobile.logic.formatDuration
 import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
@@ -170,7 +169,6 @@ fun PlanScreen(query: PlanQuery) {
     val planData by vm.planData.collectAsStateWithLifecycle()
     val plans by vm.plans.collectAsStateWithLifecycle()
     val selected by vm.selectedIndex.collectAsStateWithLifecycle()
-    val liveEta by vm.selectedLiveEtaMin.collectAsStateWithLifecycle()
     val layer by vm.mapLayer.collectAsStateWithLifecycle()
     val vehicles by vm.mapVehicles.collectAsStateWithLifecycle()
     val fits by vm.fitRequests.collectAsStateWithLifecycle()
@@ -240,7 +238,7 @@ fun PlanScreen(query: PlanQuery) {
     val haptics = LocalHapticFeedback.current
     val resources = LocalResources.current
 
-    fun startJourney(plan: RichPlan) {
+    fun startJourney(plan: PlanOption) {
         val journey = vm.journeyFor(plan) ?: return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         withNotifications { JourneyManager.start(context, journey) }
@@ -294,7 +292,7 @@ fun PlanScreen(query: PlanQuery) {
         }
         if (!renaming && validCoords) {
             item(key = "actions") {
-                val startable = selectedPlan?.takeIf { !calculating && mode == TimeMode.Now && it.legs.isNotEmpty() && it.nextTimes.isNotEmpty() }
+                val startable = selectedPlan?.takeIf { !calculating && mode == TimeMode.Now && it.rides.isNotEmpty() && it.runs.isNotEmpty() }
                 ActionChips(
                     listOfNotNull(
                         startable?.let { plan ->
@@ -320,7 +318,7 @@ fun PlanScreen(query: PlanQuery) {
         }
 
         if (selectedPlan != null && !calculating) {
-            item { TripSummary(selectedPlan, mode, liveEta, clockMs) }
+            item { TripSummary(selectedPlan, mode, clockMs) }
         }
 
         item {
@@ -342,7 +340,7 @@ fun PlanScreen(query: PlanQuery) {
                     if (activeSearch == SearchField.Origin) PlaceSearch(vm, SearchField.Origin, me != null, online)
 
                     if (selectedPlan != null) {
-                        PlanLegs(vm, selectedPlan, planData?.shapes.orEmpty(), expanded.value, ::toggleExpanded)
+                        PlanLegs(vm, selectedPlan, expanded.value, ::toggleExpanded)
                     }
 
                     EndpointRow(
@@ -388,15 +386,14 @@ fun PlanScreen(query: PlanQuery) {
             calculating -> item { LoadingRow(text = stringResource(R.string.w_plan_calculating)) }
             keyedPlans.isNotEmpty() -> itemsIndexed(keyedPlans, key = { _, keyed -> keyed.first }, contentType = { _, _ -> "plan" }) { index, (_, plan) ->
                 Box(Modifier.animateItem()) {
-                    PlanCard(vm, plan, planData?.shapes.orEmpty(), destName, index == selected, mode, now, clockMs, expanded.value, ::toggleExpanded) { vm.selectPlanAt(index) }
+                    PlanCard(vm, plan, destName, index == selected, mode, now, clockMs, expanded.value, ::toggleExpanded) { vm.selectPlanAt(index) }
                 }
             }
             else -> item {
                 Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val none = planData?.plans?.isNotEmpty() == true
-                    Icon(if (none) Icons.Rounded.Schedule else Icons.Rounded.DirectionsBus, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.outlineVariant)
+                    Icon(Icons.Rounded.DirectionsBus, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.outlineVariant)
                     Text(
-                        stringResource(if (none) R.string.w_plan_no_buses_next_hour else R.string.w_plan_no_results),
+                        stringResource(R.string.w_plan_no_results),
                         Modifier.padding(top = 12.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -428,7 +425,7 @@ private fun LiveDot() {
 }
 
 @Composable
-private fun TripSummary(plan: RichPlan, mode: TimeMode, liveEta: Double?, clockMs: Long) {
+private fun TripSummary(plan: PlanOption, mode: TimeMode, clockMs: Long) {
     val nowLabel = stringResource(R.string.w_now)
     val now = remember(clockMs) { LocalDateTime.ofInstant(Instant.ofEpochMilli(clockMs), CLUJ_ZONE) }
     Card(
@@ -437,25 +434,22 @@ private fun TripSummary(plan: RichPlan, mode: TimeMode, liveEta: Double?, clockM
     ) {
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             val stats = mutableListOf<@Composable () -> Unit>()
-            if (mode == TimeMode.Now) {
-                val total = Planner.computeTotalMinutes(plan).let { if (it.isFinite()) it else 0.0 }
-                stats += { Stat(Planner.formatDuration(total), stringResource(R.string.w_plan_trip_total)) }
+            val run = plan.runs.firstOrNull()
+            if (mode == TimeMode.Now && run != null) {
+                val total = max(0.0, (run.arrive * 1000 - clockMs) / 60_000.0)
+                stats += { Stat(formatDuration(total), stringResource(R.string.w_plan_trip_total)) }
             }
-            plan.nextTimes.firstOrNull()?.let { first ->
-                val live = liveEta != null
-                val minutes = liveEta ?: first.minutes
-                val prefix = if (live || first.isLive) "" else "~ "
+            plan.firstRide?.let { first ->
                 stats += {
                     Stat(
-                        prefix + formatMinutesFromNow(Math.round(minutes).toInt(), now, nowLabel),
+                        (if (first.live) "" else "~ ") + formatMinutesFromNow(minutesUntil(first.depart, clockMs), now, nowLabel),
                         stringResource(R.string.w_plan_next_departures),
-                        live = live,
+                        live = first.live,
                     )
                 }
             }
-            if (!plan.isDirect) {
-                val changes = plan.legs.size - 1
-                stats += { Stat("$changes", stringResource(if (changes == 1) R.string.w_plan_change else R.string.w_plan_changes)) }
+            if (plan.transfers > 0) {
+                stats += { Stat("${plan.transfers}", stringResource(if (plan.transfers == 1) R.string.w_plan_change else R.string.w_plan_changes)) }
             }
             stats.forEachIndexed { i, stat ->
                 if (i > 0) VerticalDivider(Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outlineVariant)
@@ -464,6 +458,8 @@ private fun TripSummary(plan: RichPlan, mode: TimeMode, liveEta: Double?, clockM
         }
     }
 }
+
+private fun minutesUntil(at: Long, clockMs: Long): Int = Math.round((at * 1000 - clockMs) / 60_000.0).toInt()
 
 @Composable
 private fun Stat(value: String, label: String, live: Boolean = false) {
@@ -557,59 +553,62 @@ private fun SearchResultRow(icon: androidx.compose.ui.graphics.vector.ImageVecto
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PlanLegs(vm: PlanViewModel, plan: RichPlan, shapes: Map<String, online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo>, expanded: Set<String>, toggle: (String) -> Unit) {
+private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>, toggle: (String) -> Unit) {
     val nav = LocalNavigator.current
-    if (plan.legs.isEmpty()) {
+    val rides = plan.rides
+    if (rides.isEmpty()) {
         TimelineRow(top = Rail.Walk, bottom = Rail.Walk, dot = TimelineDot.None, color = MaterialTheme.colorScheme.outline) {
             Text(stringResource(R.string.w_plan_walk).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(Planner.formatDuration(Planner.getJourneyDuration(plan)), style = MaterialTheme.typography.bodyMedium)
+            Text(formatDuration(plan.minutes), style = MaterialTheme.typography.bodyMedium)
         }
         return
     }
-    val planner = vm.planner()
-    plan.legs.forEachIndexed { legIdx, leg ->
-        val shape = shapes["${leg.routeIds.firstOrNull()}"]
-        val color = routeColor(shape?.color)
+    var ride = 0
+    plan.legs.forEachIndexed { i, leg ->
+        if (!leg.isRide) return@forEachIndexed
+        val legIdx = ride++
+        val trips = plan.legTrips(legIdx)
+        val color = routeColor(vm.line(leg.lines.firstOrNull())?.color)
         val key = "detail-${plan.key}-$legIdx"
         val open = key in expanded
         TimelineRow(top = Rail.Walk, bottom = Rail.Ride(color), dot = TimelineDot.Station, color = color) {
             FlowRow(verticalArrangement = Arrangement.Center) {
                 Text("${stringResource(R.string.w_plan_boarding).uppercase()} ", style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
-                val shown = if (open) leg.routeIds else leg.routeIds.take(4)
+                val shown = if (open) leg.lines else leg.lines.take(4)
                 shown.forEachIndexed { rIdx, routeId ->
                     Text(
-                        shapes["$routeId"]?.shortName.orEmpty(),
-                        Modifier.clickable { nav.route(routeId, if (leg.tripIds.getOrNull(rIdx)?.endsWith("_1") == true) "1" else "0") },
+                        vm.line(routeId)?.shortName.orEmpty(),
+                        Modifier.clickable { nav.route(routeId, if (trips[routeId]?.endsWith("_1") == true) "1" else "0") },
                         style = MaterialTheme.typography.labelSmall,
                         color = color,
                         fontWeight = FontWeight.Black,
                     )
                     if (rIdx < shown.lastIndex) Text(" / ", style = MaterialTheme.typography.labelSmall, color = color)
                 }
-                if (leg.routeIds.size > 4) {
+                if (leg.lines.size > 4) {
                     Text(
-                        if (open) " «" else " +${leg.routeIds.size - 4}",
+                        if (open) " «" else " +${leg.lines.size - 4}",
                         Modifier.clickable { toggle(key) },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                val ride = max(0, Math.round(leg.rideSeconds / 60).toInt())
-                if (ride > 0) Text(" · $ride min ${stringResource(R.string.w_plan_ride_time)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val rideMin = max(0, Math.round(leg.seconds / 60.0).toInt())
+                if (rideMin > 0) Text(" · $rideMin min ${stringResource(R.string.w_plan_ride_time)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            StopLink(vm.stopName(leg.startStopId), bold = true) { nav.stop(leg.startStopId) }
+            StopLink(vm.stopName(leg.from), bold = true) { nav.stop(leg.from) }
         }
-        for (id in leg.intermediateStopIds) {
+        for (id in leg.passed) {
             TimelineRow(top = Rail.Ride(color), bottom = Rail.Ride(color), dot = TimelineDot.Stop, color = color, compact = true) {
                 StopLink(vm.stopName(id), bold = false) { nav.stop(id) }
             }
         }
         TimelineRow(top = Rail.Ride(color), bottom = Rail.Walk, dot = TimelineDot.Station, color = color) {
             Text(stringResource(R.string.w_plan_alighting).uppercase(), style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
-            StopLink(vm.stopName(leg.destStopId), bold = true) { nav.stop(leg.destStopId) }
+            StopLink(vm.stopName(leg.to), bold = true) { nav.stop(leg.to) }
         }
-        if (legIdx != plan.legs.lastIndex) {
-            val meters = planner.getTransferWalkMeters(plan, legIdx)
+        if (legIdx != rides.lastIndex) {
+            val walk = plan.legs.getOrNull(i + 1)?.takeIf { !it.isRide }
             TimelineRow(top = Rail.Walk, bottom = Rail.Walk, dot = TimelineDot.None, color = color, compact = true) {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Amber.copy(alpha = 0.12f)).padding(10.dp),
@@ -619,7 +618,7 @@ private fun PlanLegs(vm: PlanViewModel, plan: RichPlan, shapes: Map<String, onli
                     Icon(Icons.AutoMirrored.Rounded.DirectionsWalk, null, Modifier.size(18.dp), tint = Palette.Amber)
                     Text(stringResource(R.string.w_plan_transfer), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        if (meters > 25) "${Math.round(meters)} m ${stringResource(R.string.w_plan_transfer_walk)}" else stringResource(R.string.w_plan_transfer_same_stop),
+                        if (walk != null) "${Math.round(walk.meters)} m ${stringResource(R.string.w_plan_transfer_walk)}" else stringResource(R.string.w_plan_transfer_same_stop),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -715,8 +714,7 @@ private fun TimeFilter(
 @Composable
 private fun PlanCard(
     vm: PlanViewModel,
-    plan: RichPlan,
-    shapes: Map<String, online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo>,
+    plan: PlanOption,
     destName: String,
     selected: Boolean,
     mode: TimeMode,
@@ -727,7 +725,8 @@ private fun PlanCard(
     onClick: () -> Unit,
 ) {
     val nowLabel = stringResource(R.string.w_now)
-    val first = plan.nextTimes.firstOrNull()
+    val first = plan.firstRide
+    val rides = plan.rides
     val press = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
@@ -741,53 +740,52 @@ private fun PlanCard(
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                    if (plan.legs.isEmpty()) {
+                    if (rides.isEmpty()) {
                         Chip(stringResource(R.string.w_plan_walk), MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurface)
                     }
-                    plan.legs.forEachIndexed { lIdx, leg ->
+                    rides.forEachIndexed { lIdx, leg ->
                         val key = "list-${plan.key}-$lIdx"
                         val open = key in expanded
-                        val names = (if (open) leg.routeIds else leg.routeIds.take(3)).joinToString("/") { shapes["$it"]?.shortName.orEmpty() }
-                        Chip(names, routeColor(shapes["${leg.routeIds.firstOrNull()}"]?.color), Color.White)
-                        if (leg.routeIds.size > 3) {
+                        val names = (if (open) leg.lines else leg.lines.take(3)).joinToString("/") { vm.line(it)?.shortName.orEmpty() }
+                        Chip(names, routeColor(vm.line(leg.lines.firstOrNull())?.color), Color.White)
+                        if (leg.lines.size > 3) {
                             Text(
-                                if (open) "«" else "+${leg.routeIds.size - 3}",
+                                if (open) "«" else "+${leg.lines.size - 3}",
                                 Modifier.clickable { toggle(key) }.padding(horizontal = 2.dp),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        if (lIdx < plan.legs.lastIndex) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                        if (lIdx < rides.lastIndex) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
                     }
                 }
-                if (first != null) {
+                if (plan.runs.isNotEmpty()) {
                     Column(horizontalAlignment = Alignment.End) {
-                        val color = if (first.isLive) liveColor() else MaterialTheme.colorScheme.onSurface
-                        if (plan.legs.isNotEmpty()) {
+                        if (first != null) {
+                            val color = if (first.live) liveColor() else MaterialTheme.colorScheme.onSurface
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                if (first.isLive) LiveDot()
+                                if (first.live) LiveDot()
                                 Text(relativeDeparture(first, mode, clockMs), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = color)
                             }
                         }
-                        Text(arrivalTime(plan, first, clockMs), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(arrivalTime(plan), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
             }
             Text(
-                "→ " + if (plan.legs.isNotEmpty()) vm.stopName(plan.legs.last().destStopId) else destName,
+                "→ " + if (rides.isNotEmpty()) vm.stopName(rides.last().to) else destName,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                StatChip(Icons.Rounded.Schedule, Planner.formatDuration(Math.round(Planner.getJourneyDuration(plan)).toDouble()))
-                if (!plan.isDirect) {
-                    val changes = plan.legs.size - 1
-                    StatChip(Icons.Rounded.SwapVert, "$changes ${stringResource(if (changes == 1) R.string.w_plan_change else R.string.w_plan_changes)}")
+                StatChip(Icons.Rounded.Schedule, formatDuration(Math.round(plan.minutes).toDouble()))
+                if (plan.transfers > 0) {
+                    StatChip(Icons.Rounded.SwapVert, "${plan.transfers} ${stringResource(if (plan.transfers == 1) R.string.w_plan_change else R.string.w_plan_changes)}")
                 }
-                if (plan.isLive) {
+                if (first?.live == true) {
                     Row(
                         Modifier.clip(RoundedCornerShape(8.dp)).background(LocalLiveColors.current.container).padding(horizontal = 8.dp, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -797,10 +795,11 @@ private fun PlanCard(
                         Text(stringResource(R.string.w_live), style = MaterialTheme.typography.labelSmall, color = LocalLiveColors.current.onContainer, fontWeight = FontWeight.Bold)
                     }
                 }
-                if (plan.nextTimes.size > 1) {
+                val later = plan.laterRides
+                if (later.isNotEmpty()) {
                     Text(
-                        stringResource(R.string.w_plan_then) + " " + plan.nextTimes.drop(1).take(2).joinToString("  ") {
-                            (if (it.isLive) "" else "~ ") + formatMinutesFromNow(Math.round(it.minutes).toInt(), now, nowLabel)
+                        stringResource(R.string.w_plan_then) + " " + later.joinToString("  ") {
+                            (if (it.live) "" else "~ ") + formatMinutesFromNow(minutesUntil(it.depart, clockMs), now, nowLabel)
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -831,12 +830,10 @@ private fun StatChip(icon: androidx.compose.ui.graphics.vector.ImageVector, text
 }
 
 @Composable
-private fun relativeDeparture(entry: PlannedTimeEntry, mode: TimeMode, clockMs: Long): String {
-    val approx = if (entry.isLive) "" else "~"
-    val departure = clockMs + (entry.minutes * 60_000).toLong()
-    if (mode != TimeMode.Now) return stringResource(R.string.w_plan_at_time, approx + clock(departure))
-    val wait = entry.minutes
-    val rounded = Math.round(wait).toInt()
+private fun relativeDeparture(ride: PlanRide, mode: TimeMode, clockMs: Long): String {
+    val approx = if (ride.live) "" else "~"
+    if (mode != TimeMode.Now) return stringResource(R.string.w_plan_at_time, approx + clock(ride.depart * 1000))
+    val rounded = minutesUntil(ride.depart, clockMs)
     if (rounded <= 0) return stringResource(R.string.w_now)
     val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(clockMs), CLUJ_ZONE)
     val part = formatMinutesFromNow(rounded, now, "")
@@ -844,11 +841,8 @@ private fun relativeDeparture(entry: PlannedTimeEntry, mode: TimeMode, clockMs: 
 }
 
 @Composable
-private fun arrivalTime(plan: RichPlan, entry: PlannedTimeEntry, clockMs: Long): String {
-    val approx = if (entry.isLive) "" else "~"
-    val duration = Planner.getJourneyDuration(plan)
-    val departure = clockMs + entry.minutes * 60_000
-    val arrival = if (plan.legs.isEmpty()) departure + duration * 60_000
-    else departure + (duration - plan.walkStartMeters / WALK_SPEED) * 60_000
-    return stringResource(R.string.w_plan_arrival_at, approx + clock(arrival.toLong()))
+private fun arrivalTime(plan: PlanOption): String {
+    val run = plan.runs.firstOrNull() ?: return ""
+    val approx = if (plan.firstRide?.live == true) "" else "~"
+    return stringResource(R.string.w_plan_arrival_at, approx + clock(run.arrive * 1000))
 }
