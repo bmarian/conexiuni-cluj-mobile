@@ -20,9 +20,9 @@ import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.Photon
 import online.bus.bmarian.conexiuniclujmobile.data.Place
+import online.bus.bmarian.conexiuniclujmobile.data.LiveState
+import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
-import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
-import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
@@ -34,19 +34,14 @@ import online.bus.bmarian.conexiuniclujmobile.logic.PlanResponse
 import online.bus.bmarian.conexiuniclujmobile.logic.PlannedTimeEntry
 import online.bus.bmarian.conexiuniclujmobile.logic.Planner
 import online.bus.bmarian.conexiuniclujmobile.logic.RichPlan
-import online.bus.bmarian.conexiuniclujmobile.logic.ShapeIndex
 import online.bus.bmarian.conexiuniclujmobile.logic.StopLookup
 import online.bus.bmarian.conexiuniclujmobile.logic.StoredLiveEta
 import online.bus.bmarian.conexiuniclujmobile.logic.TimeMode
 import online.bus.bmarian.conexiuniclujmobile.logic.VEHICLE_LOOKAHEAD_STOPS
 import online.bus.bmarian.conexiuniclujmobile.logic.WALK_SPEED
-import online.bus.bmarian.conexiuniclujmobile.logic.buildShapeIndex
-import online.bus.bmarian.conexiuniclujmobile.logic.buildStopShapeIdxByStopId
 import online.bus.bmarian.conexiuniclujmobile.logic.clampCoord4
-import online.bus.bmarian.conexiuniclujmobile.logic.etaForStop
 import online.bus.bmarian.conexiuniclujmobile.logic.findClosestShapeIdx
 import online.bus.bmarian.conexiuniclujmobile.logic.formatLocalDateTime
-import online.bus.bmarian.conexiuniclujmobile.logic.indexVehicles
 import online.bus.bmarian.conexiuniclujmobile.logic.lastTransitCutoffString
 import online.bus.bmarian.conexiuniclujmobile.logic.toFixed4
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
@@ -101,8 +96,8 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
 
     private var currentQueryKey: String? = null
     private var liveEtaByKey: Map<String, List<StoredLiveEta>> = emptyMap()
-    private val shapeIndices = MutableStateFlow<Map<String, ShapeIndex>>(emptyMap())
-    private val vehicles = MutableStateFlow<Map<String, List<Vehicle>>>(emptyMap())
+    private val shapePoints = MutableStateFlow<Map<String, List<ShapePoint>>>(emptyMap())
+    private val live = MutableStateFlow<LiveState?>(null)
     private var calculation: Job? = null
     private var dragGeneration = 0
 
@@ -131,9 +126,9 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         val routesById = Services.repository.routes.value.associateBy { it.routeId }
         fun at(id: Int): JourneyStop? = stop(id)?.let { (name, pos) -> JourneyStop(id, name, pos.first, pos.second) }
         val transfers = (plan.legs.size - 1).coerceAtLeast(1)
-        val indices = shapeIndices.value
+        val points = shapePoints.value
         fun pathOf(tripId: String?, startStopId: Int, destStopId: Int): List<JourneyPoint> {
-            val pts = tripId?.let { indices[it]?.shape } ?: return emptyList()
+            val pts = tripId?.let { points[it] } ?: return emptyList()
             val start = stop(startStopId)?.second ?: return emptyList()
             val dest = stop(destStopId)?.second ?: return emptyList()
             val a = findClosestShapeIdx(start.first, start.second, pts)
@@ -190,10 +185,10 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
                 .collectLatest { loadShapes(it) }
         }
         viewModelScope.launch {
-            combine(vehicles, shapeIndices) { v, i -> v to i }.collect { (v, i) -> onVehicles(v, i) }
+            combine(live, shapePoints) { l, p -> l to p }.collect { (l, p) -> onLive(l, p) }
         }
         viewModelScope.launch {
-            combine(selectedIndex, plans.map { list -> list.map { it.key } }.distinctUntilChanged(), shapeIndices) { _, _, _ -> }
+            combine(selectedIndex, plans.map { list -> list.map { it.key } }.distinctUntilChanged(), shapePoints) { _, _, _ -> }
                 .collect { updateMapLayer() }
         }
         viewModelScope.launch {
@@ -325,7 +320,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         fitRequests.value++
         mapVehicles.value = emptyList()
         updateSelectedLive()
-        viewModelScope.launch { updateMapVehicles(vehicles.value, shapeIndices.value) }
+        viewModelScope.launch { updateMapVehicles(live.value, shapePoints.value) }
     }
 
     fun setTimeMode(mode: TimeMode) {
@@ -519,42 +514,44 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
 
     private suspend fun loadShapes(trips: Set<Pair<Int, String>>) {
         if (trips.isEmpty()) {
-            shapeIndices.value = emptyMap()
+            shapePoints.value = emptyMap()
             return
         }
         val shapes = planData.value?.shapes.orEmpty()
         val ids = trips.filter { shapes.containsKey("${it.first}") }.map { it.second }.distinct()
         if (ids.isEmpty()) {
-            shapeIndices.value = emptyMap()
+            shapePoints.value = emptyMap()
             return
         }
         val loaded = runCatching { Services.repository.shapes(ids) }.getOrNull() ?: return
-        shapeIndices.value = withContext(Dispatchers.Default) {
-            loaded.filterValues { it.isNotEmpty() }.mapValues { buildShapeIndex(it.value) }
-        }
+        shapePoints.value = loaded.filterValues { it.isNotEmpty() }
     }
 
-    fun streamTripIds(): List<String> {
-        if (timeMode.value != TimeMode.Now || plans.value.isEmpty()) return emptyList()
-        return plans.value.flatMap { p -> p.legs.flatMap { it.tripIds } }.distinct()
+    private class Subscription(val stopIds: List<Int>, val tripIds: List<String>)
+
+    /** Every plan's first boarding stop for its rows, every leg's trips for the buses. */
+    private fun subscription(): Subscription {
+        if (timeMode.value != TimeMode.Now || plans.value.isEmpty()) return Subscription(emptyList(), emptyList())
+        val stopIds = plans.value.mapNotNull { it.legs.firstOrNull()?.startStopId }.distinct()
+        return Subscription(stopIds, plans.value.flatMap { p -> p.legs.flatMap { it.tripIds } }.distinct())
     }
 
     suspend fun live() {
-        combine(plans.map { streamTripIds() }.distinctUntilChanged(), timeMode) { ids, mode -> if (mode == TimeMode.Now) ids else emptyList() }
-            .distinctUntilChanged()
-            .collectLatest { ids ->
-                if (ids.isEmpty()) {
-                    vehicles.value = emptyMap()
+        combine(plans, timeMode) { _, _ -> subscription() }
+            .distinctUntilChanged { a, b -> a.stopIds == b.stopIds && a.tripIds == b.tripIds }
+            .collectLatest { sub ->
+                if (sub.tripIds.isEmpty()) {
+                    live.value = null
                     return@collectLatest
                 }
-                VehicleStream.vehicles(ids).collect { vehicles.value = it }
+                LiveStream.live(sub.stopIds, sub.tripIds).collect { live.value = it }
             }
     }
 
-    private suspend fun onVehicles(byTrip: Map<String, List<Vehicle>>, indices: Map<String, ShapeIndex>) {
+    private suspend fun onLive(state: LiveState?, points: Map<String, List<ShapePoint>>) {
         if (timeMode.value != TimeMode.Now) return
         val data = planData.value ?: return
-        if (byTrip.isEmpty() && indices.isEmpty()) {
+        if (state == null) {
             mapVehicles.value = emptyList()
             liveEtaByKey = emptyMap()
             selectedLiveEtaMin.value = null
@@ -570,19 +567,12 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
                 for (i in leg.tripIds.indices) {
                     val tid = leg.tripIds[i]
                     val routeId = leg.routeIds.getOrNull(i) ?: continue
-                    val shape = data.shapes["$routeId"] ?: continue
-                    val index = indices[tid] ?: continue
-                    val tripVehicles = byTrip[tid].orEmpty()
-                    if (tripVehicles.isEmpty()) continue
-                    val indexed = indexVehicles(shape.shortName, shape.color, index, nowMs, tripVehicles)
-                    if (indexed.isEmpty()) continue
-                    val stopTimes = shape.stopTimes.filter { it.tripId == tid }
-                    val boardingIdx = buildStopShapeIdxByStopId(stopTimes, index.shape)[leg.startStopId] ?: -1
-                    if (boardingIdx < 0) continue
-                    val eta = etaForStop(boardingIdx, indexed, index, stopTimes, leg.startStopId, nowMs) ?: continue
-                    if (eta.etaMinutes > PLAN_MAX_MINUTES) continue
-                    val entry = PlannedTimeEntry(eta.etaMinutes.toDouble(), true, routeId, tid)
-                    if (planner.hasScheduledConnection(plan.plan, entry, nowMs)) entries += StoredLiveEta(entry, System.currentTimeMillis())
+                    val rows = state.entriesAt(tid, leg.startStopId, nowMs) ?: continue
+                    for (row in rows) {
+                        if (!row.live || row.minutes > PLAN_MAX_MINUTES) continue
+                        val entry = PlannedTimeEntry(row.minutes.toDouble(), true, routeId, tid)
+                        if (planner.hasScheduledConnection(plan.plan, entry, nowMs)) entries += StoredLiveEta(entry, System.currentTimeMillis())
+                    }
                 }
                 if (entries.isNotEmpty()) result[plan.key] = entries.sortedBy { it.entry.minutes }.take(3)
             }
@@ -590,7 +580,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
         liveEtaByKey = newLive
         applyTiming()
-        updateMapVehicles(byTrip, indices)
+        updateMapVehicles(state, points)
     }
 
     private fun lookaheadShapeIdx(stopTimes: List<online.bus.bmarian.conexiuniclujmobile.data.StopTime>, tripId: String, boardingStopId: Int, boardingIdx: Int, pts: List<ShapePoint>): Int {
@@ -602,14 +592,13 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         return findClosestShapeIdx(target.lat, target.lon, pts)
     }
 
-    private suspend fun updateMapVehicles(byTrip: Map<String, List<Vehicle>>, indices: Map<String, ShapeIndex>) {
+    private suspend fun updateMapVehicles(state: LiveState?, points: Map<String, List<ShapePoint>>) {
         val plan = plans.value.getOrNull(selectedIndex.value)
         val data = planData.value
-        if (plan == null || data == null || indices.isEmpty()) {
+        if (plan == null || data == null || state == null || points.isEmpty()) {
             mapVehicles.value = emptyList()
             return
         }
-        val nowMs = Services.clock.value
         mapVehicles.value = withContext(Dispatchers.Default) {
             val all = mutableListOf<MapVehicle>()
             for (leg in plan.legs) {
@@ -617,11 +606,9 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
                     val tid = leg.tripIds[i]
                     val routeId = leg.routeIds.getOrNull(i) ?: continue
                     val shape = data.shapes["$routeId"] ?: continue
-                    val index = indices[tid] ?: continue
-                    val v = byTrip[tid].orEmpty()
+                    val pts = points[tid] ?: continue
+                    val v = state.vehicles(tid)
                     if (v.isEmpty()) continue
-                    val indexed = indexVehicles(shape.shortName, shape.color, index, nowMs, v)
-                    val pts = index.shape
                     val start = stop(leg.startStopId)?.second ?: continue
                     val dest = stop(leg.destStopId)?.second ?: continue
                     val startIdx = findClosestShapeIdx(start.first, start.second, pts)
@@ -630,8 +617,8 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
                     val rEnd = maxOf(startIdx, destIdx)
                     val lookahead = lookaheadShapeIdx(shape.stopTimes, tid, leg.startStopId, startIdx, pts)
                     val lower = maxOf(0, minOf(rStart, lookahead))
-                    indexed.filter { it.shapeIdx in lower..rEnd + 1 }.forEach {
-                        all += MapVehicle("${it.vehicle.id}", it.vehicle, it.routeShortName, it.routeColor, it.heading)
+                    v.filter { findClosestShapeIdx(it.latitude, it.longitude, pts) in lower..rEnd + 1 }.forEach {
+                        all += MapVehicle("${it.id}", it, shape.shortName, shape.color, it.heading)
                     }
                 }
             }
@@ -646,12 +633,12 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
             mapLayer.value = PlanMapLayer()
             return
         }
-        val indices = shapeIndices.value
+        val points = shapePoints.value
         val shapes = plan.legs.mapNotNull { leg ->
             val tid = leg.tripIds.firstOrNull() ?: return@mapNotNull null
             val routeId = leg.routeIds.firstOrNull() ?: return@mapNotNull null
             val s = data.shapes["$routeId"] ?: return@mapNotNull null
-            val pts = indices[tid]?.shape ?: return@mapNotNull null
+            val pts = points[tid] ?: return@mapNotNull null
             val start = stop(leg.startStopId)?.second ?: return@mapNotNull null
             val dest = stop(leg.destStopId)?.second ?: return@mapNotNull null
             val a = findClosestShapeIdx(start.first, start.second, pts)

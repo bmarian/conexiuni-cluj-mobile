@@ -469,8 +469,7 @@ private fun VehicleBubble(session: MapSession, id: String, dark: Boolean, extras
     val shown = session.shownVehicle(id) ?: return
     val vehicle = shown.vehicle
     val offset = with(LocalDensity.current) { 22.dp.toPx() }
-    // speed is floored for ETAs; raw_speed is the real reading.
-    val reported = vehicle.vehicle.rawSpeed?.takeIf { it >= 0 } ?: vehicle.vehicle.speed
+    val reported = vehicle.vehicle.speed
     Anchored(session, { session.shownVehicle(id)?.at }, 0f, alignStart = offset) {
         Column(
             Modifier.shadow(4.dp, RoundedCornerShape(6.dp)).clip(RoundedCornerShape(6.dp))

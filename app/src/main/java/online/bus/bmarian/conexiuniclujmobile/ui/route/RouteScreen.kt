@@ -184,7 +184,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         map.showShapes(listOf(MapShape(tripIdFor(routeId, dir), route.shortName, route.color, shape.shape.map { LatLon(it.lat, it.lon) })))
     }
     LaunchedEffect(current?.vehicles) {
-        map.vehicles = current?.vehicles.orEmpty().map { MapVehicle("${it.vehicle.id}", it.vehicle, it.routeShortName, it.routeColor, it.heading) }
+        map.vehicles = current?.vehicles.orEmpty().map { MapVehicle("${it.id}", it, info?.shortName.orEmpty(), info?.color ?: "#64748b", it.heading) }
     }
     LaunchedEffect(current?.stops, current?.nearestStopIdx, favoriteStops) {
         val stops = current?.stops ?: return@LaunchedEffect
@@ -301,7 +301,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             lines = listOf(route.shortName),
             colors = listOf(route.color),
             stops = ride.map(::js),
-            rideMinutes = (ride.last().offsetFromStart - ride.first().offsetFromStart).toDouble(),
+            rideMinutes = (ride.last().secondsFromStart - ride.first().secondsFromStart) / 60,
         )
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         JourneyManager.start(context, Journey(JourneyManager.newId(), js(ride.last()), listOf(leg), planPath = "/route/$routeId/$dir"))

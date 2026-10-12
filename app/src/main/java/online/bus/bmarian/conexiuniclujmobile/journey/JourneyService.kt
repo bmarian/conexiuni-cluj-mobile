@@ -37,12 +37,12 @@ import online.bus.bmarian.conexiuniclujmobile.follow.isClockTime
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
-import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
-import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
+import online.bus.bmarian.conexiuniclujmobile.data.LiveState
+import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.WALK_SPEED
-import online.bus.bmarian.conexiuniclujmobile.logic.computeStopDepartures
+import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import java.time.Instant
 import java.time.LocalDateTime
@@ -175,21 +175,20 @@ class JourneyService : Service() {
                 departure.value = null
                 val leg = journey.legs.getOrNull(i) ?: return@collectLatest
                 val repository = Services.repository
-                val shapes = runCatching { repository.shapes(leg.tripIds) }.getOrDefault(emptyMap())
                 val info = MutableStateFlow(repository.cachedStopInfo(leg.boarding.id)?.only(leg.routeIds))
-                val vehicles = MutableStateFlow<Map<String, List<Vehicle>>>(emptyMap())
+                val live = MutableStateFlow<LiveState?>(null)
                 launch {
                     while (true) {
                         runCatching { info.value = repository.stopInfo(leg.boarding.id).only(leg.routeIds) }
                         delay(STOP_INFO_REFRESH_MS)
                     }
                 }
-                launch { VehicleStream.vehicles(leg.tripIds).collect { vehicles.value = it } }
-                combine(info, vehicles, clock) { stop, buses, nowMs -> Triple(stop, buses, nowMs) }.collect { (stop, buses, nowMs) ->
+                launch { LiveStream.live(listOf(leg.boarding.id), emptyList()).collect { live.value = it } }
+                combine(info, live, clock) { stop, state, nowMs -> Triple(stop, state, nowMs) }.collect { (stop, state, nowMs) ->
                     if (stop == null) return@collect
                     departure.value = withContext(Dispatchers.Default) {
                         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
-                        computeStopDepartures(stop, shapes, buses, now, nowMs)
+                        stopDepartures(stop, state, now, nowMs)
                             .filter { it.tripId in leg.tripIds }
                             .minByOrNull { it.nextTimes.firstOrNull()?.minutes ?: Int.MAX_VALUE }
                     }

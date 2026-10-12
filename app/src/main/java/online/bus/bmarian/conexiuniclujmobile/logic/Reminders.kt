@@ -8,6 +8,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 // Times before this belong to the previous day's service.
 private const val NIGHT_END_MIN = 180
@@ -41,8 +42,8 @@ fun stopTimesByDayType(
         tab.dayType to departureMinutes(shape.timetable.scheduleFor(tab), outgoing)
             .map { departure ->
                 val seconds = trip?.hourlyOffsetSeconds?.get("${Math.floorDiv(departure, 60) % 24}")?.getOrNull(index)
-                val offset = if (index >= 0 && seconds != null) ceil(seconds / 60.0).toInt() else fallback
-                (departure + offset).let { m -> if (m < NIGHT_END_MIN) m + 1440 else m }
+                val offsetSec = if (index >= 0 && seconds != null) seconds.toDouble() else fallback
+                (departure + offsetSec / 60).roundToInt().let { m -> if (m < NIGHT_END_MIN) m + 1440 else m }
             }
             .sorted()
     }.filterValues { it.isNotEmpty() }
@@ -75,11 +76,11 @@ fun nextOccurrence(slots: Map<String, Int>, days: List<Int>, date: LocalDate?, a
  * Minutes until the followed departure among a stop's [scheduled] arrivals, where [expected] is its own
  * slot. The live bus counts when it's nearest that slot. Null once it's gone.
  */
-fun targetMinutes(scheduled: List<Int>, live: Int?, expected: Int): Int? {
+fun targetMinutes(scheduled: List<Double>, live: Int?, expected: Double, graceMinutes: Double): Int? {
     val ours = scheduled.minByOrNull { abs(it - expected) }?.takeIf { abs(it - expected) <= 1 } ?: expected
     if (live != null && scheduled.minByOrNull { abs(it - live) } == ours) return live
-    if (ours < -SCHEDULE_LATE_GRACE_MIN) return null
-    return ours.coerceAtLeast(0)
+    if (ours < -graceMinutes) return null
+    return ours.roundToInt().coerceAtLeast(0)
 }
 
 fun walkMinutes(fromLat: Double, fromLon: Double, toLat: Double, toLon: Double): Int {

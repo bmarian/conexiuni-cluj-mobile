@@ -92,12 +92,12 @@ class ReminderTest {
     @Test
     fun theLiveBusOnlyCountsWhenItsOurs() {
         // Ours is the 20 min one; the live bus is the one before it.
-        assertEquals(20, targetMinutes(listOf(4, 20), live = 5, expected = 20))
+        assertEquals(20, targetMinutes(listOf(4.0, 20.0), live = 5, expected = 20.0, graceMinutes = 3.0))
         // Ours, running 3 min late.
-        assertEquals(7, targetMinutes(listOf(4, 20), live = 7, expected = 4))
+        assertEquals(7, targetMinutes(listOf(4.0, 20.0), live = 7, expected = 4.0, graceMinutes = 3.0))
         // The last bus, late and not tracked.
-        assertEquals(0, targetMinutes(listOf(-2), live = null, expected = -2))
-        assertNull(targetMinutes(emptyList(), live = null, expected = -5))
+        assertEquals(0, targetMinutes(listOf(-2.0), live = null, expected = -2.0, graceMinutes = 3.0))
+        assertNull(targetMinutes(emptyList(), live = null, expected = -5.0, graceMinutes = 3.0))
     }
 
     @Test

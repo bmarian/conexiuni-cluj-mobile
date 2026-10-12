@@ -18,9 +18,9 @@ import androidx.work.WorkerParameters
 import kotlinx.coroutines.withTimeoutOrNull
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
-import online.bus.bmarian.conexiuniclujmobile.logic.computeStopDepartures
-import online.bus.bmarian.conexiuniclujmobile.logic.trackableTripIds
+import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.routeDestination
 import java.time.Instant
 import java.time.LocalDateTime
@@ -46,13 +46,10 @@ class StopWidgetWorker(context: Context, params: WorkerParameters) : CoroutineWo
     private suspend fun departures(stopId: Int): List<WidgetRow> {
         val repository = Services.repository
         val info = repository.stopInfo(stopId)
-        val trips = trackableTripIds(info)
-        val shapes = runCatching { repository.shapes(trips) }.getOrDefault(emptyMap())
-        val vehicles = if (trips.isEmpty()) emptyMap()
-        else withTimeoutOrNull(8_000) { runCatching { Api.vehicles(trips) }.getOrNull() }.orEmpty().groupBy { it.tripId.orEmpty() }
+        val live = withTimeoutOrNull(8_000) { LiveStream.once(listOf(stopId), emptyList()) }
         val nowMs = System.currentTimeMillis()
         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
-        return computeStopDepartures(info, shapes, vehicles, now, nowMs).map { departure ->
+        return stopDepartures(info, live, now, nowMs).map { departure ->
             WidgetRow(
                 line = departure.shortName,
                 color = departure.color,

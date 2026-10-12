@@ -110,8 +110,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
+import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
-import online.bus.bmarian.conexiuniclujmobile.data.VehicleStream
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
@@ -119,10 +120,7 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneyProgress
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 import online.bus.bmarian.conexiuniclujmobile.journey.StepType
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
-import online.bus.bmarian.conexiuniclujmobile.logic.ShapeIndex
-import online.bus.bmarian.conexiuniclujmobile.logic.buildShapeIndex
 import online.bus.bmarian.conexiuniclujmobile.logic.findClosestShapeIdx
-import online.bus.bmarian.conexiuniclujmobile.logic.indexVehicles
 import online.bus.bmarian.conexiuniclujmobile.ui.CREDITS
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
@@ -152,28 +150,27 @@ class NavigationViewModel : ViewModel() {
                     _vehicles.value = emptyList()
                     val leg = journey?.legs?.getOrNull(legIndex) ?: return@collectLatest
                     val shapes = runCatching { Services.repository.shapes(leg.tripIds) }.getOrDefault(emptyMap())
-                    val indices = withContext(Dispatchers.Default) { shapes.filterValues { it.isNotEmpty() }.mapValues { buildShapeIndex(it.value) } }
-                    VehicleStream.vehicles(leg.tripIds).collect { byTrip ->
-                        _vehicles.value = withContext(Dispatchers.Default) { busesFor(leg, indices, byTrip) }
+                    LiveStream.live(emptyList(), leg.tripIds).collect { live ->
+                        _vehicles.value = withContext(Dispatchers.Default) { busesFor(leg, shapes, live.vehiclesByTrip) }
                     }
                 }
         }
     }
 }
 
-private fun busesFor(leg: JourneyLeg, indices: Map<String, ShapeIndex>, byTrip: Map<String, List<Vehicle>>): List<MapVehicle> {
-    val nowMs = System.currentTimeMillis()
+private fun busesFor(leg: JourneyLeg, shapes: Map<String, List<ShapePoint>>, byTrip: Map<String, List<Vehicle>>): List<MapVehicle> {
     val shown = mutableListOf<MapVehicle>()
     leg.tripIds.forEachIndexed { i, tripId ->
-        val index = indices[tripId] ?: return@forEachIndexed
+        val pts = shapes[tripId].orEmpty()
+        if (pts.isEmpty()) return@forEachIndexed
         val line = leg.lines.getOrNull(i) ?: leg.lines.first()
         val color = leg.colors.getOrNull(i) ?: leg.colors.first()
-        val board = findClosestShapeIdx(leg.boarding.lat, leg.boarding.lon, index.shape)
-        val alight = findClosestShapeIdx(leg.alighting.lat, leg.alighting.lon, index.shape)
+        val board = findClosestShapeIdx(leg.boarding.lat, leg.boarding.lon, pts)
+        val alight = findClosestShapeIdx(leg.alighting.lat, leg.alighting.lon, pts)
         val range = (minOf(board, alight) - 60).coerceAtLeast(0)..maxOf(board, alight) + 1
-        indexVehicles(line, color, index, nowMs, byTrip[tripId].orEmpty())
-            .filter { it.shapeIdx in range }
-            .forEach { shown += MapVehicle("${it.vehicle.id}", it.vehicle, line, color, it.heading) }
+        byTrip[tripId].orEmpty()
+            .filter { findClosestShapeIdx(it.latitude, it.longitude, pts) in range }
+            .forEach { shown += MapVehicle("${it.id}", it, line, color, it.heading) }
     }
     return shown.distinctBy { it.id }
 }

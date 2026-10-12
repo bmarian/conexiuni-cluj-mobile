@@ -10,6 +10,7 @@ import java.text.Normalizer
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -152,7 +153,7 @@ fun toFixed4(v: Double): String = BigDecimal(v).setScale(4, RoundingMode.HALF_UP
 
 fun clampCoord4(v: Double): Double = toFixed4(v).toDouble()
 
-fun getScheduleDiffs(arrivalAtStopMinutes: Int, referenceMinutes: Int, maxMinutes: Int, arriveBy: Boolean): List<Int> {
+fun getScheduleDiffs(arrivalAtStopMinutes: Double, referenceMinutes: Int, maxMinutes: Int, arriveBy: Boolean): List<Double> {
     val offsets = if (arriveBy) listOf(-1440, 0) else listOf(0, 1440)
     return offsets.map { arrivalAtStopMinutes + it - referenceMinutes }
         .filter { diff -> if (arriveBy) diff <= 0 && diff >= -maxMinutes else diff >= 0 && diff <= maxMinutes }
@@ -215,7 +216,7 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
     ): List<PlannedTimeEntry> {
         val timetable = shape.timetable
         val isOutgoing = tripUsesDepartureIn(shape, tripId, stops)
-        val offsetMin = timeOffsetToStop(shape.stopTimes, tripId, boardingStopId)
+        val offsetMin = timeOffsetToStop(shape.stopTimes, tripId, boardingStopId) / 60
         val daySchedule = daySchedule(timetable, local(nowMs))
         val nowMins = minutesOfDayMs(nowMs)
         val results = mutableListOf<PlannedTimeEntry>()
@@ -223,7 +224,8 @@ class Planner(private val shapes: Map<String, ShapeInfo>, private val stops: Sto
             val terminusMinutes = timeStringToMinutes(if (isOutgoing) entry.departureIn else entry.departureOut) ?: continue
             val arrivalAtBoardingMin = terminusMinutes + offsetMin
             for (diff in getScheduleDiffs(arrivalAtBoardingMin, nowMins, maxMinutes, arriveBy)) {
-                results += PlannedTimeEntry(diff.toDouble(), false, routeId, tripId)
+                // Shown to the minute, like the website's planner.
+                results += PlannedTimeEntry(diff.roundToInt().toDouble(), false, routeId, tripId)
             }
         }
         if (arriveBy) {

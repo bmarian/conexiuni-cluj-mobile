@@ -6,7 +6,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.HourlyStopOffsets
 import online.bus.bmarian.conexiuniclujmobile.data.Timetable
 import java.time.DayOfWeek
 import java.time.LocalDateTime
-import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 // Port of the timetable grid in RouteView.vue.
 
@@ -47,9 +47,10 @@ fun tripHourlyOffsets(offsets: Map<String, HourlyStopOffsets>, tripId: String, s
     return if (trip.stopIds.withIndex().all { (i, id) -> id == stops[i].stop.stopId }) trip.hourlyOffsetSeconds else null
 }
 
-fun offsetsAt(hourly: Map<String, List<Int>>?, departureMin: Int, stops: List<IndexedStop>): List<Int> {
+/** Exact minutes from the terminus to each stop for a run leaving at [departureMin]. */
+fun offsetsAt(hourly: Map<String, List<Int>>?, departureMin: Int, stops: List<IndexedStop>): List<Double> {
     val seconds = hourly?.get("${Math.floorDiv(departureMin, 60) % 24}")
-    return seconds?.map { ceil(it / 60.0).toInt() } ?: stops.map { it.offsetFromStart }
+    return seconds?.map { it / 60.0 } ?: stops.map { it.secondsFromStart / 60 }
 }
 
 data class TimetableChip(val time: String, val startMin: Int?, val isPast: Boolean)
@@ -72,7 +73,7 @@ fun chipsForDay(
         val raw = (if (outgoing) entry.departureIn else entry.departureOut).trim()
         if (raw.isEmpty()) return@mapNotNull null
         val departureMin = timeStringToMinutes(raw) ?: return@mapNotNull TimetableChip(raw, null, false)
-        val startMin = departureMin + (offsetsAt(hourly, departureMin, stops).firstOrNull() ?: 0)
+        val startMin = (departureMin + (offsetsAt(hourly, departureMin, stops).firstOrNull() ?: 0.0)).roundToInt()
         TimetableChip(raw, startMin, dayIsPast || (isToday && startMin < nowMinutes))
     }
 }
@@ -91,7 +92,7 @@ fun tripStops(selectedTime: String, hourly: Map<String, List<Int>>?, stops: List
     val departureMin = timeStringToMinutes(selectedTime) ?: return emptyList()
     val offsets = offsetsAt(hourly, departureMin, stops)
     return stops.mapIndexed { idx, stop ->
-        val offset = offsets.getOrNull(idx) ?: stop.offsetFromStart
-        TripStop(stop, formatAbsoluteMinutes(departureMin + offset))
+        val offset = offsets.getOrNull(idx) ?: stop.secondsFromStart / 60
+        TripStop(stop, formatAbsoluteMinutes((departureMin + offset).roundToInt()))
     }
 }

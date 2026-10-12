@@ -45,7 +45,12 @@ class NetworkBundle(
     @SerialName("generated_at") val generatedAt: String = "",
     val routes: List<NetworkRoute> = emptyList(),
     val stops: List<Stop> = emptyList(),
+    val rules: NetworkRules = NetworkRules(),
 )
+
+/** What the learners found that an offline timetable list still needs. */
+@Serializable
+class NetworkRules(@SerialName("late_grace_min") val lateGraceMin: Double = 1.0)
 
 @Serializable
 data class NetworkVersion(
@@ -72,6 +77,7 @@ class NetworkIndex(val bundle: NetworkBundle) {
     private val sortedRoutes = bundle.routes.sortedBy { it.routeId }
     val routes: List<Route> = bundle.routes.map { it.toRoute() }
     val stops: List<Stop> get() = bundle.stops
+    val lateGraceMin: Double get() = maxOf(0.5, bundle.rules.lateGraceMin)
 
     fun route(routeId: Int): NetworkRoute? = routeById[routeId]
 
@@ -121,6 +127,7 @@ class NetworkIndex(val bundle: NetworkBundle) {
                 color = route.color,
                 stopTimesSingular = stopTimes(route, dayType, hour),
                 timetable = timetable,
+                lateGraceMin = lateGraceMin,
             )
         }
         return StopInfo(
@@ -132,13 +139,14 @@ class NetworkIndex(val bundle: NetworkBundle) {
             outgoingTripIds = trips.filter { it.endsWith(OUTGOING_SUFFIX) },
             incomingTripIds = trips.filter { it.endsWith(INCOMING_SUFFIX) },
             shapesInfo = shapes,
+            lateGraceMin = lateGraceMin,
         )
     }
 
     fun shapeInfo(route: Route, nowMs: Long): ShapeInfo? {
         val known = routeById[route.routeId] ?: return null
         val (dayType, hour) = clujClock(nowMs)
-        return assembleShapeInfo(route, known.timetable, stopTimes(known, dayType, hour))
+        return assembleShapeInfo(route, known.timetable, stopTimes(known, dayType, hour), lateGraceMin)
     }
 
     fun hourlyOffsets(shortName: String, dayType: String): Map<String, HourlyStopOffsets>? {
