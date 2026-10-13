@@ -102,13 +102,14 @@ class SheetState(initial: SheetSnap) {
             return p.isNaN() || abs(offsetPx - p) < 0.5f
         }
 
-    internal fun updateAnchors(heightPx: Float, peekPx: Float) {
+    internal fun updateAnchors(heightPx: Float, peekPx: Float, half: Boolean = true) {
         containerPx = heightPx
+        val halfPx = if (half) heightPx * (1 - HALF_FRACTION) else 0f
         anchored.updateAnchors(
             DraggableAnchors {
                 SheetSnap.Full at 0f
-                SheetSnap.Half at heightPx * (1 - HALF_FRACTION)
-                SheetSnap.Peek at (heightPx - peekPx).coerceAtLeast(heightPx * (1 - HALF_FRACTION))
+                if (half) SheetSnap.Half at halfPx
+                SheetSnap.Peek at (heightPx - peekPx).coerceAtLeast(halfPx)
             },
         )
     }
@@ -198,6 +199,20 @@ private fun sheetNestedScroll(sheet: SheetState, fling: FlingBehavior, scope: Co
         } else Velocity.Zero
 }
 
+/** Drags and flings from the sheet itself or from a list inside it. */
+@Composable
+internal fun rememberSheetGestures(state: SheetState, interactionSource: MutableInteractionSource? = null): Modifier {
+    val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
+    val fling = remember(state, density) { SheetFling(state, density) }
+    val scope = rememberCoroutineScope()
+    val connection = remember(state, fling, scope) { sheetNestedScroll(state, fling, scope) }
+    state.onUserSettle = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
+    return Modifier
+        .nestedScroll(connection)
+        .anchoredDraggable(state.anchored, Orientation.Vertical, interactionSource = interactionSource, flingBehavior = fling)
+}
+
 @Composable
 fun rememberSheetState(initial: SheetSnap = SheetSnap.Half): SheetState {
     var saved by rememberSaveable { mutableStateOf(initial) }
@@ -216,16 +231,11 @@ fun BottomSheet(
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
-    val haptics = LocalHapticFeedback.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
-    val fling = remember(state, density) { SheetFling(state, density) }
-    val scope = rememberCoroutineScope()
-    val connection = remember(state, fling, scope) { sheetNestedScroll(state, fling, scope) }
     val drags = remember { MutableInteractionSource() }
     val navigationBar = WindowInsets.navigationBars.getBottom(density)
     val peekPx = with(density) { (SHEET_HANDLE + PEEK_CONTENT).toPx() } + navigationBar
-    state.onUserSettle = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
     state.onUserDrag = {
         keyboard?.hide()
         focusManager.clearFocus()
@@ -259,8 +269,7 @@ fun BottomSheet(
             Modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, state.offsetPx.roundToInt()) }
-                .nestedScroll(connection)
-                .anchoredDraggable(state.anchored, Orientation.Vertical, interactionSource = drags, flingBehavior = fling)
+                .then(rememberSheetGestures(state, drags))
                 .onFocusChanged { focused = it.hasFocus },
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLow,

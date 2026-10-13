@@ -56,6 +56,7 @@ class RouteUi(
     val headerTimes: List<Int>,
     val shape: DirectionShape?,
     val vehicles: List<Vehicle>,
+    val roundTripVehicles: List<Vehicle>,
     val nearestStopIdx: Int,
     val now: LocalDateTime,
 )
@@ -139,6 +140,7 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
             headerTimes = header.map { it.minutes },
             shape = shapes[dir],
             vehicles = live?.vehicles(tripId).orEmpty(),
+            roundTripVehicles = live?.roundTrip(tripId, tripIdFor(routeId, if (dir == "0") "1" else "0")).orEmpty(),
             nearestStopIdx = nearest,
             now = now,
         )

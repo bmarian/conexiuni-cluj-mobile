@@ -20,6 +20,8 @@ class MapVehicle(
     val shortName: String,
     val color: String,
     val heading: Double,
+    /** On the other direction now, counted on coming back. */
+    val faded: Boolean = false,
 )
 
 class MapPin(val lat: Double, val lon: Double, val label: String)
