@@ -11,14 +11,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +45,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
@@ -69,6 +73,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
@@ -167,7 +172,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
     val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
     val followed by Services.routeUpdates.followed.collectAsStateWithLifecycle()
-    val showChanges by Services.settings.showTimetableChanges.collectAsStateWithLifecycle()
     val isFavorite = favoriteRoutes.any { it.routeId == routeId && it.direction == dir }
     val isFollowing = info?.let { it.shortName in followed } == true
 
@@ -225,7 +229,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     var reminding by remember { mutableStateOf<Followed?>(null) }
     val menu = buildList {
         val shortName = info?.shortName
-        if (showChanges && shortName != null) {
+        if (shortName != null) {
             add(
                 MenuAction(
                     stringResource(if (isFollowing) R.string.line_following else R.string.line_follow),
@@ -511,7 +515,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     }
                 }
             }
-            itemsIndexed(groups, key = { _, g -> "h-${g.hour}-${g.isNextDay}" }) { _, group ->
+            items(groups, key = { g -> "h-${g.hour}-${g.isNextDay}" }) { group ->
                 HourRow(group, selectedTime, nextChip) { chip ->
                     selectedTime = if (selectedTime == chip) null else chip
                     if (selectedTime != null) {
@@ -674,15 +678,22 @@ private fun StopLine(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    val gone = group.chips.all { it.isPast }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
         Text(
             group.hour,
-            modifier = Modifier.width(32.dp).alignByBaseline(),
+            modifier = Modifier.width(36.dp).padding(end = 10.dp),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = if (group.isNextDay) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.End,
+            color = if (gone || group.isNextDay) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary,
         )
-        FlowRow(Modifier.alignByBaseline(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        VerticalDivider(Modifier.fillMaxHeight(), thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        FlowRow(
+            Modifier.padding(start = 10.dp, top = 4.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             for (chip in group.chips) {
                 val isSelected = selected == chip.time
                 val isNext = selected == null && next == chip.time
@@ -704,12 +715,12 @@ private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect
                         formatAbsoluteMinutes(chip.startMin!!).drop(3),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (chip.isPast && !isSelected) FontWeight.Normal else FontWeight.Bold,
                         color = when {
                             isSelected -> MaterialTheme.colorScheme.onPrimary
-                            chip.isPast -> MaterialTheme.colorScheme.outline
+                            chip.isPast -> MaterialTheme.colorScheme.outlineVariant
                             else -> MaterialTheme.colorScheme.onSurface
                         },
-                        textDecoration = null,
                     )
                 }
             }

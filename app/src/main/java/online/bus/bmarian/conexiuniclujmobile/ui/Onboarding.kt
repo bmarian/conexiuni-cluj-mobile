@@ -5,12 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,9 +17,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -35,12 +32,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,100 +49,81 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
-import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
-
-private enum class Step { Welcome, Location, Notifications }
 
 @Composable
 fun Onboarding(onDone: () -> Unit) {
     val context = LocalContext.current
     val settings = Services.settings
-    val steps = remember {
-        buildList {
-            add(Step.Welcome)
-            if (!UserLocation.permitted(context)) add(Step.Location)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            ) add(Step.Notifications)
-        }
-    }
-    var index by rememberSaveable { mutableIntStateOf(0) }
-    fun next() {
-        if (index < steps.lastIndex) index++ else onDone()
-    }
+    val locale by settings.locale.collectAsStateWithLifecycle()
+    var asked by remember { mutableIntStateOf(0) }
     val location = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         Services.locationPermissionChanged()
-        next()
+        asked++
     }
-    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { next() }
-    val locale by settings.locale.collectAsStateWithLifecycle()
-    val step = steps[index]
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { asked++ }
+    val located = remember(asked) { UserLocation.permitted(context) }
+    val notified = remember(asked) {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 28.dp, vertical = 24.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                steps.indices.forEach { i ->
-                    Box(
-                        Modifier.height(4.dp).width(if (i == index) 24.dp else 12.dp).clip(CircleShape)
-                            .background(if (i <= index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-                    )
+        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 28.dp, vertical = 24.dp)) {
+                RoundIcon(Icons.Rounded.DirectionsBus, 72.dp, 36.dp)
+                Spacer(Modifier.height(24.dp))
+                Text(stringResource(R.string.onboard_welcome_title), style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.onboard_welcome_body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(28.dp))
+                Text(stringResource(R.string.w_language), style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(8.dp))
+                val options = listOf("ro" to "Română", "en" to "English")
+                ChoiceRow(options.map { it.first }, locale, settings::setLocale, Modifier.fillMaxWidth()) { tag ->
+                    Text(options.first { it.first == tag }.second)
                 }
-            }
-            AnimatedContent(
-                targetState = step,
-                modifier = Modifier.weight(1f),
-                transitionSpec = { (fadeIn() + slideInHorizontally { it / 6 }) togetherWith (fadeOut() + slideOutHorizontally { -it / 6 }) },
-                label = "step",
-            ) { shown ->
-                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-                    val (icon, title, body) = when (shown) {
-                        Step.Welcome -> Triple(Icons.Rounded.DirectionsBus, R.string.onboard_welcome_title, R.string.onboard_welcome_body)
-                        Step.Location -> Triple(Icons.Rounded.MyLocation, R.string.onboard_location_title, R.string.onboard_location_body)
-                        Step.Notifications -> Triple(Icons.Rounded.NotificationsActive, R.string.onboard_notifications_title, R.string.onboard_notifications_body)
-                    }
-                    StepIcon(icon)
-                    Spacer(Modifier.height(24.dp))
-                    Text(stringResource(title), style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(28.dp))
+                PermissionCard(Icons.Rounded.MyLocation, R.string.onboard_location_title, R.string.onboard_location_body, located) {
+                    location.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     Spacer(Modifier.height(12.dp))
-                    Text(stringResource(body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (shown == Step.Welcome) {
-                        Spacer(Modifier.height(28.dp))
-                        Text(stringResource(R.string.w_language), style = MaterialTheme.typography.labelLarge)
-                        Spacer(Modifier.height(8.dp))
-                        val options = listOf("ro" to "Română", "en" to "English")
-                        ChoiceRow(options.map { it.first }, locale, settings::setLocale, Modifier.fillMaxWidth()) { tag ->
-                            Text(options.first { it.first == tag }.second)
-                        }
+                    PermissionCard(Icons.Rounded.NotificationsActive, R.string.onboard_notifications_title, R.string.onboard_notifications_body, notified) {
+                        notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                when (step) {
-                    Step.Welcome -> Button(shapes = ButtonDefaults.shapes(), onClick = ::next) {
-                        Text(stringResource(if (index == steps.lastIndex) R.string.onboard_done else R.string.onboard_next))
-                    }
-                    Step.Location -> {
-                        TextButton(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
-                        Button(shapes = ButtonDefaults.shapes(), onClick = {
-                            location.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-                        }) { Text(stringResource(R.string.onboard_allow)) }
-                    }
-                    Step.Notifications -> {
-                        TextButton(shapes = ButtonDefaults.shapes(), onClick = ::next) { Text(stringResource(R.string.onboard_skip)) }
-                        Button(shapes = ButtonDefaults.shapes(), onClick = { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text(stringResource(R.string.onboard_allow)) }
-                    }
-                }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp), horizontalArrangement = Arrangement.End) {
+                Button(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(stringResource(R.string.onboard_done)) }
             }
         }
     }
 }
 
 @Composable
-private fun StepIcon(icon: ImageVector) {
+private fun PermissionCard(icon: ImageVector, title: Int, body: Int, granted: Boolean, onAllow: () -> Unit) {
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            RoundIcon(icon, 40.dp, 22.dp)
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (granted) {
+                Icon(Icons.Rounded.Check, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            } else {
+                Button(shapes = ButtonDefaults.shapes(), onClick = onAllow) { Text(stringResource(R.string.onboard_allow)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoundIcon(icon: ImageVector, size: androidx.compose.ui.unit.Dp, iconSize: androidx.compose.ui.unit.Dp) {
     Box(
-        Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
+        Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        Icon(icon, null, Modifier.size(iconSize), tint = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }

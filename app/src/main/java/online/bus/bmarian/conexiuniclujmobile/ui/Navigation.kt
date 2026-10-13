@@ -61,7 +61,6 @@ interface Navigator {
     fun route(routeId: Int, direction: String, fromStopId: Int? = null, change: Long? = null)
     fun plan(query: PlanQuery)
     fun settings()
-    fun weather()
     fun news()
 }
 

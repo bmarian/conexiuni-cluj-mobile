@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.plan
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -124,6 +125,12 @@ import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineRow
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapPin
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
@@ -237,11 +244,28 @@ fun PlanScreen(query: PlanQuery) {
     val withNotifications = rememberWithNotifications()
     val haptics = LocalHapticFeedback.current
     val resources = LocalResources.current
+    val reminders by Reminders.all.collectAsStateWithLifecycle()
+    val uiLocale = LocalConfiguration.current.locales[0]
 
     fun startJourney(plan: PlanOption) {
         val journey = vm.journeyFor(plan) ?: return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         withNotifications { JourneyManager.start(context, journey) }
+    }
+
+    fun remind(reminder: Reminder) {
+        withNotifications {
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            Reminders.put(context, reminder)
+            val title = resources.getString(R.string.remind_saved)
+            if (Reminders.exactAllowed(context)) {
+                Services.settings.showToast(title, reminder.next()?.let { reminderWhen(resources, it, uiLocale) })
+            } else {
+                Services.settings.showToast(title, resources.getString(R.string.remind_exact), resources.getString(R.string.remind_allow)) {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "package:${context.packageName}".toUri()))
+                }
+            }
+        }
     }
 
     val listState = rememberLazyListState()
@@ -293,10 +317,20 @@ fun PlanScreen(query: PlanQuery) {
         if (!renaming && validCoords) {
             item(key = "actions") {
                 val startable = selectedPlan?.takeIf { !calculating && mode == TimeMode.Now && it.rides.isNotEmpty() && it.runs.isNotEmpty() }
+                val remindable = selectedPlan?.takeIf { !calculating && mode != TimeMode.Now }
+                val draft = remember(remindable, clockMs) { remindable?.let(vm::reminderFor)?.takeIf { it.next(clockMs) != null } }
+                val existing = draft?.let { d -> reminders.firstOrNull { it.journey?.planPath == d.journey?.planPath && it.date == d.date && it.time == d.time } }
                 ActionChips(
                     listOfNotNull(
                         startable?.let { plan ->
                             ChipAction(stringResource(R.string.journey_start), Icons.Rounded.Navigation, primary = true) { startJourney(plan) }
+                        },
+                        draft?.let { d ->
+                            ChipAction(
+                                stringResource(if (existing != null) R.string.remind_saved else R.string.remind_set),
+                                Icons.Rounded.Alarm,
+                                selected = existing != null,
+                            ) { if (existing != null) Reminders.remove(context, existing.id) else remind(d) }
                         },
                         ChipAction(
                             stringResource(if (isFavorite) R.string.saved else R.string.save),
@@ -442,8 +476,8 @@ private fun TripSummary(plan: PlanOption, mode: TimeMode, clockMs: Long) {
             plan.firstRide?.let { first ->
                 stats += {
                     Stat(
-                        (if (first.live) "" else "~ ") + formatMinutesFromNow(minutesUntil(first.depart, clockMs), now, nowLabel),
-                        stringResource(R.string.w_plan_next_departures),
+                        (if (first.live) "" else "~ ") + (if (mode == TimeMode.Now) formatMinutesFromNow(minutesUntil(first.depart, clockMs), now, nowLabel) else clock(first.depart * 1000)),
+                        stringResource(if (mode == TimeMode.Last) R.string.w_plan_last_departure else R.string.w_plan_next_departures),
                         live = first.live,
                     )
                 }
@@ -798,8 +832,8 @@ private fun PlanCard(
                 val later = plan.laterRides
                 if (later.isNotEmpty()) {
                     Text(
-                        stringResource(R.string.w_plan_then) + " " + later.joinToString("  ") {
-                            (if (it.live) "" else "~ ") + formatMinutesFromNow(minutesUntil(it.depart, clockMs), now, nowLabel)
+                        stringResource(if (mode == TimeMode.Last) R.string.w_plan_earlier else R.string.w_plan_then) + " " + later.joinToString("  ") {
+                            (if (it.live) "" else "~ ") + (if (mode == TimeMode.Now) formatMinutesFromNow(minutesUntil(it.depart, clockMs), now, nowLabel) else clock(it.depart * 1000))
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

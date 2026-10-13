@@ -93,7 +93,7 @@ fun planQueryFor(plan: FavoritePlan): PlanQuery {
 }
 
 @Composable
-fun SearchOverlay(visible: Boolean, state: SearchState, onClose: () -> Unit) {
+fun SearchOverlay(visible: Boolean, state: SearchState, onClose: (clear: Boolean) -> Unit) {
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { -it / 16 },
@@ -104,7 +104,7 @@ fun SearchOverlay(visible: Boolean, state: SearchState, onClose: () -> Unit) {
 }
 
 @Composable
-private fun SearchContent(state: SearchState, onClose: () -> Unit) {
+private fun SearchContent(state: SearchState, onClose: (clear: Boolean) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val nav = LocalNavigator.current
@@ -120,7 +120,7 @@ private fun SearchContent(state: SearchState, onClose: () -> Unit) {
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     LaunchedEffect(state.query, online) { state.searchPlaces(state.query, online, locale, me) }
-    BackHandler(onBack = onClose)
+    BackHandler { onClose(true) }
 
     val prefs = remember { context.getSharedPreferences("home", android.content.Context.MODE_PRIVATE) }
     var showAllRoutes by remember { mutableStateOf(prefs.getBoolean("showAllRoutes", false)) }
@@ -136,7 +136,7 @@ private fun SearchContent(state: SearchState, onClose: () -> Unit) {
 
     fun go(action: () -> Unit) {
         focusManager.clearFocus()
-        onClose()
+        onClose(false)
         action()
     }
     fun openRoute(route: Route) = go { nav.route(route.routeId, "auto") }
@@ -144,7 +144,7 @@ private fun SearchContent(state: SearchState, onClose: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) {
+                IconButton(onClick = { onClose(true) }) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.w_back))
                 }
                 TextField(

@@ -19,6 +19,8 @@ import online.bus.bmarian.conexiuniclujmobile.data.Photon
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.LiveState
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
+import online.bus.bmarian.conexiuniclujmobile.follow.Followed
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
@@ -26,19 +28,23 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneyPoint
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyStop
 import online.bus.bmarian.conexiuniclujmobile.journey.PlannedRun
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
+import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanOption
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanResponse
 import online.bus.bmarian.conexiuniclujmobile.logic.TimeMode
 import online.bus.bmarian.conexiuniclujmobile.logic.clampCoord4
+import online.bus.bmarian.conexiuniclujmobile.logic.dayTypeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.decodePolyline
 import online.bus.bmarian.conexiuniclujmobile.logic.formatLocalDateTime
 import online.bus.bmarian.conexiuniclujmobile.logic.planQuery
+import online.bus.bmarian.conexiuniclujmobile.logic.serviceSlot
 import online.bus.bmarian.conexiuniclujmobile.logic.toFixed4
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
+import java.util.UUID
 
 class Origin(val name: String, val lat: Double, val lon: Double)
 
@@ -141,6 +147,26 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
             walkEndMinutes = walkSeconds / 60.0,
             walks = plan.legs.filter { !it.isRide }.map { simplifyPath(points(it.path), 8.0) },
             runs = plan.runs.map { run -> PlannedRun(run.arrive, run.rides.map { it.depart }) },
+        )
+    }
+
+    /** A one-off reminder timed on the plan's first bus; the whole trip is guided from there. */
+    fun reminderFor(plan: PlanOption): Reminder? {
+        val journey = journeyFor(plan) ?: return null
+        val leg = plan.rides.firstOrNull() ?: return null
+        val ride = plan.firstRide ?: return null
+        val (stopName, at) = stop(leg.from) ?: return null
+        val line = line(ride.routeId) ?: return null
+        val (date, minute) = serviceSlot(ride.depart * 1000, CLUJ_ZONE)
+        return Reminder(
+            id = UUID.randomUUID().toString(),
+            followed = Followed(leg.from, stopName, ride.routeId, ride.tripId, line.shortName, line.color, journey.destination.name),
+            lat = at.first,
+            lon = at.second,
+            time = minute,
+            date = date.toString(),
+            slots = mapOf(dayTypeOf(date) to minute),
+            journey = journey,
         )
     }
 

@@ -96,8 +96,8 @@ class JourneyVoice(context: Context) {
         .build()
     private val queued = AtomicInteger(0)
     private val tts: TextToSpeech
+    private val languages = HashMap<Locale, Boolean>()
     private var ready = false
-    private var romanianNames = false
     private var closing = false
     private var pending: String? = null
 
@@ -107,12 +107,6 @@ class JourneyVoice(context: Context) {
 
     private fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS || closing) return
-        val english = Services.settings.locale.value == "en"
-        val locale = if (english) Locale.UK else ROMANIAN
-        if (!available(locale)) return
-        // Names use the Romanian voice.
-        romanianNames = english && available(ROMANIAN)
-        tts.setLanguage(locale)
         tts.setAudioAttributes(attributes)
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
@@ -133,10 +127,14 @@ class JourneyVoice(context: Context) {
             pending = text
             return
         }
+        val main = if (Services.settings.locale.value == "en") Locale.UK else ROMANIAN
+        if (!available(main)) return
+        // Names use the Romanian voice.
+        val romanianNames = main != ROMANIAN && available(ROMANIAN)
         val parts = speechParts(text)
         val spoken = if (romanianNames) parts else listOf(parts.joinToString(" ") { it.first } to false)
         for ((part, name) in spoken) {
-            if (romanianNames) tts.setLanguage(if (name) ROMANIAN else Locale.UK)
+            tts.setLanguage(if (name && romanianNames) ROMANIAN else main)
             if (queued.getAndIncrement() == 0) audio.requestAudioFocus(focus)
             if (tts.speak(part, TextToSpeech.QUEUE_ADD, null, UUID.randomUUID().toString()) != TextToSpeech.SUCCESS) finished()
         }
@@ -155,7 +153,7 @@ class JourneyVoice(context: Context) {
         if (queued.get() == 0) shutdown()
     }
 
-    private fun available(locale: Locale) = tts.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE
+    private fun available(locale: Locale) = languages.getOrPut(locale) { tts.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE }
 
     private fun finished() {
         if (queued.decrementAndGet() > 0) return

@@ -104,28 +104,22 @@ class Settings(private val context: Context) {
         set(paperActive, "paperActive", on)
     }
 
-    val showWeather = bool("showWeather", true)
     val showNews = bool("showNews", true)
     val autoCenterOnMe = bool("autoCenterOnMe", true)
     val autoFitMap = bool("autoFitMap", true)
     val showVehicleExtras = bool("showVehicleExtras", true)
     val showGreenFriday = bool("showGreenFriday", true)
-    val showTimetableChanges = bool("showTimetableChanges", false)
-    val pushNotifications = bool("pushNotifications", false)
     val journeyVoice = bool("journeyVoice", true)
     val fullScreenAlarms = bool("fullScreenAlarms", false)
 
     val onboarded = bool("onboarded", false)
     fun setOnboarded() = set(onboarded, "onboarded", true)
 
-    fun setShowWeather(v: Boolean) = set(showWeather, "showWeather", v)
     fun setShowNews(v: Boolean) = set(showNews, "showNews", v)
     fun setAutoCenterOnMe(v: Boolean) = set(autoCenterOnMe, "autoCenterOnMe", v)
     fun setAutoFitMap(v: Boolean) = set(autoFitMap, "autoFitMap", v)
     fun setShowVehicleExtras(v: Boolean) = set(showVehicleExtras, "showVehicleExtras", v)
     fun setShowGreenFriday(v: Boolean) = set(showGreenFriday, "showGreenFriday", v)
-    fun setShowTimetableChanges(v: Boolean) = set(showTimetableChanges, "showTimetableChanges", v)
-    fun setPushNotifications(v: Boolean) = set(pushNotifications, "pushNotifications", v)
     fun setJourneyVoice(v: Boolean) = set(journeyVoice, "journeyVoice", v)
     fun setFullScreenAlarms(v: Boolean) = set(fullScreenAlarms, "fullScreenAlarms", v)
 

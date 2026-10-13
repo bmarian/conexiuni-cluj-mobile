@@ -38,10 +38,14 @@ private const val WORK = "route-changes"
 /** The server only sends web push, so the app polls. */
 class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val settings = Services.settings
-        if (!settings.pushNotifications.value || !settings.showTimetableChanges.value) return Result.success()
         val followed = Services.routeUpdates.followed.value
         if (followed.isEmpty()) return Result.success()
+        val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!prefs.contains("since")) {
+            prefs.edit { putLong("since", System.currentTimeMillis()) }
+            ensureChannel(applicationContext)
+            return Result.success()
+        }
         val hour = ZonedDateTime.now(ZoneId.of("Europe/Bucharest")).hour
         if (hour < 8 || hour >= 20) return Result.success()
         if (ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -55,7 +59,6 @@ class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineW
             return Result.retry()
         }
 
-        val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val since = prefs.getLong("since", System.currentTimeMillis())
         val notified = prefs.getStringSet("notified", emptySet()).orEmpty().mapNotNull { it.toLongOrNull() }.toMutableSet()
         val fresh = changes.filter { it.detectedAt > since && it.id !in notified }
@@ -106,11 +109,6 @@ class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineW
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
-        }
-
-        fun markEnabled(context: Context) {
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putLong("since", System.currentTimeMillis()) }
-            ensureChannel(context)
         }
     }
 }

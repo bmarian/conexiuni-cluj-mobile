@@ -7,7 +7,8 @@ DST = r"C:\Users\maria\AndroidStudioProjects\ConexiuniClujMobile\app\src\main\re
 SKIP = re.compile(
     r"^(head|kbd|simplified|watch|bsod|paper|arcade|legacyBlue|funMode|metroLegacy|pong|"
     r"themeDefault|adminDashboard|settingsAdminDesc|pushUnsupported|pushBrave|pushDeniedToastBody|pushFailed|notFoundFunny|"
-    r"offlineBanner|searchRoutes|noRouteData|goBack|scheduledApprox|kbdHelp)"
+    r"offlineBanner|searchRoutes|noRouteData|goBack|scheduledApprox|kbdHelp|weather|push|timetableChangesDesc|"
+    r"newsYourLines|newsSourceOurs|newsCtp|newsHasUpdates|newsNoChanges)"
 )
 
 
@@ -48,12 +49,6 @@ APP = {
         "w_import_error": "These aren\\'t valid settings",
         "w_vehicle_extras": "Bus details",
         "w_vehicle_extras_desc": "Show wheelchair and bike access on buses.",
-        "w_push_notifications": "Change alerts",
-        "w_push_notifications_desc": "Get notified when a line you follow changes.",
-        "w_push_on_toast": "Change alerts on",
-        "w_push_on_toast_body": "You\\'ll be told when a line you follow changes.",
-        "w_push_on_toast_no_lines": "Follow a line from its menu first.",
-        "w_push_off_toast": "Change alerts off",
         "w_news_loading": "Loading…",
         "w_news_empty": "No news",
         "w_news_error": "Couldn\\'t load news",
@@ -69,12 +64,10 @@ APP = {
         "w_route_change_summary_stops_removed": "Stops were removed.",
         "w_route_change_summary_stops_both": "Stops were added and removed.",
         "w_language_desc": "Stop and line names stay in Romanian.",
-        "w_weather_desc": "Show the forecast for Cluj.",
         "w_news_desc": "Show CTP news and changes to lines you follow.",
         "w_auto_center_on_me": "Center on me",
         "w_auto_center_on_me_desc": "Center the map on you when it opens.",
         "w_auto_fit_map_desc": "Show the whole line when you open it.",
-        "w_timetable_changes_desc": "Follow lines from their menu to see what changes.",
         "w_transfer_desc": "Move your favorites and settings: tap Receive on the new device, then Send here.",
         "w_transfer_hint": "Scan the code, or type the number under Settings, Send on the other device.",
         "w_transfer_loading": "Getting a code…",
@@ -117,12 +110,6 @@ APP = {
         "w_import_error": "Nu sunt setări valide",
         "w_vehicle_extras": "Detalii autobuz",
         "w_vehicle_extras_desc": "Arată accesul pentru scaune cu rotile și biciclete.",
-        "w_push_notifications": "Alerte de schimbări",
-        "w_push_notifications_desc": "Primești o notificare când se schimbă o linie urmărită.",
-        "w_push_on_toast": "Alertele de schimbări sunt pornite",
-        "w_push_on_toast_body": "Îți spunem când se schimbă o linie urmărită.",
-        "w_push_on_toast_no_lines": "Urmărește mai întâi o linie din meniul ei.",
-        "w_push_off_toast": "Alertele de schimbări sunt oprite",
         "w_news_loading": "Se încarcă…",
         "w_news_empty": "Nicio știre",
         "w_news_error": "Știrile nu s-au încărcat",
@@ -138,12 +125,10 @@ APP = {
         "w_route_change_summary_stops_removed": "Au fost scoase stații.",
         "w_route_change_summary_stops_both": "Au fost adăugate și scoase stații.",
         "w_language_desc": "Numele stațiilor și liniilor rămân în română.",
-        "w_weather_desc": "Arată prognoza pentru Cluj.",
         "w_news_desc": "Arată știrile CTP și schimbările liniilor urmărite.",
         "w_auto_center_on_me": "Centrează pe mine",
         "w_auto_center_on_me_desc": "Centrează harta pe tine când se deschide.",
         "w_auto_fit_map_desc": "Arată toată linia când o deschizi.",
-        "w_timetable_changes_desc": "Urmărește linii din meniul lor ca să vezi ce se schimbă.",
         "w_transfer_desc": "Mută favoritele și setările: apasă Primește pe dispozitivul nou, apoi Trimite aici.",
         "w_transfer_hint": "Scanează codul sau scrie numărul la Setări, Trimite pe celălalt dispozitiv.",
         "w_transfer_failed": "Nu s-a putut obține un cod. Încearcă din nou.",

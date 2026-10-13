@@ -53,19 +53,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
-import online.bus.bmarian.conexiuniclujmobile.data.WeatherApi
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 
 @Composable
-fun HomeChrome(onSearch: () -> Unit, modifier: Modifier = Modifier) {
+fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifier) {
     val nav = LocalNavigator.current
     val online by Services.online.collectAsStateWithLifecycle()
-    val showWeather by Services.settings.showWeather.collectAsStateWithLifecycle()
     val showNews by Services.settings.showNews.collectAsStateWithLifecycle()
-    val weather by WeatherFeed.weather.collectAsStateWithLifecycle()
     val places by Services.favorites.plans.collectAsStateWithLifecycle()
     Column(modifier) {
         Surface(
@@ -77,11 +74,12 @@ fun HomeChrome(onSearch: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                val kept = query.isNotBlank()
                 Text(
-                    stringResource(R.string.w_search_placeholder),
+                    if (kept) query else stringResource(R.string.w_search_placeholder),
                     Modifier.weight(1f).padding(start = 12.dp),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (kept) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -94,13 +92,6 @@ fun HomeChrome(onSearch: () -> Unit, modifier: Modifier = Modifier) {
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val current = weather
-            if (showWeather && online && current?.temp != null) {
-                item(key = "weather") {
-                    val (icon, tint) = weatherIcon(WeatherApi.slug(current))
-                    MapChip(icon, "${current.temp}°", tint = tint, onClick = nav::weather)
-                }
-            }
             if (showNews && online) {
                 item(key = "news") {
                     MapChip(Icons.Rounded.Newspaper, stringResource(R.string.w_news), dot = rememberNewsDot(), onClick = nav::news)

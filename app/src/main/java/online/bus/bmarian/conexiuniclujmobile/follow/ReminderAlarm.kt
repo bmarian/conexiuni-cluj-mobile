@@ -55,11 +55,12 @@ object ReminderAlarm {
         )
     }
 
-    fun ring(context: Context, followed: Followed, busAt: Long, title: String, text: String?) {
+    fun ring(context: Context, followed: Followed, busAt: Long, title: String, text: String?, journey: Boolean = false) {
         ensureChannel(context)
         val screen = PendingIntent.getActivity(
             context, ID,
             Intent(context, AlarmActivity::class.java)
+                .putExtra(AlarmActivity.EXTRA_JOURNEY, journey)
                 .putExtra(AlarmActivity.EXTRA_TITLE, title)
                 .putExtra(AlarmActivity.EXTRA_TEXT, text)
                 .putExtra(AlarmActivity.EXTRA_LINE, followed.shortName)

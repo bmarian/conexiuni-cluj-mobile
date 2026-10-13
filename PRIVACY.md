@@ -26,7 +26,6 @@ If you follow a line's changes, the app asks bus.bmarian.online about those line
 
 - Stops, lines, timetables, live bus positions, news and line changes from bus.bmarian.online, the server behind the Conexiuni Cluj website.
 - Map tiles, fonts and icons from [OpenFreeMap](https://openfreemap.org/).
-- The weather for Cluj-Napoca from [Open-Meteo](https://open-meteo.com/), for the city, not your location.
 - Place search from Photon, as above.
 
 Like any website, these services see your IP address when the app connects to them. bus.bmarian.online doesn't store it: its logs keep a salted one-way hash instead, with the address of each request (for a planned trip, that includes its start and end), and delete them after 5 days. The same hash counts daily users and is deleted after 5 days too; only the totals are kept.

@@ -4,6 +4,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.HourlyStopOffsets
 import online.bus.bmarian.conexiuniclujmobile.data.OUTGOING_SUFFIX
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.abs
@@ -23,6 +24,13 @@ fun dayTypeOf(day: DayOfWeek): String = when (day) {
 }
 
 fun dayTypeOf(date: LocalDate): String = dayTypeOf(date.dayOfWeek)
+
+/** The service day a departure belongs to and its minute in that day, past midnight counted on from 24:00. */
+fun serviceSlot(ms: Long, zone: ZoneId): Pair<LocalDate, Int> {
+    val at = Instant.ofEpochMilli(ms).atZone(zone)
+    val minute = at.hour * 60 + at.minute
+    return if (minute < NIGHT_END_MIN) at.toLocalDate().minusDays(1) to minute + 1440 else at.toLocalDate() to minute
+}
 
 /**
  * Timetable minutes at the stop for each day type, past midnight counted on from 24:00. Each departure

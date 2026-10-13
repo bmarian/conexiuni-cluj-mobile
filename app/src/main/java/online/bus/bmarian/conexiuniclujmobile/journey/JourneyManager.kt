@@ -113,15 +113,24 @@ object JourneyManager {
 
     fun newId(): String = UUID.randomUUID().toString()
 
-    fun start(context: Context, journey: Journey) {
+    /** False when the app is in the background and may not start the service. */
+    fun start(context: Context, journey: Journey): Boolean {
         mutableState.value = JourneySync(journey.id, journey.destination.name, "")
         mutableJourney.value = journey
         navigating.value = true
-        WearLink.sendJourneyPlan(context, journey)
         val intent = Intent(context, JourneyService::class.java)
             .putExtra(JourneyService.EXTRA_JOURNEY, Api.json.encodeToString(journey))
-        ContextCompat.startForegroundService(context, intent)
+        try {
+            ContextCompat.startForegroundService(context, intent)
+        } catch (_: IllegalStateException) {
+            mutableState.value = null
+            mutableJourney.value = null
+            navigating.value = false
+            return false
+        }
+        WearLink.sendJourneyPlan(context, journey)
         WearLink.showOnWatch(context, "/journey")
+        return true
     }
 
     fun stop(context: Context) {
