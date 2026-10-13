@@ -20,6 +20,8 @@ import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
+import online.bus.bmarian.conexiuniclujmobile.journey.Journey
+import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.nextOccurrence
 import online.bus.bmarian.conexiuniclujmobile.logic.pickSlot
@@ -56,14 +58,17 @@ data class Reminder(
     val slots: Map<String, Int> = emptyMap(),
     // Epoch ms of the latest departure already handed to a follow.
     val handled: Long = 0,
+    // Set from the planner: the whole trip is guided when it's time to leave.
+    val journey: Journey? = null,
 ) {
     val once get() = date != null
 
     fun next(afterMs: Long = System.currentTimeMillis()): Long? =
         nextOccurrence(slots, days, date?.let(LocalDate::parse), maxOf(afterMs - MISSED_MS, handled), CLUJ_ZONE)
 
+    /** A reminder for this bus alone. */
     fun isFor(stopId: Int, routeId: Int, tripId: String) =
-        followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
+        journey == null && followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
 }
 
 /** How long before the bus to set off: the walk and a few minutes, or a fixed lead when there's no fix. */
@@ -157,6 +162,11 @@ object Reminders {
         val wakeAt = at - (leadMinutes(walk) + HEADS_UP_MIN) * 60_000L
         if (wakeAt > now + REARM_SLACK_MS) return alarm(context, id, at, wakeAt)
         handled(context, reminder, at)
+        val journey = reminder.journey
+        if (journey != null) {
+            JourneyManager.start(context, journey.copy(id = JourneyManager.newId()))
+            return FollowNotifications.nudge(context, reminder.followed, at, walk, journey = true)
+        }
         val target = FollowTarget(id, at, reminder.lat, reminder.lon)
         if (!FollowManager.start(context, reminder.followed, target)) FollowNotifications.nudge(context, reminder.followed, at, walk)
     }

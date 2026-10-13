@@ -59,6 +59,7 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
+import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.FollowingCard
@@ -175,6 +176,7 @@ fun HomeScreen() {
                 Column {
                     for (reminder in reminders) key(reminder.id) {
                         val followed = reminder.followed
+                        val journey = reminder.journey
                         val next = remember(reminder, clock) { reminder.next(clock) }
                         FavoriteRow(
                             modifier = Modifier.animateContentSize(),
@@ -184,12 +186,16 @@ fun HomeScreen() {
                                 "→ ${followed.destination}",
                             ).joinToString(" "),
                             kicker = listOfNotNull(
+                                journey?.legs?.joinToString(" › ") { it.lineLabel },
                                 stringResource(R.string.remind_last_bus).takeIf { reminder.time == null },
                                 reminderRepeat(resources, reminder.days, locale),
                                 followed.stopName,
                             ).joinToString(" · "),
                             removeLabel = stringResource(R.string.remind_delete),
-                            onClick = { reminding = followed },
+                            onClick = {
+                                val path = journey?.planPath
+                                if (path != null) nav.plan(PlanQuery.decode(path.removePrefix("/plan?"))) else reminding = followed
+                            },
                             onRemove = { Reminders.remove(context, reminder.id) },
                         )
                     }

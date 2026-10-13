@@ -83,8 +83,10 @@ class AlarmActivity : ComponentActivity() {
             destination = intent.getStringExtra(EXTRA_DESTINATION).orEmpty(),
             stopName = intent.getStringExtra(EXTRA_STOP_NAME).orEmpty(),
             busAt = intent.getLongExtra(EXTRA_AT, 0L),
+            journey = intent.getBooleanExtra(EXTRA_JOURNEY, false),
         )
         val stopId = intent.getIntExtra(EXTRA_STOP, 0)
+        val target = if (alarm.journey) "journey" else "stop/$stopId"
         setContent {
             val mode by Services.settings.theme.collectAsStateWithLifecycle()
             val dark = when (mode) {
@@ -116,7 +118,7 @@ class AlarmActivity : ComponentActivity() {
                         startActivity(
                             Intent(this, MainActivity::class.java)
                                 .setAction(Intent.ACTION_VIEW)
-                                .setData("${BuildConfig.SITE_ORIGIN}/stop/$stopId".toUri())
+                                .setData("${BuildConfig.SITE_ORIGIN}/$target".toUri())
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
                         )
                         finish()
@@ -135,6 +137,7 @@ class AlarmActivity : ComponentActivity() {
         const val EXTRA_STOP = "stop"
         const val EXTRA_STOP_NAME = "stopName"
         const val EXTRA_AT = "at"
+        const val EXTRA_JOURNEY = "journey"
     }
 }
 
@@ -146,6 +149,7 @@ private class AlarmInfo(
     val destination: String,
     val stopName: String,
     val busAt: Long,
+    val journey: Boolean,
 )
 
 @Composable
@@ -220,7 +224,7 @@ private fun AlarmScreen(alarm: AlarmInfo, onStop: () -> Unit, onOpen: () -> Unit
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FilledTonalButton(onOpen, Modifier.weight(1f).height(56.dp)) {
-                    Text(stringResource(R.string.alarm_open), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(if (alarm.journey) R.string.nav_resume else R.string.alarm_open), style = MaterialTheme.typography.titleMedium)
                 }
                 Button(onStop, Modifier.weight(1f).height(56.dp)) {
                     Text(stringResource(R.string.alarm_stop), style = MaterialTheme.typography.titleMedium)

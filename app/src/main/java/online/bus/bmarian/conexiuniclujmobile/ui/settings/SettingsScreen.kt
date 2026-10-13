@@ -1,9 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.settings
 
-import android.Manifest
 import android.app.NotificationManager
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,13 +26,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Accessible
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.DarkMode
@@ -43,12 +39,9 @@ import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Newspaper
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -91,7 +84,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -109,14 +101,12 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.data.Transfer
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
-import online.bus.bmarian.conexiuniclujmobile.work.RouteChangeWorker
 
 @Composable
 fun SettingsScreen(sendCode: String?, sendKey: String?) {
@@ -124,19 +114,13 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val resources = LocalResources.current
     val settings = Services.settings
     val locale by settings.locale.collectAsStateWithLifecycle()
-    val weather by settings.showWeather.collectAsStateWithLifecycle()
     val theme by settings.theme.collectAsStateWithLifecycle()
     val news by settings.showNews.collectAsStateWithLifecycle()
     val extras by settings.showVehicleExtras.collectAsStateWithLifecycle()
     val greenFriday by settings.showGreenFriday.collectAsStateWithLifecycle()
     val center by settings.autoCenterOnMe.collectAsStateWithLifecycle()
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
-    val changes by settings.showTimetableChanges.collectAsStateWithLifecycle()
-    val push by settings.pushNotifications.collectAsStateWithLifecycle()
-    val voice by settings.journeyVoice.collectAsStateWithLifecycle()
     val alarms by settings.fullScreenAlarms.collectAsStateWithLifecycle()
-    val watchStatus by WearLink.status.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { WearLink.refreshStatus(context) }
     val transfer: TransferViewModel = viewModel()
     val sheet = LocalSheet.current
 
@@ -149,28 +133,6 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             transfer.openSend(sendCode, sendKey)
             sheet?.animateTo(SheetSnap.Full)
         }
-    }
-
-    fun pushOn() {
-        settings.setPushNotifications(true)
-        RouteChangeWorker.markEnabled(context)
-        settings.showToast(
-            resources.getString(R.string.w_push_on_toast),
-            resources.getString(if (Services.routeUpdates.followed.value.isNotEmpty()) R.string.w_push_on_toast_body else R.string.w_push_on_toast_no_lines),
-        )
-    }
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) pushOn()
-        else settings.showToast(resources.getString(R.string.w_push_denied_toast), resources.getString(R.string.push_denied_body))
-    }
-    fun togglePush() {
-        if (push) {
-            settings.setPushNotifications(false)
-            settings.showToast(resources.getString(R.string.w_push_off_toast))
-            return
-        }
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) pushOn()
-        else notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     val notifications = context.getSystemService(NotificationManager::class.java)
@@ -198,13 +160,15 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             )
 
             Section(stringResource(R.string.w_language))
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clip(RoundedCornerShape(12.dp)).background(Palette.Amber.copy(alpha = 0.12f)).padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(Icons.Rounded.WarningAmber, null, Modifier.size(18.dp), tint = Palette.Amber)
-                Text(stringResource(R.string.w_language_desc), style = MaterialTheme.typography.bodySmall)
+            if (locale == "en") {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp)).background(Palette.Amber.copy(alpha = 0.12f)).padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.Rounded.WarningAmber, null, Modifier.size(18.dp), tint = Palette.Amber)
+                    Text(stringResource(R.string.w_language_desc), style = MaterialTheme.typography.bodySmall)
+                }
             }
             val languages = listOf("ro" to "Română", "en" to "English")
             ChoiceRow(languages.map { it.first }, locale, settings::setLocale, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { tag ->
@@ -213,7 +177,6 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
 
             Section(stringResource(R.string.w_display))
             ThemeRow(theme, settings::setTheme)
-            Toggle(Icons.Rounded.Cloud, stringResource(R.string.w_weather), stringResource(R.string.w_weather_desc), weather, onChange = settings::setShowWeather)
             Toggle(Icons.Rounded.Newspaper, stringResource(R.string.w_news), stringResource(R.string.w_news_desc), news, onChange = settings::setShowNews)
             Toggle(Icons.Rounded.Accessible, stringResource(R.string.w_vehicle_extras), stringResource(R.string.w_vehicle_extras_desc), extras, onChange = settings::setShowVehicleExtras)
             Toggle(Icons.Rounded.Eco, stringResource(R.string.w_green_friday_title), stringResource(R.string.w_green_friday_setting_desc), greenFriday, onChange = settings::setShowGreenFriday)
@@ -222,31 +185,8 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             Toggle(Icons.Rounded.MyLocation, stringResource(R.string.w_auto_center_on_me), stringResource(R.string.w_auto_center_on_me_desc), center, onChange = settings::setAutoCenterOnMe)
             Toggle(Icons.Rounded.CropFree, stringResource(R.string.w_auto_fit_map), stringResource(R.string.w_auto_fit_map_desc), fit, onChange = settings::setAutoFitMap)
 
-            Section(stringResource(R.string.settings_trips))
-            Toggle(Icons.AutoMirrored.Rounded.VolumeUp, stringResource(R.string.voice_guidance), stringResource(R.string.voice_guidance_desc), voice, beta = true, onChange = settings::setJourneyVoice)
-
             Section(stringResource(R.string.w_settings_notifications))
             Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, beta = true, onChange = ::toggleAlarms)
-            Toggle(Icons.Rounded.Notifications, stringResource(R.string.w_timetable_changes), stringResource(R.string.w_timetable_changes_desc), changes, beta = true) { on ->
-                settings.setShowTimetableChanges(on)
-                if (!on && push) settings.setPushNotifications(false)
-            }
-            if (changes) {
-                Toggle(Icons.Rounded.NotificationsActive, stringResource(R.string.w_push_notifications), stringResource(R.string.w_push_notifications_desc), push, beta = true) { togglePush() }
-            }
-
-            Section(stringResource(R.string.watch_section))
-            val watchText = when (val s = watchStatus) {
-                is WearLink.WatchStatus.Connected -> stringResource(R.string.watch_connected, s.name)
-                is WearLink.WatchStatus.NoApp -> stringResource(R.string.watch_missing_app, s.name)
-                WearLink.WatchStatus.None -> stringResource(R.string.watch_none)
-            }
-            ListItem(
-                modifier = Modifier.padding(horizontal = 4.dp),
-                leadingContent = { Icon(Icons.Rounded.Watch, null) },
-                headlineContent = { Text(watchText) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            )
 
             Section(stringResource(R.string.w_transfer))
             Text(

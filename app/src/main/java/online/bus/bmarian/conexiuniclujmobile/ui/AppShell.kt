@@ -78,10 +78,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -105,8 +102,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.home.MapFabs
 import online.bus.bmarian.conexiuniclujmobile.ui.home.NewsPage
 import online.bus.bmarian.conexiuniclujmobile.ui.home.SearchOverlay
 import online.bus.bmarian.conexiuniclujmobile.ui.home.SearchState
-import online.bus.bmarian.conexiuniclujmobile.ui.home.WeatherFeed
-import online.bus.bmarian.conexiuniclujmobile.ui.home.WeatherPage
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapCamera
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapInsets
@@ -190,11 +185,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
         searchOpen = true
     }
 
-    val showWeather by Services.settings.showWeather.collectAsStateWithLifecycle()
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(showWeather, online) {
-        if (showWeather && online) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { WeatherFeed.run() }
-    }
     var chromeHeight by remember { mutableIntStateOf(0) }
 
     val navigating by JourneyManager.navigating.collectAsStateWithLifecycle()
@@ -246,6 +236,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
             val chrome: @Composable (Modifier) -> Unit = { modifier ->
                 AnimatedVisibility(atHome && !showNav, modifier.statusBarsPadding(), enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
                     HomeChrome(
+                        query = search.query,
                         onSearch = { searchOpen = true },
                         modifier = Modifier.padding(top = 8.dp).onSizeChanged { chromeHeight = it.height + with(density) { 8.dp.roundToPx() } },
                     )
@@ -345,9 +336,9 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 Modifier.align(Alignment.TopCenter).statusBarsPadding()
                     .padding(top = with(density) { chromePx.toDp() } + 12.dp),
             )
-            SearchOverlay(searchOpen, search) {
+            SearchOverlay(searchOpen, search) { clear ->
                 searchOpen = false
-                search.query = ""
+                if (clear) search.query = ""
             }
             ToastHost(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp))
             val onboarded by Services.settings.onboarded.collectAsStateWithLifecycle()
@@ -409,7 +400,6 @@ private fun AppNavHost(navController: NavHostController) {
         popExitTransition = { fadeOut(PAGE_OUT) + slideOutHorizontally(PAGE_SLIDE) { it / 8 } + scaleOut(PAGE_SCALE, targetScale = 0.95f) },
     ) {
         composable("home") { Page { HomeScreen() } }
-        composable("weather") { Page { WeatherPage() } }
         composable("news") { Page { NewsPage() } }
         composable("stop/{stopId}", arguments = listOf(navArgument("stopId") { type = NavType.IntType })) { entry ->
             Page { StopScreen(entry.arguments?.getInt("stopId") ?: 0) }
@@ -484,10 +474,6 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
 
     override fun settings() {
         go("settings")
-    }
-
-    override fun weather() {
-        go("weather")
     }
 
     override fun news() {

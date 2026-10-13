@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,6 +61,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -216,17 +221,23 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                     haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
                     last = true
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column {
                     for ((hour, group) in dayTimes.groupBy { it / 60 }) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 "%02d".format(hour % 24),
-                                modifier = Modifier.width(28.dp).alignByBaseline(),
+                                modifier = Modifier.width(36.dp).padding(end = 10.dp),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End,
                                 color = if (hour >= 24) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
                             )
-                            FlowRow(Modifier.alignByBaseline(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            VerticalDivider(Modifier.fillMaxHeight(), thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                            FlowRow(
+                                Modifier.padding(start = 10.dp, top = 3.dp, bottom = 3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
                                 for (minute in group) {
                                     TimeChoice(
                                         label = formatAbsoluteMinutes(minute).drop(3),

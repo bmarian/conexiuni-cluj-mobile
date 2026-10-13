@@ -112,27 +112,6 @@ object WearLink {
         scope.launch { send(app, PATH_JOURNEY_PLAN, Api.json.encodeToString(journey).encodeToByteArray()) }
     }
 
-    sealed interface WatchStatus {
-        data class Connected(val name: String) : WatchStatus
-        data class NoApp(val name: String) : WatchStatus
-        data object None : WatchStatus
-    }
-
-    private val mutableStatus = MutableStateFlow<WatchStatus>(WatchStatus.None)
-    val status: StateFlow<WatchStatus> = mutableStatus
-
-    suspend fun refreshStatus(context: Context) {
-        val app = context.applicationContext
-        val withApp = peers(app).firstOrNull()
-        val connected = runCatching { Wearable.getNodeClient(app).connectedNodes.await() }.getOrDefault(emptyList()).firstOrNull()
-        mutableStatus.value = when {
-            withApp != null -> WatchStatus.Connected(withApp.displayName)
-            connected != null -> WatchStatus.NoApp(connected.displayName)
-            else -> WatchStatus.None
-        }
-        mutableWatch.value = withApp != null || relayed
-    }
-
     fun showOnWatch(context: Context, path: String) {
         val app = context.applicationContext
         scope.launch { openOnWatch(app, path) }

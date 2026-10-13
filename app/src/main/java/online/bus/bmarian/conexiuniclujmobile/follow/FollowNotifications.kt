@@ -164,13 +164,13 @@ object FollowNotifications {
     }
 
     /** For a reminder that can't start following from the background: one nudge, no live card. */
-    fun nudge(context: Context, followed: Followed, atMs: Long, walk: Int?) {
+    fun nudge(context: Context, followed: Followed, atMs: Long, walk: Int?, journey: Boolean = false) {
         ensureChannels(context)
         val nowMs = System.currentTimeMillis()
         val minutes = ((atMs - nowMs) / 60_000).toInt().coerceAtLeast(0)
         val leaveAt = atMs - leadMinutes(walk) * 60_000L
         val (title, text) = leaveText(context, followed.shortName, minutes, leaveAt, walk, nowMs)
-        if (Services.settings.fullScreenAlarms.value) return ReminderAlarm.ring(context, followed, atMs, title, text)
+        if (Services.settings.fullScreenAlarms.value) return ReminderAlarm.ring(context, followed, atMs, title, text, journey)
         val notification = Notification.Builder(context, ALERT_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
             .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
@@ -180,7 +180,7 @@ object FollowNotifications {
             .setCategory(Notification.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setTimeoutAfter((atMs - nowMs).coerceAtLeast(0) + 5 * 60_000L)
-            .setContentIntent(openStop(context, followed.stopId))
+            .setContentIntent(if (journey) openJourney(context) else openStop(context, followed.stopId))
             .build()
         runCatching { manager(context).notify(slot("nudge-${followed.stopId}-${followed.tripId}"), notification) }
     }
@@ -218,6 +218,15 @@ object FollowNotifications {
         Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
             .setData(Uri.parse("${BuildConfig.SITE_ORIGIN}/stop/$stopId"))
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun openJourney(context: Context): PendingIntent = PendingIntent.getActivity(
+        context, 0,
+        Intent(context, MainActivity::class.java)
+            .setAction(Intent.ACTION_VIEW)
+            .setData(Uri.parse("${BuildConfig.SITE_ORIGIN}/journey"))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )

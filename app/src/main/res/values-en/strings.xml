@@ -76,11 +76,8 @@
     <string name="voice_next_stop">Get off at the next stop, %1$s.</string>
     <string name="voice_get_off">Get off here.</string>
     <string name="voice_arrived">You\'ve arrived.</string>
-    <string name="voice_guidance">Voice guidance</string>
-    <string name="voice_guidance_desc">Hear each step during a trip</string>
     <string name="voice_mute">Mute</string>
     <string name="voice_unmute">Unmute</string>
-    <string name="settings_trips">Trips</string>
     <string name="widget_loading">Loading…</string>
     <string name="onboard_welcome_title">Buses and trams in Cluj, live</string>
     <string name="onboard_welcome_body">See departures, follow buses and plan trips.</string>
@@ -89,13 +86,7 @@
     <string name="onboard_notifications_title">Notifications</string>
     <string name="onboard_notifications_body">For buses you follow, reminders and trips.</string>
     <string name="onboard_allow">Allow</string>
-    <string name="onboard_skip">Not now</string>
-    <string name="onboard_next">Next</string>
     <string name="onboard_done">Start</string>
-    <string name="watch_section">Watch</string>
-    <string name="watch_connected">Connected to %1$s</string>
-    <string name="watch_missing_app">%1$s doesn\'t have the app yet</string>
-    <string name="watch_none">No watch connected</string>
     <string name="directions">Directions</string>
     <string name="save">Save</string>
     <string name="saved">Saved</string>

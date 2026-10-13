@@ -81,11 +81,8 @@
     <string name="voice_next_stop">Coboară la următoarea stație, %1$s.</string>
     <string name="voice_get_off">Coboară aici.</string>
     <string name="voice_arrived">Ai ajuns.</string>
-    <string name="voice_guidance">Indicații vocale</string>
-    <string name="voice_guidance_desc">Auzi fiecare pas al călătoriei</string>
     <string name="voice_mute">Fără sunet</string>
     <string name="voice_unmute">Cu sunet</string>
-    <string name="settings_trips">Călătorii</string>
     <string name="widget_loading">Se încarcă…</string>
     <string name="onboard_welcome_title">Autobuze și tramvaie din Cluj, live</string>
     <string name="onboard_welcome_body">Vezi plecările, urmărește autobuze și planifică călătorii.</string>
@@ -94,13 +91,7 @@
     <string name="onboard_notifications_title">Notificări</string>
     <string name="onboard_notifications_body">Pentru autobuzele urmărite, mementouri și călătorii.</string>
     <string name="onboard_allow">Permite</string>
-    <string name="onboard_skip">Nu acum</string>
-    <string name="onboard_next">Înainte</string>
     <string name="onboard_done">Începe</string>
-    <string name="watch_section">Ceas</string>
-    <string name="watch_connected">Conectat la %1$s</string>
-    <string name="watch_missing_app">%1$s nu are încă aplicația</string>
-    <string name="watch_none">Niciun ceas conectat</string>
     <string name="directions">Direcții</string>
     <string name="save">Salvează</string>
     <string name="saved">Salvat</string>

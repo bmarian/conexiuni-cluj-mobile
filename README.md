@@ -65,7 +65,6 @@ Phone version codes are 1xxxx and the watch's 2xxxx. `./gradlew bundleRelease` b
 | ------------------------------------------------------------ | ---------------------------------------------------- |
 | [Tranzy.ai](https://tranzy.ai/)                              | Live GPS positions and GTFS data for CTP Cluj-Napoca |
 | [CTP Cluj-Napoca](https://www.ctpcj.ro/)                     | Official timetables                                  |
-| [Open-Meteo](https://open-meteo.com/)                        | Weather data                                         |
 | [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data                                             |
 | [OpenFreeMap](https://openfreemap.org/)                      | Map tiles                                            |
 | [MapLibre](https://maplibre.org/)                            | The map                                              |

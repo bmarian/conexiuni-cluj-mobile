@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
@@ -70,10 +71,15 @@ class SearchState {
     var query by mutableStateOf("")
     var places by mutableStateOf<List<Place>>(emptyList())
         private set
-    var placesLoading by mutableStateOf(false)
-        private set
+    // The query the places are for.
+    private var placesQuery by mutableStateOf("")
 
     val active: Boolean get() = query.trim().isNotEmpty()
+
+    fun placesLoading(online: Boolean): Boolean {
+        val q = query.trim()
+        return online && q.length >= 3 && placesQuery != q
+    }
 
     fun routes(routes: List<Route>): List<Route> {
         val q = norm(query.trim())
@@ -90,22 +96,24 @@ class SearchState {
     }
 
     suspend fun searchPlaces(query: String, online: Boolean, locale: String, me: Fix?) {
-        places = emptyList()
         val trimmed = query.trim()
+        if (placesQuery == trimmed) return
         if (!online || trimmed.length < 3) {
-            placesLoading = false
+            places = emptyList()
+            placesQuery = trimmed
             return
         }
-        placesLoading = true
         delay(350)
-        try {
-            val results = Photon.search(trimmed, locale, 3)
-            places = if (me != null && results.size > 1) {
-                sortByDistance(results, me.lat, me.lon, { it.latitude ?: 0.0 }, { it.longitude ?: 0.0 })
-            } else results
-        } finally {
-            placesLoading = false
+        val results = try {
+            Photon.search(trimmed, locale, 3)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emptyList()
         }
+        places = if (me != null && results.size > 1) {
+            sortByDistance(results, me.lat, me.lon, { it.latitude ?: 0.0 }, { it.longitude ?: 0.0 })
+        } else results
+        placesQuery = trimmed
     }
 }
 
@@ -154,7 +162,8 @@ fun LazyListScope.searchResults(
     val routeResults = state.routes(routes)
     val stopResults = state.stops(stops, me)
     val places = if (online) state.places else emptyList()
-    if (state.placesLoading) {
+    val loading = state.placesLoading(online)
+    if (loading) {
         item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) }
     }
     if (places.isNotEmpty()) {
@@ -185,7 +194,7 @@ fun LazyListScope.searchResults(
             )
         }
     }
-    if (!state.placesLoading && places.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()) {
+    if (!loading && places.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()) {
         item {
             if (online) {
                 Row(
