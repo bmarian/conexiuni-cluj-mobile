@@ -45,7 +45,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
-import online.bus.bmarian.conexiuniclujmobile.data.Photon
+import online.bus.bmarian.conexiuniclujmobile.data.Places
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
@@ -95,7 +95,7 @@ class SearchState {
         return sorted.take(3)
     }
 
-    suspend fun searchPlaces(query: String, online: Boolean, locale: String, me: Fix?) {
+    suspend fun searchPlaces(query: String, online: Boolean, me: Fix?) {
         val trimmed = query.trim()
         if (placesQuery == trimmed) return
         if (!online || trimmed.length < 3) {
@@ -105,7 +105,7 @@ class SearchState {
         }
         delay(350)
         val results = try {
-            Photon.search(trimmed, locale, 3)
+            Places.search(trimmed, 3)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             emptyList()

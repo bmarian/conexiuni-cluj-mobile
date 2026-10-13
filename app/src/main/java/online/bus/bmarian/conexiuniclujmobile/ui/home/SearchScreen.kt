@@ -119,7 +119,7 @@ private fun SearchContent(state: SearchState, onClose: (clear: Boolean) -> Unit)
     val favoritePlans by Services.favorites.plans.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    LaunchedEffect(state.query, online) { state.searchPlaces(state.query, online, locale, me) }
+    LaunchedEffect(state.query, online) { state.searchPlaces(state.query, online, me) }
     BackHandler { onClose(true) }
 
     val prefs = remember { context.getSharedPreferences("home", android.content.Context.MODE_PRIVATE) }

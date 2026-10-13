@@ -15,7 +15,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
-import online.bus.bmarian.conexiuniclujmobile.data.Photon
+import online.bus.bmarian.conexiuniclujmobile.data.Places
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.LiveState
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
@@ -358,7 +358,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
         isSearching.value = true
         try {
-            searchResults.value = Photon.search(q, Services.settings.locale.value, 5)
+            searchResults.value = Places.search(q, 5)
         } finally {
             isSearching.value = false
         }
@@ -423,7 +423,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     }
 
     private suspend fun reverseGeocode(lat: Double, lon: Double): String =
-        runCatching { Photon.reverse(lat, lon, Services.settings.locale.value)?.label }.getOrNull()
+        runCatching { Places.reverse(lat, lon)?.label }.getOrNull()
             ?: "${toFixed4(lat)}, ${toFixed4(lon)}"
 
     fun onDestinationDragged(at: LatLon) {

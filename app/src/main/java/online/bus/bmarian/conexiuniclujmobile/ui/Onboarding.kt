@@ -1,8 +1,10 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -22,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.MyLocation
@@ -45,10 +48,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 
 @Composable
 fun Onboarding(onDone: () -> Unit) {
@@ -61,11 +66,13 @@ fun Onboarding(onDone: () -> Unit) {
         asked++
     }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { asked++ }
+    val alarms = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { asked++ }
     val located = remember(asked) { UserLocation.permitted(context) }
     val notified = remember(asked) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
+    val alarmed = remember(asked) { Reminders.exactAllowed(context) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -90,6 +97,12 @@ fun Onboarding(onDone: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     PermissionCard(Icons.Rounded.NotificationsActive, R.string.onboard_notifications_title, R.string.onboard_notifications_body, notified) {
                         notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Spacer(Modifier.height(12.dp))
+                    PermissionCard(Icons.Rounded.Alarm, R.string.onboard_alarms_title, R.string.onboard_alarms_body, alarmed) {
+                        alarms.launch(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "package:${context.packageName}".toUri()))
                     }
                 }
             }
