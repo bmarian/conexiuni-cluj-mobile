@@ -11,12 +11,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
-import androidx.compose.foundation.gestures.AnchoredDraggableState
-import androidx.compose.foundation.gestures.DraggableAnchors
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.anchoredDraggable
-import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.ButtonDefaults
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
@@ -125,7 +119,9 @@ import online.bus.bmarian.conexiuniclujmobile.ui.CREDITS
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.Rail
-import online.bus.bmarian.conexiuniclujmobile.ui.SheetSpring
+import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
+import online.bus.bmarian.conexiuniclujmobile.ui.SheetState
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberSheetGestures
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineRow
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
@@ -396,27 +392,19 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
         val drawerMax = height * 0.72f
         val navBar = WindowInsets.navigationBars.getBottom(density).toFloat()
         var headerPx by remember { mutableFloatStateOf(0f) }
-        val drawer = remember { AnchoredDraggableState(NavDrawer.Closed) }
+        val drawer = remember { SheetState(SheetSnap.Peek) }
+        val open = drawer.anchored.targetValue == SheetSnap.Full
         val scope = rememberCoroutineScope()
         LaunchedEffect(headerPx, drawerMax, navBar) {
             if (headerPx <= 0f) return@LaunchedEffect
             panelHeight = headerPx + navBar
-            drawer.updateAnchors(
-                DraggableAnchors {
-                    NavDrawer.Open at 0f
-                    NavDrawer.Closed at (drawerMax - headerPx - navBar).coerceAtLeast(0f)
-                },
-            )
+            drawer.updateAnchors(drawerMax, headerPx + navBar, half = false)
         }
-        BackHandler(enabled = drawer.targetValue == NavDrawer.Open) { scope.launch { drawer.animateTo(NavDrawer.Closed, SheetSpring) } }
+        BackHandler(enabled = open) { scope.launch { drawer.animateTo(SheetSnap.Peek) } }
         Surface(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(with(density) { drawerMax.toDp() })
-                .offset { IntOffset(0, (drawer.offset.takeUnless { it.isNaN() } ?: (drawerMax - headerPx - navBar)).roundToInt()) }
-                .anchoredDraggable(
-                    drawer,
-                    Orientation.Vertical,
-                    flingBehavior = AnchoredDraggableDefaults.flingBehavior(drawer, animationSpec = SheetSpring),
-                ),
+                .offset { IntOffset(0, (drawer.anchored.offset.takeUnless { it.isNaN() } ?: (drawerMax - headerPx - navBar)).roundToInt()) }
+                .then(rememberSheetGestures(drawer)),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 8.dp,
@@ -426,7 +414,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     Modifier.fillMaxWidth()
                         .onSizeChanged { headerPx = it.height.toFloat() }
                         .clickable(interactionSource = null, indication = null) {
-                            scope.launch { drawer.animateTo(if (drawer.targetValue == NavDrawer.Open) NavDrawer.Closed else NavDrawer.Open, SheetSpring) }
+                            scope.launch { drawer.animateTo(if (open) SheetSnap.Peek else SheetSnap.Full) }
                         }
                         .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -467,14 +455,12 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     if (trip != null) TripProgress(trip, sync.progress ?: 0f)
                 }
                 if (trip != null) {
-                    NavSteps(trip, sync, open = drawer.targetValue == NavDrawer.Open, modifier = Modifier.weight(1f))
+                    NavSteps(trip, sync, open = open, modifier = Modifier.weight(1f))
                 }
             }
         }
     }
 }
-
-private enum class NavDrawer { Closed, Open }
 
 private class StepRow(
     val title: String,

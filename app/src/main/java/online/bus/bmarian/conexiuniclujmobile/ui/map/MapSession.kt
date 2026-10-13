@@ -47,6 +47,8 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconOffset
+import org.maplibre.android.style.layers.PropertyFactory.iconOpacity
+import org.maplibre.android.style.layers.PropertyFactory.iconSize
 import org.maplibre.android.style.layers.PropertyFactory.iconRotate
 import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
 import org.maplibre.android.style.layers.PropertyFactory.iconTranslate
@@ -85,6 +87,9 @@ private const val LAYER_PINS = "ct-pins"
 private val HEADING_OFFSET = 12.0 to 12.0
 
 private fun isPuckLayer(layer: Layer) = layer.id.contains("location", ignoreCase = true)
+
+private const val FADED_VEHICLE_OPACITY = 0.5f
+private const val FADED_VEHICLE_SIZE = 0.7f
 
 private const val GLIDE_MAX_METERS = 600.0
 private const val GLIDE_MS = 1400L
@@ -384,6 +389,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 iconImage(get("img")),
                 iconRotate(get("rot")),
                 iconOffset(get("off")),
+                iconOpacity(get("opacity")),
+                iconSize(get("size")),
                 iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
                 symbolSortKey(get("z")),
             ),
@@ -530,7 +537,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private fun pushVehicles() {
         val src = source(SRC_VEHICLES)
         if (src != null) {
-            val ordered = glide.all().sortedWith(compareBy<ShownVehicle>({ it.vehicle.id == selectedVehicleId }, { -it.at.lat }))
+            val ordered = glide.all().sortedWith(compareBy<ShownVehicle>({ it.vehicle.id == selectedVehicleId }, { !it.vehicle.faded }, { -it.at.lat }))
             src.setGeoJson(
                 FeatureCollection.fromFeatures(
                     ordered.flatMapIndexed { i, shown ->
@@ -551,14 +558,18 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         frame.intValue++
     }
 
-    private fun vehicleFeature(shown: ShownVehicle, img: String, z: Int, rot: Double, off: Pair<Double, Double>) =
-        Feature.fromGeometry(point(shown.at)).apply {
+    private fun vehicleFeature(shown: ShownVehicle, img: String, z: Int, rot: Double, off: Pair<Double, Double>): Feature {
+        val faded = shown.vehicle.faded && shown.vehicle.id != selectedVehicleId
+        return Feature.fromGeometry(point(shown.at)).apply {
             addStringProperty("id", shown.vehicle.id)
             addStringProperty("img", img)
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
+            addNumberProperty("opacity", if (faded) FADED_VEHICLE_OPACITY else 1f)
+            addNumberProperty("size", if (faded) FADED_VEHICLE_SIZE else 1f)
             addProperty("off", JsonArray().apply { add(off.first); add(off.second) })
         }
+    }
 
     @SuppressLint("MissingPermission")
     private fun applyMe() {

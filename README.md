@@ -70,5 +70,4 @@ Phone version codes are 1xxxx and the watch's 2xxxx. `./gradlew bundleRelease` b
 | [OpenFreeMap](https://openfreemap.org/)                      | Map tiles                                            |
 | [MapLibre](https://maplibre.org/)                            | The map                                              |
 | [Photon](https://photon.komoot.io/)                          | Place search                                         |
-| [OpenTripPlanner](https://www.opentripplanner.org/)          | Route planning                                       |
 | [ZXing](https://github.com/zxing/zxing)                      | QR codes                                             |
