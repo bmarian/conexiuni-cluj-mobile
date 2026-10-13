@@ -11,6 +11,7 @@ import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationAttributes
@@ -30,6 +31,14 @@ object ReminderAlarm {
     private var buzz: Vibrator? = null
     private val handler = Handler(Looper.getMainLooper())
     private val silence = Runnable { quiet() }
+    // Ringtones only loop on Android 9+.
+    private val replay = object : Runnable {
+        override fun run() {
+            val tone = tone ?: return
+            if (!tone.isPlaying) tone.play()
+            handler.postDelayed(this, 1_000)
+        }
+    }
 
     private fun manager(context: Context) = context.getSystemService(NotificationManager::class.java)
 
@@ -96,13 +105,24 @@ object ReminderAlarm {
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
-            isLooping = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isLooping = true else handler.post(replay)
             play()
         }
-        buzz = context.getSystemService(VibratorManager::class.java).defaultVibrator.apply {
-            vibrate(VibrationEffect.createWaveform(longArrayOf(0, 600, 400), 0), VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
+        val pattern = VibrationEffect.createWaveform(longArrayOf(0, 600, 400), 0)
+        buzz = vibrator(context).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                vibrate(pattern, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
+            } else {
+                @Suppress("DEPRECATION") vibrate(pattern, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build())
+            }
         }
         handler.postDelayed(silence, RING_MS)
+    }
+
+    private fun vibrator(context: Context): Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        context.getSystemService(VibratorManager::class.java).defaultVibrator
+    } else {
+        @Suppress("DEPRECATION") context.getSystemService(Vibrator::class.java)
     }
 
     private fun quiet() {
@@ -111,6 +131,7 @@ object ReminderAlarm {
         buzz?.cancel()
         buzz = null
         handler.removeCallbacks(silence)
+        handler.removeCallbacks(replay)
     }
 
     fun stop(context: Context) {

@@ -1,7 +1,9 @@
 package online.bus.bmarian.conexiuniclujmobile
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -15,7 +17,9 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
 import online.bus.bmarian.conexiuniclujmobile.data.Photon
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
@@ -25,6 +29,11 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.ConexiuniTheme
 
 class MainActivity : ComponentActivity() {
     private val links = MutableStateFlow<android.net.Uri?>(null)
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        LegacyLocale.override(this)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -45,6 +54,9 @@ class MainActivity : ComponentActivity() {
             ConexiuniTheme(dark) {
                 AppShell(dark = dark, links = links)
             }
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            lifecycleScope.launch { Services.settings.locale.drop(1).collect { recreate() } }
         }
     }
 

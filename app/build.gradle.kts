@@ -21,17 +21,17 @@ android {
     defaultConfig {
         // Must match the watch app: the Wear data layer needs the same id and signing key.
         applicationId = "online.bmarian.bus"
-        minSdk = 34
+        minSdk = 26
         targetSdk = 37
         // Phone and watch share the package, so each upload needs its own code: phone 1xxxx, watch 2xxxx,
         // then the release number, the same on both.
-        versionCode = 10_007
-        versionName = "1.3.2"
+        versionCode = 10_008
+        versionName = "1.4.0"
 
         buildConfigField("String", "API_BASE", "\"https://bus.bmarian.online/api/\"")
         buildConfigField("String", "SITE_ORIGIN", "\"https://bus.bmarian.online\"")
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
     }
 

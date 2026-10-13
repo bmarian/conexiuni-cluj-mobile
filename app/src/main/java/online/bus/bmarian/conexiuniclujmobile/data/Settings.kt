@@ -3,6 +3,7 @@ package online.bus.bmarian.conexiuniclujmobile.data
 import android.app.LocaleManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.LocaleList
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -45,7 +46,9 @@ class Settings(private val context: Context) {
 
     private fun detectInitialLocale(): String {
         // The per-app language from system settings wins.
-        val applied = context.getSystemService(LocaleManager::class.java)?.applicationLocales?.get(0)?.language
+        val applied = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.getSystemService(LocaleManager::class.java)?.applicationLocales?.get(0)?.language
+        } else null
         if (applied == "ro" || applied == "en") {
             prefs.edit { putString("locale", applied) }
             return applied
@@ -63,8 +66,9 @@ class Settings(private val context: Context) {
     }
 
     fun applyLocale() {
-        val manager = context.getSystemService(LocaleManager::class.java) ?: return
         val tag = _locale.value
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return LegacyLocale.apply(context, tag)
+        val manager = context.getSystemService(LocaleManager::class.java) ?: return
         if (manager.applicationLocales.toLanguageTags() == tag) return
         manager.applicationLocales = LocaleList.forLanguageTags(tag)
     }

@@ -1,6 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.widget
 
 import android.appwidget.AppWidgetManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -36,12 +37,18 @@ import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.ConexiuniTheme
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 class StopWidgetConfigActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        LegacyLocale.override(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val appWidgetId = intent?.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)

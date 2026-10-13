@@ -2,9 +2,11 @@ package online.bus.bmarian.conexiuniclujmobile
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Build
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -34,6 +36,11 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         Services.init(this)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Services.settings.applyLocale()
     }
 }
 

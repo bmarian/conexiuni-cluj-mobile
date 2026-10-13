@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.theme
 
+import android.os.Build
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
@@ -123,8 +124,8 @@ fun routeColor(hex: String?): Color =
 fun ConexiuniTheme(dark: Boolean, dynamic: Boolean = true, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val scheme = when {
-        dynamic && dark -> dynamicDarkColorScheme(context)
-        dynamic -> dynamicLightColorScheme(context)
+        dynamic && dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicDarkColorScheme(context)
+        dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
         dark -> DarkColors
         else -> LightColors
     }
