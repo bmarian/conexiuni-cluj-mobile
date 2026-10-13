@@ -90,6 +90,8 @@
     <string name="onboard_location_body">Pentru stațiile din jur și călătorii de unde ești.</string>
     <string name="onboard_notifications_title">Notificări</string>
     <string name="onboard_notifications_body">Pentru autobuzele urmărite, mementouri și călătorii.</string>
+    <string name="onboard_alarms_title">Alarme</string>
+    <string name="onboard_alarms_body">Pentru mementouri care sună la timp.</string>
     <string name="onboard_allow">Permite</string>
     <string name="onboard_done">Începe</string>
     <string name="directions">Direcții</string>

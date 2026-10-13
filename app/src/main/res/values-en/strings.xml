@@ -85,6 +85,8 @@
     <string name="onboard_location_body">For stops near you and trips from where you are.</string>
     <string name="onboard_notifications_title">Notifications</string>
     <string name="onboard_notifications_body">For buses you follow, reminders and trips.</string>
+    <string name="onboard_alarms_title">Alarms</string>
+    <string name="onboard_alarms_body">For reminders that ring on time.</string>
     <string name="onboard_allow">Allow</string>
     <string name="onboard_done">Start</string>
     <string name="directions">Directions</string>
