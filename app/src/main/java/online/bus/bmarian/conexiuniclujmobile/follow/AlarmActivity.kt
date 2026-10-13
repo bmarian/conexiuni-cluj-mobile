@@ -1,7 +1,10 @@
 package online.bus.bmarian.conexiuniclujmobile.follow
 
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -46,6 +49,7 @@ import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
@@ -58,10 +62,19 @@ private val CLOCK = DateTimeFormatter.ofPattern("HH:mm")
 private fun clock(ms: Long) = CLOCK.format(Instant.ofEpochMilli(ms).atZone(CLUJ_ZONE))
 
 class AlarmActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        LegacyLocale.override(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setShowWhenLocked(true)
-        setTurnScreenOn(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION") window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+        }
         val alarm = AlarmInfo(
             title = intent.getStringExtra(EXTRA_TITLE).orEmpty(),
             text = intent.getStringExtra(EXTRA_TEXT),

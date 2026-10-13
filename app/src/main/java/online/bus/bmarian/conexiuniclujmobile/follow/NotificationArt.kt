@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.util.LruCache
 import androidx.compose.ui.graphics.toArgb
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -31,7 +32,7 @@ internal object NotificationArt {
         canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), size * 0.22f, size * 0.22f, fill)
         val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = Color.WHITE
-            typeface = Typeface.create(Typeface.DEFAULT, 900, false)
+            typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Typeface.create(Typeface.DEFAULT, 900, false) else Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.CENTER
             textSize = size * 0.42f
         }

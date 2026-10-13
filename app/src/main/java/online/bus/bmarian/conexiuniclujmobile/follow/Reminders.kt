@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import kotlinx.coroutines.CoroutineScope
@@ -110,7 +111,8 @@ object Reminders {
         save(context)
     }
 
-    fun exactAllowed(context: Context) = context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+    fun exactAllowed(context: Context) =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
     private fun save(context: Context) {
         prefs(context).edit { putString("all", Api.json.encodeToString(all.value)) }
@@ -131,7 +133,7 @@ object Reminders {
     private fun alarm(context: Context, id: String, at: Long, wakeAt: Long) {
         val manager = context.getSystemService(AlarmManager::class.java)
         val pending = pending(context, id, at)
-        if (manager.canScheduleExactAlarms()) manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeAt, pending)
+        if (exactAllowed(context)) manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeAt, pending)
         else manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeAt, pending)
     }
 

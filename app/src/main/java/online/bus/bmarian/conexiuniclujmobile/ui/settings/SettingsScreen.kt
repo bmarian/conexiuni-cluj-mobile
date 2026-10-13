@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -173,12 +174,13 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     }
 
     val notifications = context.getSystemService(NotificationManager::class.java)
+    fun fullScreenAllowed() = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || notifications.canUseFullScreenIntent()
     val fullScreenAccess = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (!notifications.canUseFullScreenIntent()) settings.showToast(resources.getString(R.string.alarm_full_screen_off))
+        if (!fullScreenAllowed()) settings.showToast(resources.getString(R.string.alarm_full_screen_off))
     }
     fun toggleAlarms(on: Boolean) {
         settings.setFullScreenAlarms(on)
-        if (on && !notifications.canUseFullScreenIntent()) {
+        if (on && !fullScreenAllowed()) {
             fullScreenAccess.launch(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, "package:${context.packageName}".toUri()))
         }
     }

@@ -2,6 +2,7 @@ package online.bus.bmarian.conexiuniclujmobile.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -65,7 +66,9 @@ fun Onboarding(onDone: () -> Unit) {
         buildList {
             add(Step.Welcome)
             if (!UserLocation.permitted(context)) add(Step.Location)
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) add(Step.Notifications)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) add(Step.Notifications)
         }
     }
     var index by rememberSaveable { mutableIntStateOf(0) }
