@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -29,6 +30,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
@@ -181,6 +184,21 @@ fun PopIcon(
             },
         tint = tint,
     )
+}
+
+/** An up arrow that shoots out the top and springs back in from the bottom, over and over. Clip its parent. */
+@Composable
+fun RisingArrow(modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
+    val lift = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(900)
+            lift.animateTo(-1f, tween(240, easing = FastOutLinearInEasing))
+            lift.snapTo(1f)
+            lift.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 420f))
+        }
+    }
+    Icon(Icons.Rounded.ArrowUpward, null, modifier.graphicsLayer { translationY = lift.value * size.height }, tint = tint)
 }
 
 /** Text that rolls up to its new value. */

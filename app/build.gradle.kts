@@ -108,6 +108,7 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.play.services.code.scanner)
     implementation(libs.play.services.wearable)
+    implementation(libs.play.app.update)
     implementation(libs.androidx.wear.remote.interactions)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
