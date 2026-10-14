@@ -20,25 +20,30 @@ internal class NavFollow(private val journey: Journey) {
     private var shown: Fix? = null
     private var turnedAt: Fix? = null
     private var bearing: Float? = null
+    private var onLineAt: Long? = null
 
-    fun update(fix: Fix, stepType: String?, leg: Int): Pair<Fix, Progress> {
+    fun update(fix: Fix, stepType: String?, leg: Int, nowMs: Long = System.currentTimeMillis()): Pair<Fix, Progress> {
         if (step != stepType to leg) {
             step = stepType to leg
             line = lineFor(stepType, leg)
             along = 0.0
             turnedAt = null
+            onLineAt = null
             if (stepType == StepType.WAIT) {
                 journey.legs.getOrNull(leg)?.let { rideRoute(it).locate(it.boarding.lat, it.boarding.lon) }?.let { bearing = it.bearing.toFloat() }
             }
         }
         val error = fix.accuracyMeters.toDouble()
         val near = max(AT_STOP_M, error)
-        val spot = line?.locate(fix.lat, fix.lon, along - error)?.takeIf { it.off <= near }
+        // After the first fix on the line, only as far ahead as a bus could have gone since.
+        val upTo = onLineAt?.let { along + reachSince(it, nowMs, error) } ?: Double.POSITIVE_INFINITY
+        val spot = line?.locate(fix.lat, fix.lon, along - error, upTo)?.takeIf { it.off <= near }
         val last = shown
         val out = when {
             spot != null -> {
-                val ahead = if (spot.along >= along) spot else line!!.locate(fix.lat, fix.lon, along) ?: spot
+                val ahead = if (spot.along >= along) spot else line!!.locate(fix.lat, fix.lon, along, upTo) ?: spot
                 along = max(along, ahead.along)
+                onLineAt = nowMs
                 bearing = ahead.bearing.toFloat()
                 Fix(ahead.lat, ahead.lon, fix.accuracyMeters, bearing, fix.speed)
             }
