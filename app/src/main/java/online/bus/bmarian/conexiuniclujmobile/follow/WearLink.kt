@@ -58,11 +58,18 @@ object WearLink {
     private val mutableWatch = MutableStateFlow(false)
     val watchInReach: StateFlow<Boolean> = mutableWatch
 
+    private val mutableWithoutApp = MutableStateFlow(false)
+    /** A connected watch without the app, until it's been offered once. */
+    val watchWithoutApp: StateFlow<Boolean> = mutableWithoutApp
+
     fun start(context: Context) {
         val app = context.applicationContext
         scope.launch { mutableWatch.value = peers(app).isNotEmpty() }
         runCatching {
-            Wearable.getCapabilityClient(app).addListener({ info -> mutableWatch.value = info.nodes.isNotEmpty() }, CAPABILITY)
+            Wearable.getCapabilityClient(app).addListener({ info ->
+                mutableWatch.value = info.nodes.isNotEmpty()
+                checkWatchApp(app)
+            }, CAPABILITY)
         }
         Services.favorites.onSharedChange = { publishFavorites(app) }
         scope.launch { catchUpFavorites(app) }
@@ -74,11 +81,42 @@ object WearLink {
     fun refreshReach(context: Context) {
         val app = context.applicationContext
         scope.launch { mutableWatch.value = peers(app).isNotEmpty() || relayed }
+        checkWatchApp(app)
     }
 
     private suspend fun peers(context: Context): Set<Node> = runCatching {
         Wearable.getCapabilityClient(context).getCapability(CAPABILITY, CapabilityClient.FILTER_REACHABLE).await().nodes
     }.getOrDefault(emptySet())
+
+    private suspend fun watchesWithoutApp(context: Context): List<Node> = runCatching {
+        val withApp = Wearable.getCapabilityClient(context).getCapability(CAPABILITY, CapabilityClient.FILTER_ALL).await().nodes.map { it.id }.toSet()
+        Wearable.getNodeClient(context).connectedNodes.await().filter { it.id !in withApp }
+    }.getOrDefault(emptyList())
+
+    private fun checkWatchApp(context: Context) {
+        if (prefs(context).getBoolean("watchAppOffered", false)) return
+        scope.launch { mutableWithoutApp.value = watchesWithoutApp(context).isNotEmpty() }
+    }
+
+    /** Opens the app's Play page on each watch that doesn't have it. */
+    fun installOnWatch(context: Context) {
+        val app = context.applicationContext
+        skipWatchApp(app)
+        scope.launch {
+            val intent = Intent(Intent.ACTION_VIEW)
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .setData(Uri.parse("market://details?id=${app.packageName}"))
+            val helper = RemoteActivityHelper(app)
+            for (node in watchesWithoutApp(app)) {
+                runCatching { withContext(Dispatchers.IO) { helper.startRemoteActivity(intent, node.id).get() } }
+            }
+        }
+    }
+
+    fun skipWatchApp(context: Context) {
+        prefs(context).edit { putBoolean("watchAppOffered", true) }
+        mutableWithoutApp.value = false
+    }
 
     private suspend fun send(context: Context, path: String, data: ByteArray): Boolean {
         relay(path, data)

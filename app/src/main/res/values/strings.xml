@@ -143,4 +143,6 @@
     <string name="alarm_label">Memento</string>
     <string name="app_version">Versiunea %1$s</string>
     <string name="update_question">Vrei să actualizezi aplicația?</string>
+    <string name="watch_install_question">Vrei să instalezi aplicația pe ceas?</string>
+    <string name="watch_install">Instalează</string>
 </resources>

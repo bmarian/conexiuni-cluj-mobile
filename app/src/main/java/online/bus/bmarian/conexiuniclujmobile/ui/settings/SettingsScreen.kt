@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.LightMode
@@ -51,6 +52,7 @@ import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Newspaper
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -114,12 +116,14 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.data.Transfer
+import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
+import online.bus.bmarian.conexiuniclujmobile.ui.buzz
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 @Composable
@@ -136,6 +140,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
     val alarms by settings.fullScreenAlarms.collectAsStateWithLifecycle()
     val update by AppUpdates.available.collectAsStateWithLifecycle()
+    val watchApp by WearLink.watchWithoutApp.collectAsStateWithLifecycle()
     val transfer: TransferViewModel = viewModel()
     val sheet = LocalSheet.current
     val scope = rememberCoroutineScope()
@@ -175,7 +180,22 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
-            UpdateQuestion(update, onYes = { scope.launch { AppUpdates.update(updateFlow) } }, onNo = AppUpdates::decline)
+            Prompt(
+                update,
+                stringResource(R.string.update_question),
+                Icons.Rounded.Check,
+                stringResource(R.string.w_yes),
+                onYes = { scope.launch { AppUpdates.update(updateFlow) } },
+                onNo = AppUpdates::decline,
+            ) { RisingArrow(tint = it) }
+            Prompt(
+                watchApp && !update,
+                stringResource(R.string.watch_install_question),
+                Icons.Rounded.Download,
+                stringResource(R.string.watch_install),
+                onYes = { WearLink.installOnWatch(context) },
+                onNo = { WearLink.skipWatchApp(context) },
+            ) { Icon(Icons.Rounded.Watch, null, Modifier.buzz(), tint = it) }
 
             Section(stringResource(R.string.w_language))
             if (locale == "en") {
@@ -226,9 +246,17 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     }
 }
 
-/** Slides in while an update waits and folds away on No. */
+/** A one-off question at the top. Slides in and folds away once answered. */
 @Composable
-private fun UpdateQuestion(visible: Boolean, onYes: () -> Unit, onNo: () -> Unit) {
+private fun Prompt(
+    visible: Boolean,
+    question: String,
+    yesIcon: ImageVector,
+    yes: String,
+    onYes: () -> Unit,
+    onNo: () -> Unit,
+    icon: @Composable (Color) -> Unit,
+) {
     val state = remember { MutableTransitionState(false) }.apply { targetState = visible }
     AnimatedVisibility(
         state,
@@ -245,14 +273,14 @@ private fun UpdateQuestion(visible: Boolean, onYes: () -> Unit, onNo: () -> Unit
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(Modifier.size(44.dp).clip(CircleShape).background(colors.primary), contentAlignment = Alignment.Center) {
-                        RisingArrow(tint = colors.onPrimary)
+                        icon(colors.onPrimary)
                     }
-                    Text(stringResource(R.string.update_question), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(question, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(shapes = ButtonDefaults.shapes(), onClick = onYes, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Rounded.Check, null, Modifier.size(18.dp))
-                        Text(stringResource(R.string.w_yes), Modifier.padding(start = 8.dp))
+                        Icon(yesIcon, null, Modifier.size(18.dp))
+                        Text(yes, Modifier.padding(start = 8.dp))
                     }
                     OutlinedButton(
                         shapes = ButtonDefaults.shapes(),

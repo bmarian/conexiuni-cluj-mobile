@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Newspaper
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -64,9 +65,11 @@ import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.AppUpdates
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
+import online.bus.bmarian.conexiuniclujmobile.ui.buzz
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
@@ -118,10 +121,12 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
     }
 }
 
-/** While an update waits, the cog spins in bursts under a green arrow. */
+/** While an update waits, the cog spins in bursts under a green arrow. For a watch without the app, it turns into a buzzing watch. */
 @Composable
 private fun SettingsCog(onClick: () -> Unit) {
     val update by AppUpdates.available.collectAsStateWithLifecycle()
+    val watchApp by WearLink.watchWithoutApp.collectAsStateWithLifecycle()
+    val watch = watchApp && !update
     val spin = remember { Animatable(0f) }
     LaunchedEffect(update) {
         if (!update) {
@@ -134,9 +139,34 @@ private fun SettingsCog(onClick: () -> Unit) {
             delay(1600)
         }
     }
+    val morph = remember { Animatable(0f) }
+    LaunchedEffect(watch) { morph.animateTo(if (watch) 1f else 0f, Bouncy.pop) }
     Box {
         IconButton(onClick = onClick) {
-            Icon(Icons.Rounded.Settings, stringResource(R.string.w_settings), Modifier.graphicsLayer { rotationZ = spin.value })
+            Icon(
+                Icons.Rounded.Settings,
+                stringResource(R.string.w_settings),
+                Modifier.graphicsLayer {
+                    val m = morph.value
+                    rotationZ = spin.value + m * 180f
+                    scaleX = (1f - m).coerceAtLeast(0f)
+                    scaleY = scaleX
+                    alpha = (1f - m).coerceIn(0f, 1f)
+                },
+            )
+            Icon(
+                Icons.Rounded.Watch,
+                null,
+                Modifier
+                    .graphicsLayer {
+                        val m = morph.value
+                        rotationZ = (1f - m) * -120f
+                        scaleX = m.coerceAtLeast(0f)
+                        scaleY = scaleX
+                        alpha = m.coerceIn(0f, 1f)
+                    }
+                    .then(if (watch) Modifier.buzz() else Modifier),
+            )
         }
         AnimatedVisibility(
             update,

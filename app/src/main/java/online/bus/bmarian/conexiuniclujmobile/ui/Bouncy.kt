@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -199,6 +200,25 @@ fun RisingArrow(modifier: Modifier = Modifier, tint: Color = LocalContentColor.c
         }
     }
     Icon(Icons.Rounded.ArrowUpward, null, modifier.graphicsLayer { translationY = lift.value * size.height }, tint = tint)
+}
+
+/** Wiggles now and then, like a watch buzzing on a wrist. */
+fun Modifier.buzz(): Modifier = composed {
+    val angle = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1800)
+            angle.animateTo(0f, keyframes {
+                durationMillis = 520
+                14f at 60
+                -14f at 160
+                10f at 260
+                -8f at 360
+                4f at 440
+            })
+        }
+    }
+    graphicsLayer { rotationZ = angle.value }
 }
 
 /** Text that rolls up to its new value. */
