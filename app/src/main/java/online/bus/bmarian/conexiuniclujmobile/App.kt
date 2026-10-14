@@ -106,6 +106,7 @@ object Services {
         RouteChangeWorker.schedule(app)
         WearLink.start(app)
         Reminders.init(app)
+        AppUpdates.init(app)
         scope.launch {
             combine(favorites.stops, repository.stops) { ids, stops -> ids to stops }.collect { (ids, stops) ->
                 if (stops.isNotEmpty()) Shortcuts.updateFavoriteStops(app, ids, stops)

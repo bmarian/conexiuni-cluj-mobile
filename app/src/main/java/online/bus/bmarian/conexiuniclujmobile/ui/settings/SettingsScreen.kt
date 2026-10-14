@@ -6,6 +6,15 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,6 +73,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -96,6 +107,8 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import kotlinx.coroutines.launch
+import online.bus.bmarian.conexiuniclujmobile.AppUpdates
 import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
@@ -104,6 +117,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Transfer
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
@@ -121,8 +135,11 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val center by settings.autoCenterOnMe.collectAsStateWithLifecycle()
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
     val alarms by settings.fullScreenAlarms.collectAsStateWithLifecycle()
+    val update by AppUpdates.available.collectAsStateWithLifecycle()
     val transfer: TransferViewModel = viewModel()
     val sheet = LocalSheet.current
+    val scope = rememberCoroutineScope()
+    val updateFlow = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
 
     // Once per link.
     var linkHandled by rememberSaveable { mutableStateOf(false) }
@@ -158,6 +175,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
+            UpdateQuestion(update, onYes = { scope.launch { AppUpdates.update(updateFlow) } }, onNo = AppUpdates::decline)
 
             Section(stringResource(R.string.w_language))
             if (locale == "en") {
@@ -204,6 +222,50 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+/** Slides in while an update waits and folds away on No. */
+@Composable
+private fun UpdateQuestion(visible: Boolean, onYes: () -> Unit, onNo: () -> Unit) {
+    val state = remember { MutableTransitionState(false) }.apply { targetState = visible }
+    AnimatedVisibility(
+        state,
+        enter = expandVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
+    ) {
+        val colors = MaterialTheme.colorScheme
+        Surface(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = colors.primaryContainer,
+            contentColor = colors.onPrimaryContainer,
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(colors.primary), contentAlignment = Alignment.Center) {
+                        RisingArrow(tint = colors.onPrimary)
+                    }
+                    Text(stringResource(R.string.update_question), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(shapes = ButtonDefaults.shapes(), onClick = onYes, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Rounded.Check, null, Modifier.size(18.dp))
+                        Text(stringResource(R.string.w_yes), Modifier.padding(start = 8.dp))
+                    }
+                    OutlinedButton(
+                        shapes = ButtonDefaults.shapes(),
+                        onClick = onNo,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.onPrimaryContainer),
+                        border = BorderStroke(1.dp, colors.onPrimaryContainer.copy(alpha = 0.4f)),
+                    ) {
+                        Icon(Icons.Rounded.Close, null, Modifier.size(18.dp))
+                        Text(stringResource(R.string.w_no), Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
         }
     }
 }

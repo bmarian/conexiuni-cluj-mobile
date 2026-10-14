@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +30,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.ConexiuniTheme
 
 class MainActivity : ComponentActivity() {
     private val links = MutableStateFlow<android.net.Uri?>(null)
+    private val updateFlow = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
@@ -63,6 +65,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         WearLink.refreshReach(this)
+        lifecycleScope.launch { AppUpdates.resume(updateFlow) }
     }
 
     override fun onNewIntent(intent: Intent) {

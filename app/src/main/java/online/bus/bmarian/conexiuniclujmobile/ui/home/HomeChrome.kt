@@ -1,7 +1,14 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -37,6 +44,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -46,17 +54,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import online.bus.bmarian.conexiuniclujmobile.AppUpdates
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
+import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
+import kotlin.math.ceil
 
 @Composable
 fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifier) {
@@ -83,9 +97,7 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                IconButton(onClick = nav::settings) {
-                    Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.w_settings))
-                }
+                SettingsCog(nav::settings)
             }
         }
         LazyRow(
@@ -102,6 +114,60 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
                     MapChip(Icons.Rounded.Place, place.label ?: place.name, tint = MaterialTheme.colorScheme.tertiary) { nav.plan(planQueryFor(place)) }
                 }
             }
+        }
+    }
+}
+
+/** While an update waits, the cog spins in bursts under a green arrow. */
+@Composable
+private fun SettingsCog(onClick: () -> Unit) {
+    val update by AppUpdates.available.collectAsStateWithLifecycle()
+    val spin = remember { Animatable(0f) }
+    LaunchedEffect(update) {
+        if (!update) {
+            spin.animateTo(ceil(spin.value / 360f) * 360f, Bouncy.land)
+            return@LaunchedEffect
+        }
+        while (true) {
+            spin.animateTo(spin.value - 30f, tween(200))
+            spin.animateTo(spin.value + 390f, spring(dampingRatio = 0.45f, stiffness = 90f))
+            delay(1600)
+        }
+    }
+    Box {
+        IconButton(onClick = onClick) {
+            Icon(Icons.Rounded.Settings, stringResource(R.string.w_settings), Modifier.graphicsLayer { rotationZ = spin.value })
+        }
+        AnimatedVisibility(
+            update,
+            Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 4.dp),
+            enter = scaleIn(Bouncy.pop) + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+        ) {
+            UpdateBadge()
+        }
+    }
+}
+
+@Composable
+private fun UpdateBadge() {
+    val wave by rememberInfiniteTransition("ping").animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearOutSlowInEasing)), "wave")
+    Box(contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(16.dp)
+                .graphicsLayer {
+                    scaleX = 1f + wave
+                    scaleY = 1f + wave
+                    alpha = (1f - wave) * 0.5f
+                }
+                .clip(CircleShape).background(Palette.Emerald),
+        )
+        Box(
+            Modifier.size(16.dp).clip(CircleShape).background(Palette.Emerald)
+                .border(1.5.dp, MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            RisingArrow(Modifier.size(11.dp), tint = Color.White)
         }
     }
 }
