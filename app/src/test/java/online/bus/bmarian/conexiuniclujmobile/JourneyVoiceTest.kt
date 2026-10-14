@@ -1,5 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile
 
+import online.bus.bmarian.conexiuniclujmobile.journey.romanianClock
+import online.bus.bmarian.conexiuniclujmobile.journey.romanianNumber
 import online.bus.bmarian.conexiuniclujmobile.journey.speechParts
 import online.bus.bmarian.conexiuniclujmobile.journey.spokenName
 import online.bus.bmarian.conexiuniclujmobile.journey.spokenStopName
@@ -46,5 +48,19 @@ class JourneyVoiceTest {
             speechParts("Get off at the next stop, ${spokenName("P-ța Cipariu Nord")}."),
         )
         assertEquals(listOf("The 44 is coming." to false), speechParts("The 44 is coming."))
+    }
+
+    @Test
+    fun romanianCountsAgreeWithTheirNoun() {
+        assertEquals("două", romanianNumber(2, feminine = true))
+        assertEquals("două", romanianNumber(2, feminine = false))
+        assertEquals("douăsprezece", romanianNumber(12, feminine = true))
+        assertEquals("douăzeci și una", romanianNumber(21, feminine = true))
+        assertEquals("douăzeci și unu", romanianNumber(21, feminine = false))
+        assertEquals("douăzeci și două", romanianNumber(22, feminine = false))
+        assertEquals("treizeci", romanianNumber(30, feminine = false))
+        assertEquals("o sută două", romanianNumber(102, feminine = false))
+        assertEquals("optsprezece și douăzeci și două", romanianClock(18, 22))
+        assertEquals("nouă fix", romanianClock(9, 0))
     }
 }

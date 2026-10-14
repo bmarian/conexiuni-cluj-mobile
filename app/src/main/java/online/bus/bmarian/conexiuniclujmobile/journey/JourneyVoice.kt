@@ -83,6 +83,35 @@ internal fun speechParts(text: String): List<Pair<String, Boolean>> = buildList 
     }
 }.filter { (part, _) -> part.any(Char::isLetterOrDigit) }
 
+private val UNITS = listOf("zero", "unu", "două", "trei", "patru", "cinci", "șase", "șapte", "opt", "nouă")
+private val TEENS = listOf("zece", "unsprezece", "douăsprezece", "treisprezece", "paisprezece", "cincisprezece", "șaisprezece", "șaptesprezece", "optsprezece", "nouăsprezece")
+private val TENS = listOf("", "", "douăzeci", "treizeci", "patruzeci", "cincizeci", "șaizeci", "șaptezeci", "optzeci", "nouăzeci")
+
+/** A count of stops or minutes in Romanian words: "două", "douăsprezece", "douăzeci și una". */
+internal fun romanianNumber(n: Int, feminine: Boolean): String {
+    fun unit(u: Int) = if (u == 1 && feminine) "una" else UNITS[u]
+    fun belowHundred(x: Int) = when {
+        x < 10 -> unit(x)
+        x < 20 -> TEENS[x - 10]
+        x % 10 == 0 -> TENS[x / 10]
+        else -> "${TENS[x / 10]} și ${unit(x % 10)}"
+    }
+    val value = n.coerceIn(0, 999)
+    if (value < 100) return belowHundred(value)
+    val hundreds = when (val h = value / 100) {
+        1 -> "o sută"
+        2 -> "două sute"
+        else -> "${UNITS[h]} sute"
+    }
+    return if (value % 100 == 0) hundreds else "$hundreds ${belowHundred(value % 100)}"
+}
+
+/** "optsprezece și douăzeci și două", "nouă fix". */
+internal fun romanianClock(hour: Int, minute: Int): String {
+    val h = romanianNumber(hour, feminine = false)
+    return if (minute == 0) "$h fix" else "$h și ${romanianNumber(minute, feminine = false)}"
+}
+
 private val ROMANIAN: Locale = Locale.forLanguageTag("ro-RO")
 
 class JourneyVoice(context: Context) {

@@ -7,6 +7,9 @@ import kotlin.math.max
 
 internal const val AT_STOP_M = 40.0
 internal const val LEFT_STOP_M = 150.0
+private const val ON_LINE_M = 75.0
+// 72 km/h, faster than a bus goes in town.
+private const val MAX_BUS_MPS = 20.0
 private const val IN_A_ROW = 2
 
 internal fun distanceTo(fix: Fix, stop: JourneyStop) = haversineMeters(fix.lat, fix.lon, stop.lat, stop.lon)
@@ -19,10 +22,56 @@ internal fun rideRoute(leg: JourneyLeg): RouteLine =
     RouteLine(leg.path.takeIf { it.size >= 2 } ?: leg.stops.map { JourneyPoint(it.lat, it.lon) })
 
 /** Each stop's metres along the ride, taken in order so a line passing near itself keeps them apart. */
-internal fun stopsAlong(leg: JourneyLeg, route: RouteLine): List<Double> {
+internal fun stopsAlong(leg: JourneyLeg, route: RouteLine): List<Double> = alongEach(route, leg.stops.map { JourneyPoint(it.lat, it.lon) })
+
+private fun alongEach(route: RouteLine, points: List<JourneyPoint>): List<Double> {
     var from = 0.0
-    return leg.stops.map { stop -> (route.locate(stop.lat, stop.lon, from)?.along ?: from).also { from = it } }
+    return points.map { p -> (route.locate(p.lat, p.lon, from)?.along ?: from).also { from = it } }
 }
+
+/** The part of a line's shape between two of its stops, given all its stops in order. */
+internal fun ridePath(shape: List<JourneyPoint>, stops: List<JourneyPoint>, boarding: Int, alighting: Int): List<JourneyPoint> {
+    if (shape.size < 2 || boarding !in stops.indices || alighting !in stops.indices) return emptyList()
+    val route = RouteLine(shape)
+    val along = alongEach(route, stops.take(alighting + 1))
+    return route.between(along[boarding], along[alighting])
+}
+
+/**
+ * How far along a ride someone is. A fix only counts if it is near the line and the bus could have got
+ * there since the last one, so a stray fix near a later part of the line does not skip stops.
+ */
+internal class RideTracker(leg: JourneyLeg, startMs: Long) {
+    private val route = rideRoute(leg)
+    private val stops = stopsAlong(leg, route)
+    private var fixAt = startMs
+    private var seen: Fix? = null
+    var along = stops.first()
+        private set
+    var stop = 0
+        private set
+    val there get() = along >= stops.last() - AT_STOP_M
+
+    fun update(fix: Fix, nowMs: Long) {
+        if (fix == seen) return
+        seen = fix
+        // Only what the fix's own error cannot take back counts as ridden.
+        val error = fix.accuracyMeters.toDouble()
+        val spot = route.locate(fix.lat, fix.lon, along - error, along + reachSince(fixAt, nowMs, error)) ?: return
+        if (spot.off > max(ON_LINE_M, 2 * error)) return
+        along = max(along, spot.along - error)
+        fixAt = nowMs
+        stop = max(stop, stops.indexOfLast { it <= along })
+    }
+}
+
+/** Metres a bus could have gone since `sinceMs`, give or take a fix's error. */
+internal fun reachSince(sinceMs: Long, nowMs: Long, error: Double) =
+    MAX_BUS_MPS * (nowMs - sinceMs).coerceAtLeast(0) / 1000 + 2 * error + AT_STOP_M
+
+/** Far enough from the ride's line that it is not the bus's GPS wandering. */
+internal fun farOffLine(fix: Fix, leg: JourneyLeg): Boolean =
+    offLine(fix, leg, max(ON_LINE_M, 2.0 * fix.accuracyMeters))
 
 /** The walk that ends nearest `lat`/`lon`, the way to it. */
 internal fun walkRoute(journey: Journey, lat: Double, lon: Double): RouteLine? =
@@ -35,9 +84,9 @@ internal fun ridePace(leg: JourneyLeg): Double? {
 }
 
 /** Further from the ride's line than standing at one of its stops. */
-internal fun offLine(fix: Fix, leg: JourneyLeg): Boolean {
+internal fun offLine(fix: Fix, leg: JourneyLeg, near: Double = max(AT_STOP_M, fix.accuracyMeters.toDouble())): Boolean {
     val off = rideRoute(leg).locate(fix.lat, fix.lon)?.off ?: return false
-    return off > max(AT_STOP_M, fix.accuracyMeters.toDouble())
+    return off > near
 }
 
 /** How you move, judged only over stretches longer than the fixes' own error. */

@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.route
 
+import android.icu.text.PluralRules
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -68,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
@@ -96,7 +98,10 @@ import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
+import online.bus.bmarian.conexiuniclujmobile.journey.JourneyPoint
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyStop
+import online.bus.bmarian.conexiuniclujmobile.journey.ridePath
+import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
 import online.bus.bmarian.conexiuniclujmobile.logic.HourGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedStop
 import online.bus.bmarian.conexiuniclujmobile.logic.TimetableTab
@@ -302,6 +307,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         if (idx <= boarding) return
         val ride = stops.subList(boarding, idx + 1)
         fun js(s: IndexedStop) = JourneyStop(s.stop.stopId, s.stop.headsign.ifEmpty { "${s.stop.stopId}" }, s.stop.lat, s.stop.lon)
+        val path = current?.shape?.shape.orEmpty().map { JourneyPoint(it.lat, it.lon) }
+            .let { shape -> ridePath(shape, stops.map { JourneyPoint(it.stop.lat, it.stop.lon) }, boarding, idx) }
         val leg = JourneyLeg(
             routeIds = listOf(routeId),
             tripIds = listOf(tripId),
@@ -309,6 +316,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             colors = listOf(route.color),
             stops = ride.map(::js),
             rideMinutes = (ride.last().secondsFromStart - ride.first().secondsFromStart) / 60,
+            path = simplifyPath(path.map { LatLon(it.lat, it.lon) }),
         )
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         JourneyManager.start(context, Journey(JourneyManager.newId(), js(ride.last()), listOf(leg), planPath = "/route/$routeId/$dir"))
@@ -497,10 +505,13 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         Text("↻", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(32.dp))
                         Column {
                             if (frequency.minMinutes != 0 || frequency.maxMinutes != 0) {
-                                val label = if (frequency.minMinutes != 0 && frequency.maxMinutes != 0 && frequency.minMinutes != frequency.maxMinutes) {
-                                    stringResource(R.string.w_frequency_every_range, "${frequency.minMinutes}", "${frequency.maxMinutes}")
+                                val isRange = frequency.minMinutes != 0 && frequency.maxMinutes != 0 && frequency.minMinutes != frequency.maxMinutes
+                                val last = if (isRange || frequency.minMinutes == 0) frequency.maxMinutes else frequency.minMinutes
+                                val withDe = PluralRules.forLocale(LocalConfiguration.current.locales[0]).select(last.toDouble()) == "other"
+                                val label = if (isRange) {
+                                    stringResource(if (withDe) R.string.w_frequency_every_range_other else R.string.w_frequency_every_range, "${frequency.minMinutes}", "${frequency.maxMinutes}")
                                 } else {
-                                    stringResource(R.string.w_frequency_every, "${if (frequency.minMinutes != 0) frequency.minMinutes else frequency.maxMinutes}")
+                                    stringResource(if (withDe) R.string.w_frequency_every_other else R.string.w_frequency_every, "$last")
                                 }
                                 Text(label, style = MaterialTheme.typography.titleSmall)
                             }

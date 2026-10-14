@@ -52,5 +52,5 @@ internal fun leaveText(context: Context, line: String, minutes: Int, leaveAt: Lo
 
 internal fun leaveChip(context: Context, leaveAt: Long, nowMs: Long): String {
     val leave = leaveIn(leaveAt, nowMs)
-    return if (leave <= 0) context.getString(R.string.leave_go) else chipText(context, leave, nowMs)
+    return if (leave <= 0) context.getString(R.string.leave_now) else chipText(context, leave, nowMs)
 }

@@ -79,13 +79,15 @@ class JourneyService : Service() {
     private var walkEndStartedAt = 0L
     private var walkStartM = 0.0
     private val motion = Motion()
-    private var rideAlong = 0.0
-    private var rideGeometry: Triple<JourneyLeg, RouteLine, List<Double>>? = null
+    private var ride: RideTracker? = null
+    private var awayInARow = 0
+    private var awayFix: Fix? = null
+    private var atStopAt = 0L
     private val legIndex = MutableStateFlow(0)
     private var voice: JourneyVoice? = null
     private var cue: Phase? = null
     private var cueSince = 0L
-    private var cueAfterRide = false
+    private var cueAfterRide: Int? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -108,7 +110,7 @@ class JourneyService : Service() {
             legIndex.value = 0
             cue = Phase.Walk(0)
             cueSince = System.currentTimeMillis()
-            cueAfterRide = false
+            cueAfterRide = null
         }
         if (voice == null) voice = JourneyVoice(this)
         val located = UserLocation.permitted(this)
@@ -216,20 +218,22 @@ class JourneyService : Service() {
             stepIndex++
             alerted = false
             motion.reset()
+            awayInARow = 0
             if (phase is Phase.Ride && before !is Phase.Ride) {
                 rideStop = 0
-                rideAlong = 0.0
+                ride = null
                 rideStartedAt = nowMs
             }
             if (phase is Phase.WalkEnd) walkEndStartedAt = nowMs
             if (phase is Phase.Walk) walkStartM = fix?.let { distanceTo(it, journey.legs[phase.leg].boarding) } ?: 0.0
+            if (phase.leg != before.leg) atStopAt = 0
             if (phase.leg >= 0) legIndex.value = phase.leg
             cue = phase
             cueSince = nowMs
-            cueAfterRide = before is Phase.Ride
+            cueAfterRide = (before as? Phase.Ride)?.leg
         }
         if (phase == Phase.Done) {
-            if (before != Phase.Done) voice?.say(listOfNotNull(getString(R.string.voice_get_off).takeIf { cueAfterRide }, getString(R.string.voice_arrived)).joinToString(" "))
+            if (before != Phase.Done) voice?.say(listOfNotNull(gotOffText(journey), getString(R.string.voice_arrived)).joinToString(" "))
             return finish(journey)
         }
         val described = describe(journey, fix, departure, nowMs)
@@ -246,7 +250,7 @@ class JourneyService : Service() {
             alerted = true
             stepIndex++
         }
-        announce(journey, departure, nowMs, alert)
+        announce(journey, fix, departure, nowMs, alert)
         val shown = sync.copy(stepIndex = stepIndex)
         JourneyManager.publish(this, shown)
         getSystemService(NotificationManager::class.java)
@@ -268,7 +272,7 @@ class JourneyService : Service() {
                 val leg = journey.legs[phase.leg]
                 when {
                     skip -> Phase.Wait(phase.leg)
-                    fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) -> Phase.Wait(phase.leg)
+                    fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) -> Phase.Wait(phase.leg).also { atStopAt = nowMs }
                     fix != null && leftOnBus(fix, leg) && motion.riding(fix, nowMs, ridePace(leg)) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
@@ -276,9 +280,15 @@ class JourneyService : Service() {
             }
             is Phase.Wait -> {
                 val leg = journey.legs[phase.leg]
+                // One fix away from the stop can be the GPS wandering while you wait.
+                if (fix != null && fix != awayFix) {
+                    awayFix = fix
+                    awayInARow = if (leftOnBus(fix, leg)) awayInARow + 1 else 0
+                    if (distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble())) atStopAt = nowMs
+                }
                 when {
                     skip -> Phase.Ride(phase.leg)
-                    fix != null && leftOnBus(fix, leg) -> Phase.Ride(phase.leg)
+                    awayInARow >= 2 -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
                 }
@@ -286,18 +296,17 @@ class JourneyService : Service() {
             is Phase.Ride -> {
                 val leg = journey.legs[phase.leg]
                 val last = leg.stops.lastIndex
-                val (route, stops) = geometry(leg)
+                // From the last time you were seen at the stop: the bus may be well on its way by now.
+                val tracker = ride ?: RideTracker(leg, atStopAt.takeIf { it > 0 } ?: rideStartedAt).also { ride = it }
                 if (fix != null) {
-                    // Only what the fix's own error cannot take back counts as ridden.
-                    val error = fix.accuracyMeters.toDouble()
-                    route.locate(fix.lat, fix.lon, rideAlong - error)?.let { rideAlong = max(rideAlong, it.along - error) }
-                    rideStop = max(rideStop, stops.indexOfLast { it <= rideAlong })
+                    tracker.update(fix, nowMs)
+                    rideStop = max(rideStop, tracker.stop)
                 } else {
                     val perStop = leg.rideMinutes.takeIf { it > 0 }?.div(last.coerceAtLeast(1)) ?: 2.0
                     rideStop = max(rideStop, ((nowMs - rideStartedAt) / 60_000.0 / perStop).toInt().coerceAtMost(last))
                 }
-                val there = fix != null && rideAlong >= stops[last] - AT_STOP_M
-                val gotOff = fix != null && motion.walking() && offLine(fix, leg)
+                val there = fix != null && tracker.there
+                val gotOff = fix != null && motion.walking() && farOffLine(fix, leg)
                 if (skip || there || gotOff || rideStop >= last) afterLeg(phase.leg) else phase
             }
             Phase.WalkEnd -> {
@@ -311,15 +320,6 @@ class JourneyService : Service() {
             }
             Phase.Done -> phase
         }
-    }
-
-    private fun geometry(leg: JourneyLeg): Pair<RouteLine, List<Double>> {
-        val known = rideGeometry
-        if (known != null && known.first === leg) return known.second to known.third
-        val route = rideRoute(leg)
-        val stops = stopsAlong(leg, route)
-        rideGeometry = Triple(leg, route, stops)
-        return route to stops
     }
 
     private fun busLeft(departure: StopDeparture?): Boolean {
@@ -360,7 +360,7 @@ class JourneyService : Service() {
         return nowMs + (minutes * 60_000).toLong()
     }
 
-    private fun announce(journey: Journey, departure: StopDeparture?, nowMs: Long, alert: Boolean) {
+    private fun announce(journey: Journey, fix: Fix?, departure: StopDeparture?, nowMs: Long, alert: Boolean) {
         val voice = voice ?: return
         val p = cue
         if (p != null) {
@@ -369,49 +369,76 @@ class JourneyService : Service() {
             val waitsForBus = p is Phase.Walk || p is Phase.Wait
             if (!waitsForBus || bus != null || nowMs - cueSince >= CUE_WAIT_MS) {
                 cue = null
-                val step = if (alert && (p is Phase.Wait || p is Phase.Ride)) null else spokenStep(journey, p, bus, nowMs)
-                val text = listOfNotNull(getString(R.string.voice_get_off).takeIf { cueAfterRide }, step).joinToString(" ")
+                val step = if (alert && (p is Phase.Wait || p is Phase.Ride)) null else spokenStep(journey, p, fix, bus, nowMs)
+                val text = listOfNotNull(gotOffText(journey), step).joinToString(" ")
                 if (text.isNotEmpty()) voice.say(text)
             }
         }
         if (!alert) return
         when (val now = phase) {
-            is Phase.Wait -> voice.say(getString(R.string.voice_bus_coming, departure?.shortName ?: journey.legs[now.leg].lines.first()))
-            is Phase.Ride -> voice.say(getString(R.string.voice_next_stop, spokenName(journey.legs[now.leg].alighting.name)))
+            is Phase.Wait -> spokenStep(journey, now, fix, departure, nowMs)?.let(voice::say)
+            is Phase.Ride -> voice.say(
+                getString(R.string.voice_get_off_soon, spokenName(journey.legs[now.leg].alighting.name)) + " " + getString(R.string.voice_next_stop),
+            )
             else -> {}
         }
     }
 
-    private fun spokenStep(journey: Journey, p: Phase, bus: StopDeparture?, nowMs: Long): String? {
-        fun busText(leg: JourneyLeg): String? {
-            val minutes = bus?.nextTimes?.firstOrNull()?.minutes ?: return null
-            val line = bus.shortName.ifEmpty { leg.lines.first() }
-            return when {
-                minutes <= 0 -> getString(R.string.voice_bus_here, line)
-                isClockTime(minutes) -> getString(R.string.voice_bus_at, line, clockAt(nowMs, minutes))
-                else -> resources.getQuantityString(R.plurals.voice_bus_in, minutes, line, minutes)
-            }
+    private fun gotOffText(journey: Journey): String? =
+        cueAfterRide?.let { getString(R.string.voice_get_off_at, spokenName(journey.legs[it].alighting.name)) }
+
+    /** What Google Maps shows for the step: what to do, then how long or when. */
+    private fun spokenStep(journey: Journey, p: Phase, fix: Fix?, bus: StopDeparture?, nowMs: Long): String? = when (p) {
+        is Phase.Walk -> {
+            val leg = journey.legs[p.leg]
+            listOf(
+                getString(R.string.voice_walk_to, spokenName(leg.boarding.name)),
+                walkText(fix?.let { distanceTo(it, leg.boarding) / WALK_SPEED } ?: leg.walkMinutes),
+            ).joinToString(" ")
         }
-        return when (p) {
-            is Phase.Walk -> {
-                val leg = journey.legs[p.leg]
-                listOfNotNull(getString(R.string.voice_walk_to, spokenName(leg.boarding.name)), busText(leg)).joinToString(" ")
-            }
-            is Phase.Wait -> {
-                val leg = journey.legs[p.leg]
-                val line = bus?.shortName ?: leg.lines.first()
-                listOfNotNull(getString(R.string.voice_wait_for, line), busText(leg)).joinToString(" ")
-            }
-            is Phase.Ride -> {
-                val leg = journey.legs[p.leg]
-                val left = (leg.stops.lastIndex - rideStop).coerceAtLeast(1)
-                if (left == 1) getString(R.string.voice_next_stop, spokenName(leg.alighting.name))
-                else resources.getQuantityString(R.plurals.voice_ride, left, spokenName(leg.alighting.name), left)
-            }
-            Phase.WalkEnd -> getString(R.string.voice_walk_to, spokenName(journey.destination.name))
-            Phase.Done -> null
+        is Phase.Wait -> listOfNotNull(
+            getString(R.string.voice_take, bus?.shortName ?: journey.legs[p.leg].lines.first()),
+            departsText(bus, nowMs),
+        ).joinToString(" ")
+        is Phase.Ride -> {
+            val leg = journey.legs[p.leg]
+            val stops = (leg.stops.lastIndex - rideStop).coerceAtLeast(1)
+            listOf(
+                getString(R.string.voice_ride_to, spokenName(leg.alighting.name)),
+                getString(R.string.voice_ride_detail, count(R.plurals.voice_stops, stops, feminine = true), minutesText(leg.rideMinutes)),
+            ).joinToString(" ")
+        }
+        Phase.WalkEnd -> listOf(
+            getString(R.string.voice_walk_to, spokenName(journey.destination.name)),
+            walkText(fix?.let { distanceTo(it, journey.destination) / WALK_SPEED } ?: journey.walkEndMinutes),
+        ).joinToString(" ")
+        Phase.Done -> null
+    }
+
+    private fun walkText(minutes: Double) = getString(R.string.voice_about, minutesText(minutes))
+
+    private fun minutesText(minutes: Double) = count(R.plurals.voice_minutes, minutes.roundToInt().coerceAtLeast(1), feminine = false)
+
+    private fun departsText(bus: StopDeparture?, nowMs: Long): String? {
+        val minutes = bus?.nextTimes?.firstOrNull()?.minutes ?: return null
+        return when {
+            minutes <= 0 -> getString(R.string.voice_departs_now)
+            isClockTime(minutes) -> getString(R.string.voice_departs_at, spokenClock(nowMs, minutes))
+            else -> getString(R.string.voice_departs_in, count(R.plurals.voice_minutes, minutes, feminine = false))
         }
     }
+
+    // Romanian voices read digits as masculine ("doi"), so Romanian counts are written out.
+    private fun count(id: Int, n: Int, feminine: Boolean): String =
+        resources.getQuantityString(id, n, if (english()) "$n" else romanianNumber(n, feminine))
+
+    private fun spokenClock(nowMs: Long, minutes: Int): String {
+        if (english()) return clockAt(nowMs, minutes)
+        val at = Instant.ofEpochMilli(nowMs + minutes * 60_000L).atZone(CLUJ_ZONE)
+        return romanianClock(at.hour, at.minute)
+    }
+
+    private fun english() = Services.settings.locale.value == "en"
 
     private fun describe(journey: Journey, fix: Fix?, departure: StopDeparture?, nowMs: Long): JourneySync {
         val title = journey.destination.name
