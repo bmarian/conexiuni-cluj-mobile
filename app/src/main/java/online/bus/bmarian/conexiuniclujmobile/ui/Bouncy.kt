@@ -73,7 +73,6 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** The app's springs: presses squash, toggles pop, values roll. */
 object Bouncy {
     val press = spring<Float>(dampingRatio = 0.32f, stiffness = 650f)
     val pop = spring<Float>(dampingRatio = 0.26f, stiffness = Spring.StiffnessMedium)
@@ -110,7 +109,7 @@ fun Modifier.squishClickable(
 
 private const val CASCADE_ITEMS = 12
 
-/** Rises into place after [index] × a beat whenever [key] changes, so lists arrive as a cascade. Rows further down just appear. */
+/** Rises into place after [index] × a beat whenever [key] changes. Rows past CASCADE_ITEMS just appear. */
 fun Modifier.cascade(index: Int, key: Any?): Modifier = if (index >= CASCADE_ITEMS) this else composed {
     val rise = with(LocalDensity.current) { 28.dp.toPx() }
     val tag = key.toString()
@@ -202,7 +201,7 @@ fun RisingArrow(modifier: Modifier = Modifier, tint: Color = LocalContentColor.c
     Icon(Icons.Rounded.ArrowUpward, null, modifier.graphicsLayer { translationY = lift.value * size.height }, tint = tint)
 }
 
-/** Wiggles now and then, like a watch buzzing on a wrist. */
+/** Wiggles now and then. */
 fun Modifier.buzz(): Modifier = composed {
     val angle = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -243,10 +242,7 @@ fun Ticker(
     }
 }
 
-/**
- * Picks one option. A single pill slides to the choice, stretching as it travels and settling with a
- * wobble, so the selection flows from one option to the next.
- */
+/** A single pill slides to the choice, stretching as it moves. */
 @Composable
 fun <T> ChoiceRow(
     options: List<T>,

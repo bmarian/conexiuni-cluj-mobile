@@ -32,10 +32,7 @@ fun serviceSlot(ms: Long, zone: ZoneId): Pair<LocalDate, Int> {
     return if (minute < NIGHT_END_MIN) at.toLocalDate().minusDays(1) to minute + 1440 else at.toLocalDate() to minute
 }
 
-/**
- * Timetable minutes at the stop for each day type, past midnight counted on from 24:00. Each departure
- * uses the trip's travel times for its own hour from [hourly], by day type, like the timetable grid.
- */
+/** Timetable minutes at the stop per day type, past midnight counted on from 24:00, each timed for its own hour. */
 fun stopTimesByDayType(
     shape: ShapeInfo,
     tripId: String,
@@ -63,10 +60,7 @@ fun pickSlot(times: List<Int>, time: Int?): Int? {
     return times.minByOrNull { abs(it - time) }?.takeIf { abs(it - time) <= NEAREST_WITHIN_MIN }
 }
 
-/**
- * The first departure after [afterMs], as epoch ms: on [date] only, or on any of [days] (ISO numbers).
- * Starts a day back, since a late bus can run past midnight.
- */
+/** The first departure after [afterMs] as epoch ms. Starts a day back: late buses run past midnight. */
 fun nextOccurrence(slots: Map<String, Int>, days: List<Int>, date: LocalDate?, afterMs: Long, zone: ZoneId): Long? {
     val today = java.time.Instant.ofEpochMilli(afterMs).atZone(zone).toLocalDate()
     for (i in -1L..8L) {
@@ -80,10 +74,7 @@ fun nextOccurrence(slots: Map<String, Int>, days: List<Int>, date: LocalDate?, a
     return null
 }
 
-/**
- * Minutes until the followed departure among a stop's [scheduled] arrivals, where [expected] is its own
- * slot. The live bus counts when it's nearest that slot. Null once it's gone.
- */
+/** Minutes until the followed departure; the live bus counts when it's nearest [expected]. Null once gone. */
 fun targetMinutes(scheduled: List<Double>, live: Int?, expected: Double, graceMinutes: Double): Int? {
     val ours = scheduled.minByOrNull { abs(it - expected) }?.takeIf { abs(it - expected) <= 1 } ?: expected
     if (live != null && scheduled.minByOrNull { abs(it - live) } == ours) return live

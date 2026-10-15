@@ -246,7 +246,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     }
 }
 
-/** A one-off question at the top. Slides in and folds away once answered. */
+/** A one-off question at the top. */
 @Composable
 private fun Prompt(
     visible: Boolean,

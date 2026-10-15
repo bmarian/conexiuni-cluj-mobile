@@ -121,7 +121,7 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
     }
 }
 
-/** While an update waits, the cog spins in bursts under a green arrow. For a watch without the app, it turns into a buzzing watch. */
+/** Spins under a green arrow while an update waits; buzzes when a watch lacks the app. */
 @Composable
 private fun SettingsCog(onClick: () -> Unit) {
     val update by AppUpdates.available.collectAsStateWithLifecycle()

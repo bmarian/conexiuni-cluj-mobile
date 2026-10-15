@@ -22,7 +22,6 @@ private fun fallbackLabel(lat: String, lon: String) = String.format(Locale.ROOT,
 private fun jsNumber(value: Double): String =
     if (value == Math.floor(value) && !value.isInfinite()) value.toLong().toString() else value.toString()
 
-/** Place search on the backend's own index of the area's addresses, named places and streets. */
 object Places {
     private const val CACHED = 64
 

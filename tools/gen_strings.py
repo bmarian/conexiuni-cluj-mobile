@@ -15,7 +15,7 @@ SKIP = re.compile(
 )
 
 
-# The app's own wording, in the app's voice: lines, stops and trips, short and plain. Already in Android format.
+# The app's own wording, already in Android format.
 APP = {
     "values-en": {
         "w_route": "Line",

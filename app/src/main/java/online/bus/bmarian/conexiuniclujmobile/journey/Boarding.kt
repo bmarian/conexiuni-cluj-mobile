@@ -37,10 +37,7 @@ internal fun ridePath(shape: List<JourneyPoint>, stops: List<JourneyPoint>, boar
     return route.between(along[boarding], along[alighting])
 }
 
-/**
- * How far along a ride someone is. A fix only counts if it is near the line and the bus could have got
- * there since the last one, so a stray fix near a later part of the line does not skip stops.
- */
+/** A fix counts only near the line and within reach since the last, so a stray fix can't skip stops. */
 internal class RideTracker(leg: JourneyLeg, startMs: Long) {
     private val route = rideRoute(leg)
     private val stops = stopsAlong(leg, route)
