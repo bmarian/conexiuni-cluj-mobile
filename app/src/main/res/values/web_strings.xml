@@ -122,6 +122,8 @@
     <string name="w_news_loading">Se încarcă…</string>
     <string name="w_news_empty">Nimic nou</string>
     <string name="w_news_error">Nu s-a încărcat</string>
+    <string name="w_news_today">Azi</string>
+    <string name="w_news_yesterday">Ieri</string>
     <string name="w_news_follow_hint">Urmărește o linie din meniul ei ca să-i vezi schimbările aici.</string>
     <string name="w_news_new">Nou</string>
     <string name="w_follow_line">Urmărește linia %1$s</string>

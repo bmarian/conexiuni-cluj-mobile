@@ -86,7 +86,7 @@ fun formatChangeDate(ms: Long, locale: String, withYear: Boolean = true): String
     return formatDate(date, locale, withYear)
 }
 
-private fun formatDate(date: LocalDate, locale: String, withYear: Boolean): String =
+fun formatDate(date: LocalDate, locale: String, withYear: Boolean): String =
     date.format(DateTimeFormatter.ofPattern(if (withYear) "d MMM yyyy" else "d MMM", dateLocale(locale)))
 
 // CTP writes service_start as DD.MM.YYYY.

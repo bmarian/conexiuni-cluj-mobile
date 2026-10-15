@@ -122,6 +122,8 @@
     <string name="w_news_loading">Loading…</string>
     <string name="w_news_empty">Nothing new</string>
     <string name="w_news_error">Couldn\'t load</string>
+    <string name="w_news_today">Today</string>
+    <string name="w_news_yesterday">Yesterday</string>
     <string name="w_news_follow_hint">Follow a line from its menu to see its changes here.</string>
     <string name="w_news_new">New</string>
     <string name="w_follow_line">Follow line %1$s</string>
