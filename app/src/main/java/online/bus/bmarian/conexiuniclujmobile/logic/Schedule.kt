@@ -6,7 +6,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
 import online.bus.bmarian.conexiuniclujmobile.data.StopTime
 import online.bus.bmarian.conexiuniclujmobile.data.Timetable
 import online.bus.bmarian.conexiuniclujmobile.data.routeIdFromTripId
-import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.ceil
@@ -46,9 +45,9 @@ fun formatMinutesFromNow(rawMinutes: Int, reference: LocalDateTime, nowLabel: St
     return "%02d:%02d".format(future.hour, future.minute)
 }
 
-fun daySchedule(timetable: Timetable, date: LocalDateTime): DaySchedule = when (date.dayOfWeek) {
-    DayOfWeek.SUNDAY -> timetable.sunday
-    DayOfWeek.SATURDAY -> timetable.saturday
+fun daySchedule(timetable: Timetable, date: LocalDateTime): DaySchedule = when (scheduleDayOn(date.toLocalDate())) {
+    "sunday" -> timetable.sunday
+    "saturday" -> timetable.saturday
     else -> timetable.weekdays
 }
 
