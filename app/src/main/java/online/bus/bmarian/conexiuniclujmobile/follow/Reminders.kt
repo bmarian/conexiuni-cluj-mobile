@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -23,6 +24,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
+import online.bus.bmarian.conexiuniclujmobile.logic.ScheduleDays
 import online.bus.bmarian.conexiuniclujmobile.logic.nextOccurrence
 import online.bus.bmarian.conexiuniclujmobile.logic.pickSlot
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
@@ -100,6 +102,7 @@ object Reminders {
             .orEmpty()
         arm(context)
         scope.launch { refreshSlots(context) }
+        scope.launch { ScheduleDays.state.drop(1).collect { arm(context) } }
     }
 
     fun forBus(stopId: Int, routeId: Int, tripId: String) = all.value.firstOrNull { it.isFor(stopId, routeId, tripId) }

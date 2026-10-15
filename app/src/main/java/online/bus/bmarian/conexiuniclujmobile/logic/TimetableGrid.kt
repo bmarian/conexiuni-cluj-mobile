@@ -4,7 +4,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.DaySchedule
 import online.bus.bmarian.conexiuniclujmobile.data.Frequency
 import online.bus.bmarian.conexiuniclujmobile.data.HourlyStopOffsets
 import online.bus.bmarian.conexiuniclujmobile.data.Timetable
-import java.time.DayOfWeek
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
@@ -12,11 +11,13 @@ import kotlin.math.roundToInt
 
 enum class TimetableTab(val dayType: String) { Weekdays("weekday"), Saturday("saturday"), Sunday("sunday") }
 
-fun todayTab(now: LocalDateTime): TimetableTab = when (now.dayOfWeek) {
-    DayOfWeek.SUNDAY -> TimetableTab.Sunday
-    DayOfWeek.SATURDAY -> TimetableTab.Saturday
-    else -> TimetableTab.Weekdays
-}
+fun tabFor(scheduleDay: String): TimetableTab = TimetableTab.entries.firstOrNull { it.dayType == scheduleDay } ?: TimetableTab.Weekdays
+
+/** The tab of the timetable running today, which a holiday can change. */
+fun todayTab(now: LocalDateTime, calendar: ScheduleCalendar = ScheduleDays.current): TimetableTab = tabFor(scheduleDayOn(now.toLocalDate(), calendar))
+
+/** Today's tab by the weekday alone, for telling which days are over. */
+fun plainTodayTab(now: LocalDateTime): TimetableTab = tabFor(plainScheduleDay(now.toLocalDate()))
 
 fun Timetable.scheduleFor(tab: TimetableTab): DaySchedule = when (tab) {
     TimetableTab.Weekdays -> weekdays
@@ -62,12 +63,12 @@ fun chipsForDay(
     hourly: Map<String, List<Int>>?,
     stops: List<IndexedStop>,
     now: LocalDateTime,
+    calendar: ScheduleCalendar = ScheduleDays.current,
 ): List<TimetableChip> {
     val sched = timetable.scheduleFor(tab)
     if (sched.entries.isEmpty()) return emptyList()
-    val today = todayTab(now)
-    val isToday = tab == today
-    val dayIsPast = isPastTab(tab, today)
+    val isToday = tab == todayTab(now, calendar)
+    val dayIsPast = isPastTab(tab, plainTodayTab(now))
     val nowMinutes = minutesOfDay(now)
     return sched.entries.mapNotNull { entry ->
         val raw = (if (outgoing) entry.departureIn else entry.departureOut).trim()

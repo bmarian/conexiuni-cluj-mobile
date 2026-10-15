@@ -23,7 +23,7 @@ fun dayTypeOf(day: DayOfWeek): String = when (day) {
     else -> TimetableTab.Weekdays.dayType
 }
 
-fun dayTypeOf(date: LocalDate): String = dayTypeOf(date.dayOfWeek)
+fun dayTypeOf(date: LocalDate): String = scheduleDayOn(date)
 
 /** The service day a departure belongs to and its minute in that day, past midnight counted on from 24:00. */
 fun serviceSlot(ms: Long, zone: ZoneId): Pair<LocalDate, Int> {

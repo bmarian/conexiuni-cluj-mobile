@@ -104,6 +104,8 @@ import online.bus.bmarian.conexiuniclujmobile.journey.ridePath
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
 import online.bus.bmarian.conexiuniclujmobile.logic.HourGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedStop
+import online.bus.bmarian.conexiuniclujmobile.logic.ScheduleDays
+import online.bus.bmarian.conexiuniclujmobile.logic.SpecialDay
 import online.bus.bmarian.conexiuniclujmobile.logic.TimetableTab
 import online.bus.bmarian.conexiuniclujmobile.logic.activeFrequency
 import online.bus.bmarian.conexiuniclujmobile.logic.availableTabs
@@ -120,6 +122,8 @@ import online.bus.bmarian.conexiuniclujmobile.logic.formatServiceStart
 import online.bus.bmarian.conexiuniclujmobile.logic.groupByDays
 import online.bus.bmarian.conexiuniclujmobile.logic.groupByDirection
 import online.bus.bmarian.conexiuniclujmobile.logic.isPastTab
+import online.bus.bmarian.conexiuniclujmobile.logic.plainTodayTab
+import online.bus.bmarian.conexiuniclujmobile.logic.specialDayOn
 import online.bus.bmarian.conexiuniclujmobile.logic.todayTab
 import online.bus.bmarian.conexiuniclujmobile.logic.tripHourlyOffsets
 import online.bus.bmarian.conexiuniclujmobile.logic.tripStops
@@ -213,7 +217,10 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
 
     var tab by rememberSaveable { mutableStateOf<TimetableTab?>(null) }
     val now = current?.now
-    val today = now?.let(::todayTab) ?: TimetableTab.Weekdays
+    val calendar by ScheduleDays.state.collectAsStateWithLifecycle()
+    val today = now?.let { todayTab(it, calendar) } ?: TimetableTab.Weekdays
+    val plainToday = now?.let(::plainTodayTab) ?: TimetableTab.Weekdays
+    val special = now?.let { specialDayOn(it.toLocalDate(), calendar) }
     val selectedTab = tab ?: today
     var selectedTime by rememberSaveable(dir, selectedTab) { mutableStateOf<String?>(null) }
     LaunchedEffect(info?.shortName, selectedTab) {
@@ -281,8 +288,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val tripId = tripIdFor(routeId, dir)
     val hourlyTrip = remember(hourly, stops, tripId) { tripHourlyOffsets(hourly, tripId, stops) }
     val tabs = remember(route) { availableTabs(route.timetable) }
-    val chips = remember(route, selectedTab, outgoing, hourlyTrip, stops, now) {
-        if (now == null) emptyList() else chipsForDay(route.timetable, selectedTab, outgoing, hourlyTrip, stops, now)
+    val chips = remember(route, selectedTab, outgoing, hourlyTrip, stops, now, calendar) {
+        if (now == null) emptyList() else chipsForDay(route.timetable, selectedTab, outgoing, hourlyTrip, stops, now, calendar)
     }
     val suspended = chips.isNotEmpty() && chips.all { it.startMin == null }
     val groups = remember(chips) { chipsByHour(chips) }
@@ -482,10 +489,18 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     )
                     Text(
                         label,
-                        color = if (isPastTab(t, today) && selectedTab != t) MaterialTheme.colorScheme.outline else Color.Unspecified,
+                        color = if (isPastTab(t, plainToday) && selectedTab != t) MaterialTheme.colorScheme.outline else Color.Unspecified,
                         maxLines = 1,
                     )
                     if (t == today) Box(Modifier.padding(start = 6.dp).size(6.dp).clip(CircleShape).background(LocalContentColor.current))
+                }
+            }
+            if (special != null) {
+                item {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.padding(end = 6.dp).size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant))
+                        Text(specialDayText(special), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
             if (suspended) {
@@ -833,5 +848,43 @@ fun RouteChangeBanner(change: RouteChange, onDismiss: () -> Unit) {
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.w_dismiss))
             }
         }
+    }
+}
+
+private fun timetableName(schedule: String): Int = when (schedule) {
+    "saturday" -> R.string.w_timetable_name_saturday
+    "sunday" -> R.string.w_timetable_name_sunday
+    else -> R.string.w_timetable_name_weekday
+}
+
+private fun holidayName(key: String): Int? = when (key) {
+    "new_year" -> R.string.w_holiday_new_year
+    "new_year_2" -> R.string.w_holiday_new_year_2
+    "epiphany" -> R.string.w_holiday_epiphany
+    "saint_john" -> R.string.w_holiday_saint_john
+    "union_day" -> R.string.w_holiday_union_day
+    "good_friday" -> R.string.w_holiday_good_friday
+    "easter" -> R.string.w_holiday_easter
+    "easter_monday" -> R.string.w_holiday_easter_monday
+    "labour_day" -> R.string.w_holiday_labour_day
+    "childrens_day" -> R.string.w_holiday_childrens_day
+    "pentecost" -> R.string.w_holiday_pentecost
+    "pentecost_monday" -> R.string.w_holiday_pentecost_monday
+    "assumption" -> R.string.w_holiday_assumption
+    "saint_andrew" -> R.string.w_holiday_saint_andrew
+    "national_day" -> R.string.w_holiday_national_day
+    "christmas" -> R.string.w_holiday_christmas
+    "christmas_2" -> R.string.w_holiday_christmas_2
+    else -> null
+}
+
+@Composable
+private fun specialDayText(special: SpecialDay): String {
+    val timetable = stringResource(timetableName(special.schedule))
+    val holiday = special.note?.holiday?.let(::holidayName)
+    return if (holiday != null) {
+        stringResource(R.string.w_special_day_holiday, stringResource(holiday), timetable)
+    } else {
+        stringResource(R.string.w_special_day_changed, timetable)
     }
 }
