@@ -8,7 +8,7 @@ SKIP = re.compile(
     r"^(head|kbd|simplified|watch|bsod|paper|arcade|legacyBlue|funMode|metroLegacy|pong|"
     r"themeDefault|adminDashboard|settingsAdminDesc|pushUnsupported|pushBrave|pushDeniedToastBody|pushFailed|notFoundFunny|"
     r"offlineBanner|searchRoutes|noRouteData|goBack|scheduledApprox|kbdHelp|weather|push|timetableChangesDesc|"
-    r"newsYourLines|newsSourceOurs|newsCtp|newsHasUpdates|newsNoChanges|android|busAlerts|experimental|limitReached|"
+    r"newsHasUpdates|android|busAlerts|experimental|limitReached|"
     r"notificationsBlocked|remind|leave|journey|nav[A-Z]|follow(Arriving|Now|In|AtClock|Done|NoBus|Waiting)|following|"
     r"stopFollowing|notifyMe|wakeMe|directions|loadFailed|retry|save$|close$|shareFinding|shareNotFound|etaMinutes|"
     r"departuresClickHint|departuresHoldHint|stopsClickHint|stopsHoldHint)"
