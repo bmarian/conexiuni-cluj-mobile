@@ -329,10 +329,7 @@ class JourneyService : Service() {
         return left
     }
 
-    /**
-     * The planned run the traveller is on: its bus on this leg leaves nearest to the one they wait for or
-     * boarded, and a late bus makes it that much later. Null when there is no bus to match it by.
-     */
+    /** The planned run nearest the bus being waited for or ridden, later by however late it is. */
     private fun plannedArrival(journey: Journey, departure: StopDeparture?, nowMs: Long): Long? {
         val p = phase
         if (journey.runs.isEmpty() || (p !is Phase.Walk && p !is Phase.Wait && p !is Phase.Ride)) return null
@@ -387,7 +384,7 @@ class JourneyService : Service() {
     private fun gotOffText(journey: Journey): String? =
         cueAfterRide?.let { getString(R.string.voice_get_off_at, spokenName(journey.legs[it].alighting.name)) }
 
-    /** What Google Maps shows for the step: what to do, then how long or when. */
+    /** What to do, then how long or when. */
     private fun spokenStep(journey: Journey, p: Phase, fix: Fix?, bus: StopDeparture?, nowMs: Long): String? = when (p) {
         is Phase.Walk -> {
             val leg = journey.legs[p.leg]

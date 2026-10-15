@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-/** Play in-app updates: the cog shows when one is out, Settings asks once per version, and Play does the rest. */
 object AppUpdates {
     private lateinit var manager: AppUpdateManager
     private lateinit var prefs: SharedPreferences

@@ -8,11 +8,7 @@ import kotlin.math.max
 /** The line someone is following on a step, and how far along it they are. */
 internal class Progress(val stepType: String?, val leg: Int, val line: RouteLine?, val along: Double)
 
-/**
- * Where to draw the traveller: on the step's line while near it, heading along it and never sliding back.
- * Off it, the heading only turns once they moved further than standing at a stop, and while waiting at
- * the stop they stay put, facing the way the bus will go.
- */
+/** Snapped to the step's line while near it and never sliding back; waiting at the stop, facing the way the bus goes. */
 internal class NavFollow(private val journey: Journey) {
     private var step: Pair<String?, Int>? = null
     private var line: RouteLine? = null

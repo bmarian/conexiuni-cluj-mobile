@@ -17,7 +17,6 @@ import kotlin.math.roundToInt
 
 private const val APP_GREEN = 0xFF10B981.toInt()
 
-/** Bitmaps for the follow and journey notifications. */
 internal object NotificationArt {
     private val cache = LruCache<String, Icon>(16)
 
@@ -88,7 +87,7 @@ internal object NotificationArt {
 
     fun walker(context: Context): Icon = Icon.createWithResource(context, R.drawable.ic_walk).setTint(APP_GREEN)
 
-    /** A stop sign for the end of the bar, like the selected stop on the map. */
+    /** A stop sign for the end of the bar. */
     fun stop(context: Context): Icon = cached("stop") { sign(context, R.drawable.ic_bus) }
 
     fun destination(context: Context): Icon = cached("destination") { sign(context, R.drawable.ic_flag) }

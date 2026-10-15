@@ -9,7 +9,6 @@ import kotlin.math.ln
 import kotlin.math.sinh
 import kotlin.math.tan
 
-// One below the website's Leaflet levels (256 px tiles).
 const val DEFAULT_ZOOM = 15.0
 const val STOP_ZOOM = 15f
 const val MIN_ZOOM = 8.0

@@ -23,8 +23,7 @@ android {
         applicationId = "online.bmarian.bus"
         minSdk = 26
         targetSdk = 37
-        // Phone and watch share the package, so each upload needs its own code: phone 1xxxx, watch 2xxxx,
-        // then the release number, the same on both.
+        // Phone 1xxxx, watch 2xxxx, then the release number, the same on both.
         versionCode = 10_011
         versionName = "1.7.0"
 
