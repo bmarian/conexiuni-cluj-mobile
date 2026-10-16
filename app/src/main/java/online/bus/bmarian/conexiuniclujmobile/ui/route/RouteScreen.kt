@@ -141,7 +141,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
-import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
@@ -236,7 +235,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
     val follows by FollowManager.follows.collectAsStateWithLifecycle()
     val reminders by Reminders.all.collectAsStateWithLifecycle()
-    val withNotifications = rememberWithNotifications()
     var menuFor by remember { mutableStateOf<Int?>(null) }
     var reminding by remember { mutableStateOf<Followed?>(null) }
     val menu = buildList {
@@ -435,18 +433,16 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         },
                     )
                     DropdownMenu(expanded = menuFor == idx, onDismissRequest = { menuFor = null }, offset = DpOffset(44.dp, 0.dp)) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(if (alerting != null) R.string.stop_menu_notify_off else R.string.stop_menu_notify)) },
-                            leadingIcon = { Icon(Icons.Rounded.NotificationsActive, null) },
-                            onClick = {
-                                menuFor = null
-                                if (alerting != null) {
+                        if (alerting != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.stop_menu_notify_off)) },
+                                leadingIcon = { Icon(Icons.Rounded.NotificationsActive, null) },
+                                onClick = {
+                                    menuFor = null
                                     FollowManager.stop(context, alerting.id)
-                                } else {
-                                    withNotifications { FollowManager.start(context, followed) }
-                                }
-                            },
-                        )
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.remind_menu)) },
                             leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },

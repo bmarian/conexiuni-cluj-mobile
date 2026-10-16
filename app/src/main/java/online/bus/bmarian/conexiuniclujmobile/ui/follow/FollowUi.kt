@@ -34,18 +34,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
-import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowState
-import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.follow.leaveText
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
@@ -54,29 +50,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberNow
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
-
-@Composable
-fun rememberFollowToggle(): (Followed) -> Unit {
-    val context = LocalContext.current
-    var pending by remember { mutableStateOf<Followed?>(null) }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        pending?.let { FollowManager.start(context, it) }
-        pending = null
-    }
-    val haptics = LocalHapticFeedback.current
-    return { followed ->
-        val existing = FollowManager.find(followed.stopId, followed.routeId, followed.tripId)
-        haptics.performHapticFeedback(if (existing == null) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
-        when {
-            existing != null -> FollowManager.stop(context, existing.id)
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED -> {
-                pending = followed
-                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-            else -> FollowManager.start(context, followed)
-        }
-    }
-}
 
 @Composable
 fun rememberWithNotifications(): (() -> Unit) -> Unit {

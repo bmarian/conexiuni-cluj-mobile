@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,6 +71,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
+import online.bus.bmarian.conexiuniclujmobile.follow.nextBus
 import online.bus.bmarian.conexiuniclujmobile.follow.reminderTimes
 import online.bus.bmarian.conexiuniclujmobile.follow.resolveSlots
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
@@ -126,9 +128,13 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
     }
     val times by produceState(emptyMap<String, List<Int>>(), info) { info?.let { value = reminderTimes(it, followed) } }
     val today = remember { LocalDate.now(CLUJ_ZONE) }
+    // The next bus: its service day and minute, last night's for a late one past midnight.
+    val upcoming = remember(times) { nextBus(times, info?.lateGraceMin ?: 0.0) }
     var repeat by remember { mutableStateOf(existing?.once == false) }
     var days by remember { mutableStateOf(existing?.days?.takeIf { it.isNotEmpty() } ?: (1..7).toList()) }
     var last by remember { mutableStateOf(existing != null && existing.time == null) }
+    // A new reminder starts on the next bus: the one the user is likely after.
+    var soonest by remember { mutableStateOf(existing == null) }
     var time by remember { mutableStateOf(existing?.time) }
     // Bumped when a permission comes back, to read it again.
     var asked by remember { mutableIntStateOf(0) }
@@ -142,10 +148,14 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
     } else {
         times[dayTypeOf(today)].orEmpty().filter { it > nowMinutes }.ifEmpty { times[dayTypeOf(today.plusDays(1))].orEmpty() }
     }
-    val chosen = if (last) null else time
-    val draft = remember(info, repeat, days, last, time, times) {
+    val chosen = when {
+        last -> null
+        soonest && !repeat -> upcoming?.second
+        else -> time
+    }
+    val draft = remember(info, repeat, days, last, soonest, time, times, upcoming) {
         val stop = info ?: return@remember null
-        if (!last && time == null) return@remember null
+        if (!last && chosen == null) return@remember null
         val slots = resolveSlots(times, chosen)
         val base = Reminder(
             id = existing?.id ?: UUID.randomUUID().toString(),
@@ -158,6 +168,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
             handled = existing?.handled ?: 0,
         )
         if (repeat) return@remember base
+        if (soonest && !last) return@remember upcoming?.let { base.copy(date = it.first.toString()) }
         // A one-off runs today, or tomorrow once today's has gone.
         listOf(today, today.plusDays(1)).map { base.copy(date = it.toString()) }.firstOrNull { it.next() != null }
     }
@@ -188,7 +199,19 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                 }
             }
 
-            ChoiceRow(listOf(false, true), repeat, { repeat = it }, Modifier.fillMaxWidth()) {
+            ChoiceRow(
+                listOf(false, true),
+                repeat,
+                {
+                    // The next bus is a one-off; repeating keeps its time.
+                    if (it && soonest) {
+                        soonest = false
+                        time = upcoming?.second
+                    }
+                    repeat = it
+                },
+                Modifier.fillMaxWidth(),
+            ) {
                 Text(stringResource(if (it) R.string.remind_repeat else R.string.remind_once), maxLines = 1)
             }
             AnimatedVisibility(repeat) {
@@ -212,14 +235,32 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
 
             if (info != null && times.isNotEmpty()) {
                 val lastToday = dayTimes.maxOrNull()
-                TimeChoice(
-                    label = stringResource(R.string.remind_last_bus) + (lastToday?.let { " · ${formatAbsoluteMinutes(it)}" } ?: ""),
-                    selected = last,
-                    icon = { PopIcon(Icons.Rounded.Bedtime, last, Modifier.size(18.dp)) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
-                    last = true
+                val soon = upcoming?.takeIf { !repeat }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (soon != null) {
+                        TimeChoice(
+                            label = "${stringResource(R.string.remind_next)} · ${formatAbsoluteMinutes(soon.second)}",
+                            selected = soonest && !last,
+                            icon = { PopIcon(Icons.Rounded.NotificationsActive, soonest && !last, Modifier.size(18.dp)) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                            last = false
+                            soonest = true
+                        }
+                    }
+                    TimeChoice(
+                        // Short beside the next bus, to fit.
+                        label = stringResource(if (soon != null) R.string.remind_last else R.string.remind_last_bus) +
+                            (lastToday?.let { " · ${formatAbsoluteMinutes(it)}" } ?: ""),
+                        selected = last,
+                        icon = { PopIcon(Icons.Rounded.Bedtime, last, Modifier.size(18.dp)) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                        last = true
+                        soonest = false
+                    }
                 }
                 Column {
                     for ((hour, group) in dayTimes.groupBy { it / 60 }) {
@@ -241,10 +282,11 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                                 for (minute in group) {
                                     TimeChoice(
                                         label = formatAbsoluteMinutes(minute).drop(3),
-                                        selected = !last && time == minute,
+                                        selected = !last && !soonest && time == minute,
                                     ) {
                                         haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
                                         last = false
+                                        soonest = false
                                         time = minute
                                     }
                                 }
@@ -307,7 +349,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                         val reminder = draft ?: return@Button
                         withNotifications {
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                            Reminders.put(context, reminder)
+                            Reminders.put(context, reminder, byUser = true)
                             Services.settings.showToast(resources.getString(R.string.remind_saved), next?.let { reminderWhen(resources, it, locale) })
                             onDismiss()
                         }

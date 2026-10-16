@@ -4,7 +4,6 @@
     <string name="push_line">Line %1$s · %2$s</string>
     <string name="scan_code">Scan code</string>
     <string name="push_denied_body">Turn them on in the app\'s settings.</string>
-    <string name="follow">Follow</string>
     <string name="following">Following</string>
     <string name="stop_following">Stop</string>
     <string name="follow_channel">Followed buses</string>
@@ -33,7 +32,6 @@
     <string name="journey_next">Next step</string>
     <string name="journey_end">End</string>
     <string name="journey_start">Start</string>
-    <string name="stop_menu_notify">Notify me when it comes</string>
     <string name="stop_menu_notify_off">Stop notifying me</string>
     <string name="stop_menu_wake">Wake me before this stop</string>
     <string name="stops_hold_hint">hold a stop for alerts</string>
@@ -111,12 +109,15 @@
     <string name="leave_in">Leave in %1$s</string>
     <string name="leave_at">Leave at %1$s</string>
     <string name="leave_now">Leave now</string>
+    <string name="leave_by">Leave by %1$s to catch your bus</string>
     <string name="leave_detail">%1$s %2$s · %3$s walk</string>
     <string name="remind_menu">Remind me…</string>
     <string name="remind_set">Remind me</string>
     <string name="remind_once">Once</string>
     <string name="remind_repeat">Repeat</string>
     <string name="remind_last_bus">Last bus</string>
+    <string name="remind_next">Next</string>
+    <string name="remind_last">Last</string>
     <string name="remind_every_day">Every day</string>
     <string name="remind_weekends">Weekends</string>
     <string name="remind_no_bus">no bus</string>

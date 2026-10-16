@@ -74,6 +74,25 @@ fun nextOccurrence(slots: Map<String, Int>, days: List<Int>, date: LocalDate?, a
     return null
 }
 
+/** The first of the timetable [times] after [afterMs]: its service day and its minute in that day. */
+fun nextDeparture(times: Map<String, List<Int>>, afterMs: Long, zone: ZoneId): Pair<LocalDate, Int>? {
+    val today = Instant.ofEpochMilli(afterMs).atZone(zone).toLocalDate()
+    var first: Pair<LocalDate, Int>? = null
+    var firstAt = Long.MAX_VALUE
+    // Starts a day back: last night's late buses run past midnight.
+    for (i in -1L..8L) {
+        val day = today.plusDays(i)
+        for (minute in times[dayTypeOf(day)].orEmpty()) {
+            val at = day.atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
+            if (at > afterMs && at < firstAt) {
+                first = day to minute
+                firstAt = at
+            }
+        }
+    }
+    return first
+}
+
 /** Minutes until the followed departure; the live bus counts when it's nearest [expected]. Null once gone. */
 fun targetMinutes(scheduled: List<Double>, live: Int?, expected: Double, graceMinutes: Double): Int? {
     val ours = scheduled.minByOrNull { abs(it - expected) }?.takeIf { abs(it - expected) <= 1 } ?: expected

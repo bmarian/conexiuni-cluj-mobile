@@ -121,7 +121,8 @@ class FollowService : Service() {
         val live = MutableStateFlow<LiveState?>(null)
         val ready = MutableStateFlow(false)
         val clock = MutableStateFlow(System.currentTimeMillis())
-        val here = MutableStateFlow<Fix?>(null)
+        // Where the reminder timed the walk from, until a fresh fix: without one the walk reads as unknown.
+        val here = MutableStateFlow(if (target != null) UserLocation.recent(this@FollowService) else null)
 
         launch {
             while (true) {
@@ -183,7 +184,10 @@ class FollowService : Service() {
         var lastMinutes: Int? = null
         var alertedSoon = false
         var arrived = false
+        var warned = false
+        var leaveBy: Long? = null
         var toldToLeave = false
+        var late = false
     }
 
     private fun update(start: FollowState, reading: Reading?, here: Fix?, nowMs: Long, progress: Progress) {
@@ -193,8 +197,8 @@ class FollowService : Service() {
         val minutes = reading.minutes
         // A jump after the bus was close means it passed, even if no reading caught it at 0.
         if (progress.alertedSoon && minutes > (progress.lastMinutes ?: 0) + 2) return end(id, "left")
-        // A plain follow doesn't buzz on its first reading: the user just asked.
-        val opening = progress.lastMinutes == null && target == null
+        // Nothing buzzes on the first reading of what the user just asked for.
+        val opening = progress.lastMinutes == null && (target == null || target.quiet)
         var alert = false
         var leaveAt: Long? = null
         var walk: Int? = null
@@ -202,19 +206,32 @@ class FollowService : Service() {
         if (target != null) {
             val minutesToWalk = here?.let { walkMinutes(it.lat, it.lon, target.lat, target.lon) }
             val leaveIn = minutes - leadMinutes(minutesToWalk)
-            if (leaveIn <= 0 && !progress.toldToLeave) {
+            // Already time to go when it starts: too late to time the walk.
+            if (progress.lastMinutes == null && leaveIn <= 0) progress.late = true
+            // At the stop or too late, it's told when the bus comes, like a plain follow.
+            val timed = minutesToWalk != 0 && !progress.late
+            if (!timed && progress.lastMinutes == null) {
+                // Says so as it starts, unless the user just asked.
+                alert = !opening
+            } else if (timed && leaveIn <= 0 && !progress.toldToLeave) {
                 progress.toldToLeave = true
-                alert = true
-                if (Services.settings.fullScreenAlarms.value) {
+                progress.warned = true
+                alert = !opening
+                if (alert && Services.settings.fullScreenAlarms.value) {
                     val (title, text) = leaveText(this, start.followed.shortName, minutes, nowMs, minutesToWalk, nowMs)
                     ReminderAlarm.ring(this, start.followed, nowMs + minutes * 60_000L, title, text)
                     ring = true
                 }
+            } else if (timed && leaveIn <= HEADS_UP_MIN && !progress.warned) {
+                progress.warned = true
+                alert = !opening
             }
-            // Until the bus is close or the user is already at the stop.
-            if (minutesToWalk != 0 && minutes > SOON_MINUTES) {
+            // Until the bus is close.
+            if (timed && minutes > SOON_MINUTES) {
                 leaveAt = nowMs + leaveIn * 60_000L
                 walk = minutesToWalk
+                // The time to go by only moves earlier, so it doesn't flicker as the minutes round.
+                if (progress.warned) progress.leaveBy = minOf(progress.leaveBy ?: Long.MAX_VALUE, leaveAt / 60_000 * 60_000)
             }
         }
         if (minutes <= SOON_MINUTES && !progress.alertedSoon) {
@@ -235,6 +252,7 @@ class FollowService : Service() {
             arrivalAt = nowMs + minutes * 60_000L,
             leaveAt = leaveAt,
             walkMinutes = walk,
+            leaveBy = progress.leaveBy.takeIf { !progress.toldToLeave },
         )
         latest[id] = state
         FollowManager.put(state)

@@ -43,11 +43,19 @@ internal fun leaveText(context: Context, line: String, minutes: Int, leaveAt: Lo
         isClockTime(leave) -> context.getString(R.string.leave_at, clockAt(nowMs, leave))
         else -> context.getString(R.string.leave_in, context.getString(R.string.eta_minutes, leave))
     }
+    return title to busDetail(context, line, minutes, walk, nowMs)
+}
+
+/** The heads-up before it's time to go: "Leave by 08:12 to catch your bus" and the bus. */
+internal fun leaveByText(context: Context, line: String, minutes: Int, leaveAt: Long, walk: Int?, nowMs: Long): Pair<String, String> =
+    context.getString(R.string.leave_by, CLOCK.format(Instant.ofEpochMilli(leaveAt).atZone(CLUJ_ZONE))) to
+        busDetail(context, line, minutes, walk, nowMs)
+
+private fun busDetail(context: Context, line: String, minutes: Int, walk: Int?, nowMs: Long): String {
     val bus = if (isClockTime(minutes)) context.getString(R.string.follow_at_clock, clockAt(nowMs, minutes))
     else context.getString(R.string.follow_in, context.getString(R.string.eta_minutes, minutes))
-    val detail = if (walk == null) context.getString(R.string.leave_bus, line, bus)
+    return if (walk == null) context.getString(R.string.leave_bus, line, bus)
     else context.getString(R.string.leave_detail, line, bus, context.getString(R.string.eta_minutes, walk))
-    return title to detail
 }
 
 internal fun leaveChip(context: Context, leaveAt: Long, nowMs: Long): String {

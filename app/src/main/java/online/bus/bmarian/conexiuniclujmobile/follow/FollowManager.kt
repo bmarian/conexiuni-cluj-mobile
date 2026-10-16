@@ -40,11 +40,13 @@ data class FollowSync(
     // Epoch ms to set off for the stop, while a reminder waits for the user to go.
     val leaveAt: Long? = null,
     val walkMinutes: Int? = null,
+    // Epoch ms to go by, from the heads-up until it's time to leave.
+    val leaveBy: Long? = null,
 )
 
-/** A reminder's departure: [atMs] is its timetable time at the stop, [lat]/[lon] the stop. */
+/** A reminder's departure: [atMs] is its timetable time at the stop, [lat]/[lon] the stop. [quiet] when the user set it just now. */
 @Serializable
-data class FollowTarget(val reminderId: String, val atMs: Long, val lat: Double, val lon: Double)
+data class FollowTarget(val reminderId: String, val atMs: Long, val lat: Double, val lon: Double, val quiet: Boolean = false)
 
 data class FollowState(
     val id: String,
@@ -57,10 +59,11 @@ data class FollowState(
     val target: FollowTarget? = null,
     val leaveAt: Long? = null,
     val walkMinutes: Int? = null,
+    val leaveBy: Long? = null,
     val startedAt: Long = System.currentTimeMillis(),
 ) {
     fun toSync(end: String? = null, alert: Boolean = false) =
-        FollowSync(id, followed, minutes, live, later, arrivalAt, end, alert, leaveAt, walkMinutes)
+        FollowSync(id, followed, minutes, live, later, arrivalAt, end, alert, leaveAt, walkMinutes, leaveBy)
 
     fun matches(stopId: Int, routeId: Int, tripId: String) =
         followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
@@ -92,7 +95,7 @@ object FollowManager {
             ended(context, state.id)
             return false
         }
-        if (target == null) WearLink.showOnWatch(context, "/following")
+        if (target == null || target.quiet) WearLink.showOnWatch(context, "/following")
         return true
     }
 
@@ -146,7 +149,7 @@ object FollowManager {
         if (follows.value.any { it.id == sync.id && !it.remote }) return
         val state = FollowState(
             sync.id, sync.followed, sync.minutes, sync.live, sync.later, sync.arrivalAt,
-            remote = true, leaveAt = sync.leaveAt, walkMinutes = sync.walkMinutes,
+            remote = true, leaveAt = sync.leaveAt, walkMinutes = sync.walkMinutes, leaveBy = sync.leaveBy,
         )
         mutableFollows.update { list -> if (list.any { it.id == sync.id }) list.map { if (it.id == sync.id) state else it } else list + state }
         FollowNotifications.showMirror(context, state)
