@@ -5,7 +5,6 @@
     <string name="push_line">Linia %1$s · %2$s</string>
     <string name="scan_code">Scanează codul</string>
     <string name="push_denied_body">Pornește-le din setările aplicației.</string>
-    <string name="follow">Urmărește</string>
     <string name="following">Urmărești</string>
     <string name="stop_following">Oprește</string>
     <string name="follow_channel">Autobuze urmărite</string>
@@ -35,7 +34,6 @@
     <string name="journey_next">Următorul pas</string>
     <string name="journey_end">Încheie</string>
     <string name="journey_start">Start</string>
-    <string name="stop_menu_notify">Anunță-mă când vine</string>
     <string name="stop_menu_notify_off">Nu mă mai anunța</string>
     <string name="stop_menu_wake">Anunță-mă înainte de această stație</string>
     <string name="stops_hold_hint">ține apăsat pe o stație pentru alerte</string>
@@ -116,6 +114,7 @@
     <string name="leave_in">Pleacă peste %1$s</string>
     <string name="leave_at">Pleacă la %1$s</string>
     <string name="leave_now">Pleacă acum</string>
+    <string name="leave_by">Trebuie să te pornești înainte de %1$s pentru a prinde autobuzul</string>
     <string name="leave_detail">%1$s %2$s · %3$s de mers</string>
     <string name="leave_bus" translatable="false">%1$s %2$s</string>
     <string name="remind_menu">Amintește-mi…</string>
@@ -123,6 +122,8 @@
     <string name="remind_once">O dată</string>
     <string name="remind_repeat">Repetă</string>
     <string name="remind_last_bus">Ultimul autobuz</string>
+    <string name="remind_next">Următorul</string>
+    <string name="remind_last">Ultimul</string>
     <string name="remind_every_day">Zilnic</string>
     <string name="remind_weekends">În weekend</string>
     <string name="remind_no_bus">nicio cursă</string>

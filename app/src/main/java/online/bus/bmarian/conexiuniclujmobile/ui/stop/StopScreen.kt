@@ -34,13 +34,12 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AlarmAdd
+import androidx.compose.material.icons.rounded.AlarmOn
 import androidx.compose.material.icons.rounded.Directions
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Map
-import androidx.compose.material.icons.rounded.NotificationAdd
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Watch
@@ -72,8 +71,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -98,8 +99,11 @@ import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
+import online.bus.bmarian.conexiuniclujmobile.follow.nextBusReminder
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.tripIdForRouteAtStop
+import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
@@ -117,7 +121,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
-import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberFollowToggle
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
@@ -165,7 +170,6 @@ fun StopScreen(stopId: Int) {
     val isFavorite = stopId in favoriteStops
     val follows by FollowManager.follows.collectAsStateWithLifecycle()
     val reminders by Reminders.all.collectAsStateWithLifecycle()
-    val toggleFollow = rememberFollowToggle()
     var menuFor by remember { mutableStateOf<String?>(null) }
     var reminding by remember { mutableStateOf<Followed?>(null) }
     val haptics = LocalHapticFeedback.current
@@ -219,7 +223,32 @@ fun StopScreen(stopId: Int) {
     }
 
     val context = LocalContext.current
+    val resources = LocalResources.current
+    val locale = LocalConfiguration.current.locales[0]
     val scope = rememberCoroutineScope()
+    val withNotifications = rememberWithNotifications()
+
+    // At the stop, or too late to walk there, it's told when the bus comes; otherwise reminded when to leave for it.
+    fun remind(followed: Followed, departure: StopDeparture) = withNotifications {
+        haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+        val stop = info
+        val walk = Services.location.value?.let { fix -> stop?.let { walkMinutes(fix.lat, fix.lon, it.lat, it.lon) } }
+        if (stop == null || justNotify(walk, departure.minutesLeft)) {
+            FollowManager.start(context, followed)
+        } else {
+            // Outlives the screen, so leaving it doesn't drop the reminder.
+            Services.scope.launch {
+                val reminder = nextBusReminder(stop, followed)
+                if (reminder == null) {
+                    FollowManager.start(context, followed)
+                } else {
+                    Reminders.put(context, reminder, byUser = true)
+                    Services.settings.showToast(resources.getString(R.string.remind_saved), reminder.next()?.let { reminderWhen(resources, it, locale) })
+                }
+            }
+        }
+    }
+
     val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val allStops by Services.repository.stops.collectAsStateWithLifecycle()
@@ -307,27 +336,30 @@ fun StopScreen(stopId: Int) {
                             stopId, name.orEmpty(), departure.routeId, departure.tripId,
                             departure.shortName, departure.color, routeDestination(departure.longName),
                         )
-                        val isFollowed = follows.any { it.matches(stopId, departure.routeId, departure.tripId) }
+                        val following = follows.firstOrNull { it.matches(stopId, departure.routeId, departure.tripId) }
+                        val forBus = reminders.filter { it.isFor(stopId, departure.routeId, departure.tripId) }
+                        // The clock's own: a one-off for this bus, until it starts following.
+                        val clocked = forBus.filter { it.once }
                         Box(Modifier.animateItem().cascade(index, stopId)) {
                             DepartureCard(
                                 departure, ui!!.now, vm.isDepartureFavorite(departure),
-                                following = isFollowed,
-                                reminded = reminders.any { it.isFor(stopId, departure.routeId, departure.tripId) },
-                                onFollow = { toggleFollow(followed) },
+                                remindOn = following != null || clocked.isNotEmpty(),
+                                reminded = forBus.any { !it.once },
+                                onRemind = {
+                                    if (following == null && clocked.isEmpty()) {
+                                        remind(followed, departure)
+                                    } else {
+                                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                                        following?.let { FollowManager.stop(context, it.id) }
+                                        clocked.forEach { Reminders.remove(context, it.id) }
+                                    }
+                                },
                                 onLongClick = {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     menuFor = key
                                 },
                             ) { openDeparture(departure) }
                             DropdownMenu(expanded = menuFor == key, onDismissRequest = { menuFor = null }, offset = DpOffset(64.dp, 0.dp)) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(if (isFollowed) R.string.stop_menu_notify_off else R.string.stop_menu_notify)) },
-                                    leadingIcon = { Icon(Icons.Rounded.NotificationsActive, null) },
-                                    onClick = {
-                                        menuFor = null
-                                        toggleFollow(followed)
-                                    },
-                                )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.remind_menu)) },
                                     leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
@@ -398,9 +430,9 @@ fun DepartureCard(
     departure: StopDeparture,
     now: java.time.LocalDateTime,
     favorite: Boolean,
-    following: Boolean = false,
+    remindOn: Boolean = false,
     reminded: Boolean = false,
-    onFollow: (() -> Unit)? = null,
+    onRemind: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
@@ -466,13 +498,13 @@ fun DepartureCard(
                     }
                 }
             }
-            if (onFollow != null) {
-                IconToggleButton(checked = following, onCheckedChange = { onFollow() }, shapes = IconButtonDefaults.toggleableShapes()) {
+            if (onRemind != null) {
+                IconToggleButton(checked = remindOn, onCheckedChange = { onRemind() }, shapes = IconButtonDefaults.toggleableShapes()) {
                     PopIcon(
-                        if (following) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationAdd,
-                        following,
-                        contentDescription = stringResource(if (following) R.string.stop_following else R.string.follow),
-                        tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (remindOn) Icons.Rounded.AlarmOn else Icons.Rounded.AlarmAdd,
+                        remindOn,
+                        contentDescription = stringResource(if (remindOn) R.string.stop_following else R.string.remind_set),
+                        tint = if (remindOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             } else {

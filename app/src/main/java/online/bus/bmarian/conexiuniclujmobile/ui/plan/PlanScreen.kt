@@ -256,7 +256,7 @@ fun PlanScreen(query: PlanQuery) {
     fun remind(reminder: Reminder) {
         withNotifications {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-            Reminders.put(context, reminder)
+            Reminders.put(context, reminder, byUser = true)
             val title = resources.getString(R.string.remind_saved)
             if (Reminders.exactAllowed(context)) {
                 Services.settings.showToast(title, reminder.next()?.let { reminderWhen(resources, it, uiLocale) })

@@ -19,8 +19,8 @@ The [Conexiuni Cluj](https://github.com/bmarian/conexiuni-cluj) bus and tram tra
 - Full timetables for every line
 - A route planner: leave now, leave at, arrive by, or the last one today
 - Step-by-step guidance for a planned trip, with voice
-- Follow a bus and get told when to leave and when it comes
-- Reminders for the buses you take often, and an alarm before your stop
+- Reminders for the next bus or the ones you take often, timed from where you are: a heads-up 10 minutes before you need to leave, then when to leave and when it comes. At the stop, or too late to walk there, just when it comes
+- An alarm before your stop
 - Favorite stops and lines
 - A home screen widget for a stop
 - Share a place to the app and it plans the trip there

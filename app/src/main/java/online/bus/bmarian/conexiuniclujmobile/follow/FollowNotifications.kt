@@ -21,6 +21,9 @@ import androidx.compose.ui.graphics.toArgb
 private const val DONE_SHOWN_MS = 2 * 60_000L
 private const val FIRST_SLOT = 100
 
+/** What a reminder without a live card says: when to go by, to go now, or, at the stop or too late to go, that the bus is coming. */
+enum class Nudge { LeaveBy, LeaveNow, Coming }
+
 object FollowNotifications {
     const val FOLLOW_CHANNEL = "follow"
     const val ALERT_CHANNEL = "follow_alerts"
@@ -62,8 +65,10 @@ object FollowNotifications {
         val nowMs = System.currentTimeMillis()
         val color = routeColor(followed.color).toArgb()
         val leaveAt = state.leaveAt?.takeIf { minutes != null }
+        val leaveBy = state.leaveBy
         val (title, text) = when {
             minutes == null -> context.getString(R.string.follow_waiting) to null
+            leaveAt != null && leaveBy != null -> leaveByText(context, followed.shortName, minutes, leaveBy, state.walkMinutes, nowMs)
             leaveAt != null -> leaveText(context, followed.shortName, minutes, leaveAt, state.walkMinutes, nowMs)
             else -> arrivingAtText(context, followed.stopName, minutes, nowMs)
         }
@@ -163,14 +168,23 @@ object FollowNotifications {
         return builder.build()
     }
 
-    /** For a reminder that can't start following from the background: one nudge, no live card. */
-    fun nudge(context: Context, followed: Followed, atMs: Long, walk: Int?, journey: Boolean = false) {
+    /** For a reminder without a live card: the heads-up, then a nudge when it's time to leave. */
+    fun nudge(context: Context, followed: Followed, atMs: Long, walk: Int?, journey: Boolean = false, kind: Nudge = Nudge.LeaveNow) {
         ensureChannels(context)
         val nowMs = System.currentTimeMillis()
         val minutes = ((atMs - nowMs) / 60_000).toInt().coerceAtLeast(0)
         val leaveAt = atMs - leadMinutes(walk) * 60_000L
-        val (title, text) = leaveText(context, followed.shortName, minutes, leaveAt, walk, nowMs)
-        if (Services.settings.fullScreenAlarms.value) return ReminderAlarm.ring(context, followed, atMs, title, text, journey)
+        val (title, text) = when (kind) {
+            Nudge.LeaveBy -> leaveByText(context, followed.shortName, minutes, leaveAt, walk, nowMs)
+            Nudge.LeaveNow -> leaveText(context, followed.shortName, minutes, leaveAt, walk, nowMs)
+            Nudge.Coming -> arrivingAtText(context, followed.stopName, minutes, nowMs)
+        }
+        val slot = slot("nudge-${followed.stopId}-${followed.tripId}")
+        if (kind == Nudge.LeaveNow && Services.settings.fullScreenAlarms.value) {
+            // The alarm takes over from the heads-up.
+            manager(context).cancel(slot)
+            return ReminderAlarm.ring(context, followed, atMs, title, text, journey)
+        }
         val notification = Notification.Builder(context, ALERT_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
             .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
@@ -182,7 +196,7 @@ object FollowNotifications {
             .setTimeoutAfter((atMs - nowMs).coerceAtLeast(0) + 5 * 60_000L)
             .setContentIntent(if (journey) openJourney(context) else openStop(context, followed.stopId))
             .build()
-        runCatching { manager(context).notify(slot("nudge-${followed.stopId}-${followed.tripId}"), notification) }
+        runCatching { manager(context).notify(slot, notification) }
     }
 
     /** Answers a start request that has nothing left to follow. */
