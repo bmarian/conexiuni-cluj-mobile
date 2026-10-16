@@ -2,7 +2,7 @@
 import {writeFileSync} from 'node:fs'
 
 const out = process.argv[2]
-const API = 'https://bus.bmarian.online/api/'
+const API = 'https://ceautobuziau.ro/api/'
 const names = ['25', '35', '43', '24B', 'M26', '9']
 
 async function get(path) {

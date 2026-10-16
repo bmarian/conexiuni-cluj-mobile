@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:locale="ro">
-    <string name="app_name" translatable="false">Conexiuni Cluj</string>
+    <string name="app_name" translatable="false">Ce autobuz iau?</string>
     <string name="load_failed">Nu s-a putut încărca. Verifică conexiunea.</string>
     <string name="retry">Încearcă din nou</string>
     <string name="push_line">Linia %1$s · %2$s</string>

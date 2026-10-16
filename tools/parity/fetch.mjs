@@ -3,7 +3,7 @@
 import {writeFileSync} from 'node:fs'
 
 const out = process.argv[2]
-const API = 'https://bus.bmarian.online/api/'
+const API = 'https://ceautobuziau.ro/api/'
 const pad = (n) => String(n).padStart(2, '0')
 const local = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 

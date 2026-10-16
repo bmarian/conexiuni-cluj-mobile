@@ -57,7 +57,7 @@ class BaselineProfileGenerator {
         device.pressBack()
         Thread.sleep(1_000)
 
-        startActivityAndWait(Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/stop/629")).setPackage(PACKAGE))
+        startActivityAndWait(Intent(Intent.ACTION_VIEW, Uri.parse("https://ceautobuziau.ro/stop/629")).setPackage(PACKAGE))
         Thread.sleep(4_000)
         device.swipe(w / 2, h * 3 / 4, w / 2, h / 3, 30)
         Thread.sleep(1_000)
@@ -70,7 +70,7 @@ class BaselineProfileGenerator {
         device.pressBack()
         Thread.sleep(1_000)
 
-        startActivityAndWait(Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/route/14/0")).setPackage(PACKAGE))
+        startActivityAndWait(Intent(Intent.ACTION_VIEW, Uri.parse("https://ceautobuziau.ro/route/14/0")).setPackage(PACKAGE))
         Thread.sleep(4_000)
         device.swipe(w / 2, h * 3 / 4, w / 2, h / 4, 30)
         Thread.sleep(1_000)
@@ -78,7 +78,7 @@ class BaselineProfileGenerator {
         Thread.sleep(1_000)
 
         startActivityAndWait(
-            Intent(Intent.ACTION_VIEW, Uri.parse("https://bus.bmarian.online/plan?lat=46.7694&lon=23.5899&name=Unirii"))
+            Intent(Intent.ACTION_VIEW, Uri.parse("https://ceautobuziau.ro/plan?lat=46.7694&lon=23.5899&name=Unirii"))
                 .setPackage(PACKAGE),
         )
         Thread.sleep(6_000)

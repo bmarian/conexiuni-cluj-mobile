@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
 
     private fun planToShared(text: String) {
         val url = Regex("""https?://\S+""").find(text)?.value
-        if (url != null && url.toUri().host == "bus.bmarian.online") {
+        if (url != null && url.toUri().host in SITE_HOSTS) {
             links.value = url.toUri()
             return
         }
@@ -103,5 +103,8 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_LINK = "link"
+
+        // Shared links can still point at the old host.
+        private val SITE_HOSTS = setOf(BuildConfig.SITE_ORIGIN.toUri().host, "bus.bmarian.online")
     }
 }
