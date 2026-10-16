@@ -1,6 +1,6 @@
 # Privacy policy
 
-Conexiuni Cluj for Android and its Wear OS app show live bus and tram departures in Cluj-Napoca and plan trips. They have no accounts, no ads and no analytics or tracking libraries.
+The “Ce autobuz iau?” apps for Android and Wear OS show live bus and tram departures in Cluj-Napoca and plan trips. They have no accounts, no ads and no analytics or tracking libraries.
 
 ## Location
 
@@ -8,27 +8,26 @@ With your permission, the app uses your location on the phone: to show the stops
 
 Outside a trip you started, the app doesn't read your location in the background. During a trip it keeps following you with the screen off, with a notification showing, until the trip ends. A reminder times the walk from where you were the last time the app was open, if that was within the hour, and otherwise comes 20 minutes before the bus. That last position is kept only on the phone.
 
-Your location only leaves the phone when you plan a trip from where you are: the start, rounded to about 10 metres, and the destination go to [bus.bmarian.online](https://bus.bmarian.online), which works out the trip.
+Your location only leaves the phone when you plan a trip from where you are: the start, rounded to about 10 metres, and the destination go to [ceautobuziau.ro](https://ceautobuziau.ro), which works out the trip.
 
 ## Search
 
 Lines and stops are searched on the phone.
 
-Places are looked up on [Photon](https://photon.komoot.io), a free service by Komoot built on OpenStreetMap data. It receives what you type, or the name in something you share to the app, limited to the Cluj area, and never your location. When you drag the destination pin on the trip map, its coordinates go to Photon to name the spot.
+Places are looked up on ceautobuziau.ro, which searches its own copy of OpenStreetMap data. It receives what you type, or the name in something you share to the app, and never your location. When you drag the destination pin on the trip map, its coordinates go to ceautobuziau.ro to name the spot.
 
 ## Notifications and reminders
 
-Followed buses, trips and reminders are kept on the phone. To keep their times live, the app asks bus.bmarian.online about those stops and buses, the same way it does when you open a stop. Reminders use alarms to wake the app in time.
+Followed buses, trips and reminders are kept on the phone. To keep their times live, the app asks ceautobuziau.ro about those stops and buses, the same way it does when you open a stop. Reminders use alarms to wake the app in time.
 
-If you follow a line's changes, the app asks bus.bmarian.online about those lines once an hour between 08:00 and 20:00, sending their numbers.
+If you follow a line's changes, the app asks ceautobuziau.ro about those lines once an hour between 08:00 and 20:00, sending their numbers.
 
 ## What the app downloads
 
-- Stops, lines, timetables, live bus positions, news and line changes from bus.bmarian.online, the server behind the Conexiuni Cluj website.
+- Stops, lines, timetables, live bus positions, news, line changes and place search from ceautobuziau.ro, the server behind the website. Older versions of the apps use bus.bmarian.online, the same server under its old name.
 - Map tiles, fonts and icons from [OpenFreeMap](https://openfreemap.org/).
-- Place search from Photon, as above.
 
-Like any website, these services see your IP address when the app connects to them. bus.bmarian.online doesn't store it: its logs keep a salted one-way hash instead, with the address of each request (for a planned trip, that includes its start and end), and delete them after 5 days. The same hash counts daily users and is deleted after 5 days too; only the totals are kept.
+Like any website, these services see your IP address when the app connects to them. ceautobuziau.ro doesn't store it: its logs keep a salted one-way hash instead, with the address of each request (for a planned trip, that includes its start and end), and delete them after 5 days. The same hash counts daily users and is deleted after 5 days too; only the totals are kept.
 
 ## On the watch
 
@@ -36,7 +35,7 @@ The watch app uses your location, with your permission, to list the stops near y
 
 Search on the watch uses its own voice and keyboard input; the app only gets the words, and looks them up in the stops and lines on the watch.
 
-The watch downloads the same things as the phone, from bus.bmarian.online and OpenFreeMap.
+The watch downloads the same things as the phone, from ceautobuziau.ro and OpenFreeMap.
 
 Your favorites, followed buses and trips go between the phone and the watch through Google Play services' Wear OS connection, which Google relays when the two aren't connected directly.
 
@@ -44,7 +43,7 @@ Your favorites, followed buses and trips go between the phone and the watch thro
 
 Your favorites, reminders and settings are stored on your devices, and in Android's backup of your phone if you turned that on.
 
-When you move them to another device, they go through bus.bmarian.online. If the other device scans the code, they are encrypted with a key the server never sees. If the code is typed, the server can read them while it passes them on. They're only ever kept in the server's memory, never written to disk. They're deleted as soon as the other device picks them up, and an unused code expires after 10 minutes.
+When you move them to another device, they go through ceautobuziau.ro. If the other device scans the code, they are encrypted with a key the server never sees. If the code is typed, the server can read them while it passes them on. They're only ever kept in the server's memory, never written to disk. They're deleted as soon as the other device picks them up, and an unused code expires after 10 minutes.
 
 ## Children
 
@@ -54,4 +53,4 @@ The app isn't directed at children and collects nothing about anyone.
 
 Changes to this policy will be published here. Questions go to the [issue tracker](https://github.com/bmarian/conexiuni-cluj-mobile/issues).
 
-Last updated: October 12, 2026.
+Last updated: October 16, 2026.

@@ -148,6 +148,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:scheme="https" />
+                <data android:host="ceautobuziau.ro" />
                 <data android:host="bus.bmarian.online" />
                 <data android:pathPrefix="/stop/" />
                 <data android:pathPrefix="/route/" />

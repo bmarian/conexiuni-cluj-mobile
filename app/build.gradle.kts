@@ -24,11 +24,11 @@ android {
         minSdk = 26
         targetSdk = 37
         // Phone 1xxxx, watch 2xxxx, then the release number, the same on both.
-        versionCode = 10_013
-        versionName = "1.9.0"
+        versionCode = 10_014
+        versionName = "1.10.0"
 
-        buildConfigField("String", "API_BASE", "\"https://bus.bmarian.online/api/\"")
-        buildConfigField("String", "SITE_ORIGIN", "\"https://bus.bmarian.online\"")
+        buildConfigField("String", "API_BASE", "\"https://ceautobuziau.ro/api/\"")
+        buildConfigField("String", "SITE_ORIGIN", "\"https://ceautobuziau.ro\"")
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
