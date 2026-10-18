@@ -51,6 +51,11 @@ internal fun leaveByText(context: Context, line: String, minutes: Int, leaveAt: 
     context.getString(R.string.leave_by, CLOCK.format(Instant.ofEpochMilli(leaveAt).atZone(CLUJ_ZONE))) to
         busDetail(context, line, minutes, walk, nowMs)
 
+/** Without a fresh fix: "Your bus leaves at 06:00, get ready" and the bus. */
+internal fun getReadyText(context: Context, line: String, minutes: Int, atMs: Long, nowMs: Long): Pair<String, String> =
+    context.getString(R.string.get_ready, CLOCK.format(Instant.ofEpochMilli(atMs).atZone(CLUJ_ZONE))) to
+        busDetail(context, line, minutes, null, nowMs)
+
 private fun busDetail(context: Context, line: String, minutes: Int, walk: Int?, nowMs: Long): String {
     val bus = if (isClockTime(minutes)) context.getString(R.string.follow_at_clock, clockAt(nowMs, minutes))
     else context.getString(R.string.follow_in, context.getString(R.string.eta_minutes, minutes))

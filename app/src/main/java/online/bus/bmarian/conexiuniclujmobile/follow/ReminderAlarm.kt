@@ -20,6 +20,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.ui.graphics.toArgb
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
 object ReminderAlarm {
@@ -69,6 +70,7 @@ object ReminderAlarm {
                 .putExtra(AlarmActivity.EXTRA_STOP, followed.stopId)
                 .putExtra(AlarmActivity.EXTRA_STOP_NAME, followed.stopName)
                 .putExtra(AlarmActivity.EXTRA_AT, busAt)
+                .putExtra(AlarmActivity.EXTRA_FOLLOWED, Api.json.encodeToString(followed))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )

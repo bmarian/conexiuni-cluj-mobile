@@ -110,6 +110,7 @@
     <string name="leave_at">Leave at %1$s</string>
     <string name="leave_now">Leave now</string>
     <string name="leave_by">Leave by %1$s to catch your bus</string>
+    <string name="get_ready">Your bus leaves at %1$s, get ready</string>
     <string name="leave_detail">%1$s %2$s · %3$s walk</string>
     <string name="remind_menu">Remind me…</string>
     <string name="remind_set">Remind me</string>

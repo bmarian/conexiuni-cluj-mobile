@@ -15,18 +15,22 @@ import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import androidx.compose.ui.graphics.toArgb
 
 private const val DONE_SHOWN_MS = 2 * 60_000L
 private const val FIRST_SLOT = 100
 
-/** What a reminder without a live card says: when to go by, to go now, or, at the stop or too late to go, that the bus is coming. */
-enum class Nudge { LeaveBy, LeaveNow, Coming }
+/** What a reminder says: when to go by, to go now, or, without a fresh fix or at the stop, to get ready. */
+enum class Nudge { LeaveBy, LeaveNow, GetReady }
 
 object FollowNotifications {
     const val FOLLOW_CHANNEL = "follow"
     const val ALERT_CHANNEL = "follow_alerts"
+    const val REMINDER_CHANNEL = "reminders"
+    const val EXTRA_FOLLOW = "follow"
+    const val EXTRA_FOLLOW_AT = "followAt"
 
     private val progressFrom = mutableMapOf<String, Int>()
     private val slots = mutableMapOf<String, Int>()
@@ -53,6 +57,11 @@ object FollowNotifications {
                     enableVibration(true)
                     vibrationPattern = longArrayOf(0, 120, 120, 120)
                 },
+            )
+        }
+        if (manager.getNotificationChannel(REMINDER_CHANNEL) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(REMINDER_CHANNEL, context.getString(R.string.reminders), NotificationManager.IMPORTANCE_DEFAULT),
             )
         }
     }
@@ -168,8 +177,8 @@ object FollowNotifications {
         return builder.build()
     }
 
-    /** For a reminder without a live card: the heads-up, then a nudge when it's time to leave. */
-    fun nudge(context: Context, followed: Followed, atMs: Long, walk: Int?, journey: Boolean = false, kind: Nudge = Nudge.LeaveNow) {
+    /** A reminder speaking for the bus at [atMs]; the heads-up is a plain notification, the rest alert. */
+    fun remind(context: Context, followed: Followed, atMs: Long, walk: Int?, kind: Nudge, journey: Boolean = false) {
         ensureChannels(context)
         val nowMs = System.currentTimeMillis()
         val minutes = ((atMs - nowMs) / 60_000).toInt().coerceAtLeast(0)
@@ -177,15 +186,15 @@ object FollowNotifications {
         val (title, text) = when (kind) {
             Nudge.LeaveBy -> leaveByText(context, followed.shortName, minutes, leaveAt, walk, nowMs)
             Nudge.LeaveNow -> leaveText(context, followed.shortName, minutes, leaveAt, walk, nowMs)
-            Nudge.Coming -> arrivingAtText(context, followed.stopName, minutes, nowMs)
+            Nudge.GetReady -> getReadyText(context, followed.shortName, minutes, atMs, nowMs)
         }
-        val slot = slot("nudge-${followed.stopId}-${followed.tripId}")
+        val slot = reminderSlot(followed)
         if (kind == Nudge.LeaveNow && Services.settings.fullScreenAlarms.value) {
             // The alarm takes over from the heads-up.
             manager(context).cancel(slot)
             return ReminderAlarm.ring(context, followed, atMs, title, text, journey)
         }
-        val notification = Notification.Builder(context, ALERT_CHANNEL)
+        val notification = Notification.Builder(context, if (kind == Nudge.LeaveBy) REMINDER_CHANNEL else ALERT_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
             .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
             .setContentTitle(title)
@@ -194,10 +203,29 @@ object FollowNotifications {
             .setCategory(Notification.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setTimeoutAfter((atMs - nowMs).coerceAtLeast(0) + 5 * 60_000L)
-            .setContentIntent(if (journey) openJourney(context) else openStop(context, followed.stopId))
+            .setContentIntent(if (journey) openJourney(context) else followFromReminder(context, followed, atMs))
             .build()
         runCatching { manager(context).notify(slot, notification) }
     }
+
+    fun clearReminder(context: Context, followed: Followed) = manager(context).cancel(reminderSlot(followed))
+
+    // Fixed across restarts: the time to leave is often posted by a new process.
+    private fun reminderSlot(followed: Followed) = "reminder-${followed.stopId}-${followed.tripId}".hashCode()
+
+    /** Opens the stop and follows the reminder's bus from there: the app is in front, so the follow may start. */
+    fun followIntent(context: Context, followed: Followed, atMs: Long): Intent =
+        Intent(context, MainActivity::class.java)
+            .setAction(Intent.ACTION_VIEW)
+            .setData(Uri.parse("${BuildConfig.SITE_ORIGIN}/stop/${followed.stopId}"))
+            .putExtra(EXTRA_FOLLOW, Api.json.encodeToString(followed))
+            .putExtra(EXTRA_FOLLOW_AT, atMs)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+    private fun followFromReminder(context: Context, followed: Followed, atMs: Long): PendingIntent = PendingIntent.getActivity(
+        context, reminderSlot(followed), followIntent(context, followed, atMs),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
     /** Answers a start request that has nothing left to follow. */
     fun placeholder(context: Context): Notification {

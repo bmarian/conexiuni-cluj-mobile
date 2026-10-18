@@ -12,6 +12,7 @@ import online.bus.bmarian.conexiuniclujmobile.follow.FollowSync
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
 import online.bus.bmarian.conexiuniclujmobile.follow.leadMinutes
+import online.bus.bmarian.conexiuniclujmobile.follow.tellAt
 import online.bus.bmarian.conexiuniclujmobile.follow.resolveSlots
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.nextDeparture
@@ -141,6 +142,16 @@ class ReminderTest {
         assertEquals(17, leadMinutes(12))
         assertEquals(5, leadMinutes(0))
         assertEquals(20, leadMinutes(null))
+    }
+
+    @Test
+    fun theHeadsUpComesTenMinutesBeforeItsTimeToLeaveOrTwentyBeforeTheBusWithoutAFix() {
+        val bus = ms("2026-10-19T06:00")
+        // A five minute walk: leave by 05:50, so told at 05:40.
+        assertEquals(ms("2026-10-19T05:40"), tellAt(bus, 5))
+        assertEquals(ms("2026-10-19T05:28"), tellAt(bus, 17))
+        assertEquals(ms("2026-10-19T05:40"), tellAt(bus, null))
+        assertEquals(ms("2026-10-19T05:40"), tellAt(bus, 0))
     }
 
     @Test

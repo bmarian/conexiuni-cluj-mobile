@@ -80,6 +80,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.provider.Settings
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -242,8 +245,16 @@ fun StopScreen(stopId: Int) {
                 if (reminder == null) {
                     FollowManager.start(context, followed)
                 } else {
-                    Reminders.put(context, reminder, byUser = true)
-                    Services.settings.showToast(resources.getString(R.string.remind_saved), reminder.next()?.let { reminderWhen(resources, it, locale) })
+                    Reminders.put(context, reminder)
+                    val title = resources.getString(R.string.remind_saved)
+                    if (Reminders.exactAllowed(context)) {
+                        Services.settings.showToast(title, reminder.next()?.let { reminderWhen(resources, it, locale) })
+                    } else {
+                        // Without exact alarms the time to leave can come late.
+                        Services.settings.showToast(title, resources.getString(R.string.remind_exact), resources.getString(R.string.remind_allow)) {
+                            context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "package:${context.packageName}".toUri()))
+                        }
+                    }
                 }
             }
         }

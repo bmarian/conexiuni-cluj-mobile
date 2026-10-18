@@ -349,7 +349,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                         val reminder = draft ?: return@Button
                         withNotifications {
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                            Reminders.put(context, reminder, byUser = true)
+                            Reminders.put(context, reminder)
                             Services.settings.showToast(resources.getString(R.string.remind_saved), next?.let { reminderWhen(resources, it, locale) })
                             onDismiss()
                         }

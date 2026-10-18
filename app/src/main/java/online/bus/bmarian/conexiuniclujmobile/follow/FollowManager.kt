@@ -44,9 +44,9 @@ data class FollowSync(
     val leaveBy: Long? = null,
 )
 
-/** A reminder's departure: [atMs] is its timetable time at the stop, [lat]/[lon] the stop. [quiet] when the user set it just now. */
+/** A reminder's departure: [atMs] is its timetable time at the stop. */
 @Serializable
-data class FollowTarget(val reminderId: String, val atMs: Long, val lat: Double, val lon: Double, val quiet: Boolean = false)
+data class FollowTarget(val atMs: Long)
 
 data class FollowState(
     val id: String,
@@ -82,10 +82,7 @@ object FollowManager {
 
     /** False when the system won't let it start from the background. */
     fun start(context: Context, followed: Followed, target: FollowTarget? = null): Boolean {
-        val existing = find(followed.stopId, followed.routeId, followed.tripId)
-        // A reminder takes over a plain follow of the same bus, so it can time the walk.
-        if (existing != null && (target == null || existing.target != null)) return true
-        if (existing != null) stop(context, existing.id)
+        if (find(followed.stopId, followed.routeId, followed.tripId) != null) return true
         val state = FollowState(UUID.randomUUID().toString(), followed, target = target)
         mutableFollows.update { it + state }
         save(context)
@@ -95,7 +92,7 @@ object FollowManager {
             ended(context, state.id)
             return false
         }
-        if (target == null || target.quiet) WearLink.showOnWatch(context, "/following")
+        WearLink.showOnWatch(context, "/following")
         return true
     }
 
