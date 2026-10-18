@@ -34,10 +34,9 @@ import online.bus.bmarian.conexiuniclujmobile.logic.stopTimesByDayType
 import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import java.time.LocalDate
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 const val LEAVE_BUFFER_MIN = 5
-// How early to go when the walk can't be timed.
+// How early to get ready when the walk can't be timed.
 const val NO_LOCATION_LEAD_MIN = 20
 // The first look, early enough for a long walk.
 private const val FIRST_LOOK_MIN = 75
@@ -46,8 +45,6 @@ const val HEADS_UP_MIN = 10
 private const val REARM_SLACK_MS = 2 * 60_000L
 private const val MISSED_MS = 2 * 60_000L
 private const val LOCATE_MS = 5_000L
-// A reminder due this soon after the user saved it starts without a buzz.
-private const val JUST_SAVED_MS = 60_000L
 
 /** A departure to be told about, every time it runs on [days], or once on [date]. */
 @Serializable
@@ -63,8 +60,10 @@ data class Reminder(
     val date: String? = null,
     // Timetable minute at the stop per day type.
     val slots: Map<String, Int> = emptyMap(),
-    // Epoch ms of the latest departure already handed to a follow.
+    // Epoch ms of the latest departure already told about.
     val handled: Long = 0,
+    // A one-off's bus once told about: it stays until it's time to leave, so it can still be called off.
+    val told: Long = 0,
     // Set from the planner: the whole trip is guided when it's time to leave.
     val journey: Journey? = null,
 ) {
@@ -83,6 +82,11 @@ fun leadMinutes(walk: Int?) = walk?.plus(LEAVE_BUFFER_MIN) ?: NO_LOCATION_LEAD_M
 
 /** At the stop, or too late to walk there for a bus [minutes] away: just told when it comes, not when to leave. */
 fun justNotify(walk: Int?, minutes: Int) = walk == 0 || minutes <= leadMinutes(walk)
+
+/** When a reminder first speaks for the bus at [atMs]: the heads-up before the walk, or the flat lead without a fresh fix or at the stop. */
+fun tellAt(atMs: Long, walk: Int?): Long =
+    if (walk == null || walk == 0) atMs - NO_LOCATION_LEAD_MIN * 60_000L
+    else atMs - (leadMinutes(walk) + HEADS_UP_MIN) * 60_000L
 
 /** The stop's timetable minutes per day type for [followed], each departure timed for its own hour. */
 suspend fun reminderTimes(info: StopInfo, followed: Followed): Map<String, List<Int>> {
@@ -120,7 +124,6 @@ object Reminders {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutable = MutableStateFlow<List<Reminder>>(emptyList())
     val all: StateFlow<List<Reminder>> = mutable
-    private val savedAt = ConcurrentHashMap<String, Long>()
 
     private fun prefs(context: Context) = context.getSharedPreferences("reminders", Context.MODE_PRIVATE)
 
@@ -135,9 +138,7 @@ object Reminders {
 
     fun forBus(stopId: Int, routeId: Int, tripId: String) = all.value.firstOrNull { it.isFor(stopId, routeId, tripId) }
 
-    /** [byUser] when the user saved it, so one that's due right away doesn't buzz. */
-    fun put(context: Context, reminder: Reminder, byUser: Boolean = false) {
-        if (byUser) savedAt[reminder.id] = System.currentTimeMillis()
+    fun put(context: Context, reminder: Reminder) {
         mutable.update { list -> if (list.any { it.id == reminder.id }) list.map { if (it.id == reminder.id) reminder else it } else list + reminder }
         save(context)
         arm(context, listOf(reminder))
@@ -147,6 +148,7 @@ object Reminders {
         val manager = context.getSystemService(AlarmManager::class.java)
         manager.cancel(pending(context, id, 0))
         manager.cancel(leavePending(context, id))
+        all.value.firstOrNull { it.id == id }?.let { FollowNotifications.clearReminder(context, it.followed) }
         mutable.update { list -> list.filterNot { it.id == id } }
         save(context)
     }
@@ -166,6 +168,7 @@ object Reminders {
                 if (reminder.once) remove(context, reminder.id)
                 continue
             }
+            if (at <= reminder.told) continue
             alarm(context, reminder.id, at, at - FIRST_LOOK_MIN * 60_000L)
         }
     }
@@ -187,13 +190,14 @@ object Reminders {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-    /** When it's time to go, for a reminder without a live card; [followed] null only to cancel it. */
+    /** When it's time to go; [followed] null only to cancel it. */
     private fun leavePending(context: Context, id: String, followed: Followed? = null, at: Long = 0, walk: Int? = null, journey: Boolean = false) =
         PendingIntent.getBroadcast(
             context, 0,
             Intent(context, ReminderReceiver::class.java)
                 .setAction(ReminderReceiver.ACTION_LEAVE)
                 .setData("${WearLink.APP_SCHEME}://reminder/$id/leave".toUri())
+                .putExtra(ReminderReceiver.EXTRA_ID, id)
                 .putExtra(ReminderReceiver.EXTRA_FOLLOWED, followed?.let { Api.json.encodeToString(it) })
                 .putExtra(ReminderReceiver.EXTRA_AT, at)
                 .putExtra(ReminderReceiver.EXTRA_WALK, walk ?: -1)
@@ -201,51 +205,49 @@ object Reminders {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    /** Times the walk from where the user is, and either looks again later or starts following the bus. */
+    /**
+     * Times the walk from where the user is and looks again later, or speaks: with a fresh fix the heads-up, then the
+     * time to leave; without one, or at the stop, one call to get ready. A tap on any of them follows the bus.
+     */
     internal suspend fun fire(context: Context, id: String, at: Long) {
         val reminder = all.value.firstOrNull { it.id == id } ?: return
-        if (at <= reminder.handled) return
+        if (at <= reminder.handled || at <= reminder.told) return
         val now = System.currentTimeMillis()
-        val quiet = savedAt.remove(id)?.let { now - it < JUST_SAVED_MS } == true
         if (at < now - MISSED_MS) return handled(context, reminder, at)
-        // Saved, so the follow starts from the same fix.
         val fix = withTimeoutOrNull(LOCATE_MS) { UserLocation.current(context) }?.also { UserLocation.save(context, it) }
             ?: UserLocation.recent(context)
         val walk = fix?.let { walkMinutes(it.lat, it.lon, reminder.lat, reminder.lon) }
-        val leaveAt = at - leadMinutes(walk) * 60_000L
-        val wakeAt = leaveAt - HEADS_UP_MIN * 60_000L
+        val wakeAt = tellAt(at, walk)
         if (wakeAt > now + REARM_SLACK_MS) return alarm(context, id, at, wakeAt)
-        handled(context, reminder, at)
         val journey = reminder.journey
-        if (journey != null) {
-            JourneyManager.start(context, journey.copy(id = JourneyManager.newId()))
-        } else if (FollowManager.start(context, reminder.followed, FollowTarget(id, at, reminder.lat, reminder.lon, quiet))) {
-            return
+        if (journey != null) JourneyManager.start(context, journey.copy(id = JourneyManager.newId()))
+        val leaveAt = at - leadMinutes(walk) * 60_000L
+        val kind = when {
+            walk == null || walk == 0 -> Nudge.GetReady
+            leaveAt > now + REARM_SLACK_MS -> Nudge.LeaveBy
+            else -> Nudge.LeaveNow
         }
-        // No live card to say when to go. At the stop or too late to go, it says the bus is coming;
-        // otherwise the heads-up now, then a nudge when it's time.
-        when {
-            walk == 0 || leaveAt <= now -> if (!quiet) FollowNotifications.nudge(context, reminder.followed, at, walk, journey != null, Nudge.Coming)
-            leaveAt > now + REARM_SLACK_MS -> {
-                if (!quiet) FollowNotifications.nudge(context, reminder.followed, at, walk, journey != null, Nudge.LeaveBy)
-                schedule(context, leaveAt, leavePending(context, id, reminder.followed, at, walk, journey != null))
-            }
-            !quiet -> FollowNotifications.nudge(context, reminder.followed, at, walk, journey != null)
-        }
+        handled(context, reminder, at, waiting = kind == Nudge.LeaveBy)
+        FollowNotifications.remind(context, reminder.followed, at, walk, kind, journey != null)
+        if (kind == Nudge.LeaveBy) schedule(context, leaveAt, leavePending(context, id, reminder.followed, at, walk, journey != null))
     }
 
     internal fun leave(context: Context, intent: Intent) {
         val followed = intent.getStringExtra(ReminderReceiver.EXTRA_FOLLOWED)
             ?.let { runCatching { Api.json.decodeFromString<Followed>(it) }.getOrNull() } ?: return
         val at = intent.getLongExtra(ReminderReceiver.EXTRA_AT, 0L)
+        intent.getStringExtra(ReminderReceiver.EXTRA_ID)?.let { id -> if (all.value.any { it.id == id && it.once }) remove(context, id) }
         // Woken too late to be any use.
         if (at < System.currentTimeMillis() - MISSED_MS) return
         val walk = intent.getIntExtra(ReminderReceiver.EXTRA_WALK, -1).takeIf { it >= 0 }
-        FollowNotifications.nudge(context, followed, at, walk, intent.getBooleanExtra(ReminderReceiver.EXTRA_JOURNEY, false))
+        FollowNotifications.remind(context, followed, at, walk, Nudge.LeaveNow, intent.getBooleanExtra(ReminderReceiver.EXTRA_JOURNEY, false))
     }
 
-    private fun handled(context: Context, reminder: Reminder, at: Long) {
-        if (reminder.once) remove(context, reminder.id) else put(context, reminder.copy(handled = at))
+    /** [waiting] while a one-off's time to leave is still to come. */
+    private fun handled(context: Context, reminder: Reminder, at: Long, waiting: Boolean = false) = when {
+        !reminder.once -> put(context, reminder.copy(handled = at))
+        waiting -> put(context, reminder.copy(told = at))
+        else -> remove(context, reminder.id)
     }
 
     /** Timetables change: each reminder follows its bus to the current times. */

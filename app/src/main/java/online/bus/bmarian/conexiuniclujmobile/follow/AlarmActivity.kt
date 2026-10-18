@@ -49,6 +49,7 @@ import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
@@ -87,6 +88,8 @@ class AlarmActivity : ComponentActivity() {
         )
         val stopId = intent.getIntExtra(EXTRA_STOP, 0)
         val target = if (alarm.journey) "journey" else "stop/$stopId"
+        val followed = intent.getStringExtra(EXTRA_FOLLOWED)?.takeIf { !alarm.journey }
+            ?.let { runCatching { Api.json.decodeFromString<Followed>(it) }.getOrNull() }
         setContent {
             val mode by Services.settings.theme.collectAsStateWithLifecycle()
             val dark = when (mode) {
@@ -115,12 +118,12 @@ class AlarmActivity : ComponentActivity() {
                     },
                     onOpen = {
                         ReminderAlarm.stop(this)
-                        startActivity(
-                            Intent(this, MainActivity::class.java)
+                        // The bus is followed from the stop it opens.
+                        val open = followed?.let { FollowNotifications.followIntent(this, it, alarm.busAt) }
+                            ?: Intent(this, MainActivity::class.java)
                                 .setAction(Intent.ACTION_VIEW)
                                 .setData("${BuildConfig.SITE_ORIGIN}/$target".toUri())
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                        )
+                        startActivity(open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
                         finish()
                     },
                 )
@@ -138,6 +141,7 @@ class AlarmActivity : ComponentActivity() {
         const val EXTRA_STOP_NAME = "stopName"
         const val EXTRA_AT = "at"
         const val EXTRA_JOURNEY = "journey"
+        const val EXTRA_FOLLOWED = "followed"
     }
 }
 

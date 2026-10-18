@@ -15,25 +15,21 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import online.bus.bmarian.conexiuniclujmobile.Services
-import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.LiveState
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
-import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
 import online.bus.bmarian.conexiuniclujmobile.logic.exactMinutesOfDay
 import online.bus.bmarian.conexiuniclujmobile.logic.minutesUntil
 import online.bus.bmarian.conexiuniclujmobile.logic.scheduledAtStop
 import online.bus.bmarian.conexiuniclujmobile.logic.targetMinutes
-import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import java.time.Instant
 import kotlin.math.roundToInt
 import java.time.LocalDateTime
@@ -41,7 +37,6 @@ import java.time.LocalDateTime
 private const val TICK_MS = 15_000L
 private const val LIVE_WAIT_MS = 6_000L
 private const val STOP_INFO_REFRESH_MS = 120_000L
-private const val LOCATION_MS = 30_000L
 private const val SOON_MINUTES = 2
 private const val GIVE_UP_MS = 90 * 60_000L
 
@@ -121,8 +116,6 @@ class FollowService : Service() {
         val live = MutableStateFlow<LiveState?>(null)
         val ready = MutableStateFlow(false)
         val clock = MutableStateFlow(System.currentTimeMillis())
-        // Where the reminder timed the walk from, until a fresh fix: without one the walk reads as unknown.
-        val here = MutableStateFlow(if (target != null) UserLocation.recent(this@FollowService) else null)
 
         launch {
             while (true) {
@@ -146,19 +139,12 @@ class FollowService : Service() {
                 clock.value = System.currentTimeMillis()
             }
         }
-        if (target != null) {
-            launch {
-                here.value = UserLocation.current(this@FollowService) ?: UserLocation.recent(this@FollowService)
-                UserLocation.updates(this@FollowService, LOCATION_MS).catch {}.collect { fix -> if (fix != null) here.value = fix }
-            }
-        }
-
         val progress = Progress()
         combine(info.filterNotNull(), live, ready.filter { it }, clock) { stop, state, _, nowMs ->
             withContext(Dispatchers.Default) { reading(stop, state, followed, target, nowMs) to nowMs }
         }.collect { (reading, nowMs) ->
             if (nowMs - start.startedAt > GIVE_UP_MS) return@collect end(start.id, "stopped")
-            update(start, reading, here.value, nowMs, progress)
+            update(start, reading, nowMs, progress)
         }
     }
 
@@ -184,59 +170,20 @@ class FollowService : Service() {
         var lastMinutes: Int? = null
         var alertedSoon = false
         var arrived = false
-        var warned = false
-        var leaveBy: Long? = null
-        var toldToLeave = false
-        var late = false
     }
 
-    private fun update(start: FollowState, reading: Reading?, here: Fix?, nowMs: Long, progress: Progress) {
+    private fun update(start: FollowState, reading: Reading?, nowMs: Long, progress: Progress) {
         val id = start.id
-        val target = start.target
-        if (reading == null) return end(id, if (target != null) "left" else "none")
+        if (reading == null) return end(id, if (start.target != null) "left" else "none")
         val minutes = reading.minutes
         // A jump after the bus was close means it passed, even if no reading caught it at 0.
         if (progress.alertedSoon && minutes > (progress.lastMinutes ?: 0) + 2) return end(id, "left")
-        // Nothing buzzes on the first reading of what the user just asked for.
-        val opening = progress.lastMinutes == null && (target == null || target.quiet)
+        // Nothing buzzes on the first reading: the user just asked.
+        val opening = progress.lastMinutes == null
         var alert = false
-        var leaveAt: Long? = null
-        var walk: Int? = null
-        var ring = false
-        if (target != null) {
-            val minutesToWalk = here?.let { walkMinutes(it.lat, it.lon, target.lat, target.lon) }
-            val leaveIn = minutes - leadMinutes(minutesToWalk)
-            // Already time to go when it starts: too late to time the walk.
-            if (progress.lastMinutes == null && leaveIn <= 0) progress.late = true
-            // At the stop or too late, it's told when the bus comes, like a plain follow.
-            val timed = minutesToWalk != 0 && !progress.late
-            if (!timed && progress.lastMinutes == null) {
-                // Says so as it starts, unless the user just asked.
-                alert = !opening
-            } else if (timed && leaveIn <= 0 && !progress.toldToLeave) {
-                progress.toldToLeave = true
-                progress.warned = true
-                alert = !opening
-                if (alert && Services.settings.fullScreenAlarms.value) {
-                    val (title, text) = leaveText(this, start.followed.shortName, minutes, nowMs, minutesToWalk, nowMs)
-                    ReminderAlarm.ring(this, start.followed, nowMs + minutes * 60_000L, title, text)
-                    ring = true
-                }
-            } else if (timed && leaveIn <= HEADS_UP_MIN && !progress.warned) {
-                progress.warned = true
-                alert = !opening
-            }
-            // Until the bus is close.
-            if (timed && minutes > SOON_MINUTES) {
-                leaveAt = nowMs + leaveIn * 60_000L
-                walk = minutesToWalk
-                // The time to go by only moves earlier, so it doesn't flicker as the minutes round.
-                if (progress.warned) progress.leaveBy = minOf(progress.leaveBy ?: Long.MAX_VALUE, leaveAt / 60_000 * 60_000)
-            }
-        }
         if (minutes <= SOON_MINUTES && !progress.alertedSoon) {
             progress.alertedSoon = true
-            alert = alert || (!opening && minutes > 0)
+            alert = !opening && minutes > 0
         }
         if (minutes == 0 && !progress.arrived) {
             progress.arrived = true
@@ -250,14 +197,11 @@ class FollowService : Service() {
             live = reading.live,
             later = reading.later,
             arrivalAt = nowMs + minutes * 60_000L,
-            leaveAt = leaveAt,
-            walkMinutes = walk,
-            leaveBy = progress.leaveBy.takeIf { !progress.toldToLeave },
         )
         latest[id] = state
         FollowManager.put(state)
         WearLink.sendState(this, state.toSync(alert = alert))
-        val card = FollowNotifications.ongoing(this, state, alert && !ring)
+        val card = FollowNotifications.ongoing(this, state, alert)
         cards[id] = card
         manager.notify(FollowNotifications.slot(id), card)
     }

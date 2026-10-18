@@ -20,8 +20,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
 import online.bus.bmarian.conexiuniclujmobile.data.Places
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowNotifications
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowTarget
+import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
@@ -74,12 +79,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun take(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_SEND) {
+        if (intent == null) return
+        if (intent.action == Intent.ACTION_SEND) {
             intent.getStringExtra(Intent.EXTRA_TEXT)?.let(::planToShared)
             return
         }
-        val data = intent?.data ?: intent?.getStringExtra(EXTRA_LINK)?.let(android.net.Uri::parse) ?: return
+        val data = intent.data ?: intent.getStringExtra(EXTRA_LINK)?.let(android.net.Uri::parse) ?: return
         links.value = data
+        // A tapped reminder; not again when reopened from recents.
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) {
+            intent.getStringExtra(FollowNotifications.EXTRA_FOLLOW)
+                ?.let { runCatching { Api.json.decodeFromString<Followed>(it) }.getOrNull() }
+                ?.let { followed ->
+                    val at = intent.getLongExtra(FollowNotifications.EXTRA_FOLLOW_AT, 0L)
+                    FollowManager.start(this, followed, FollowTarget(at).takeIf { at > 0 })
+                }
+        }
     }
 
     private fun planToShared(text: String) {
