@@ -94,6 +94,7 @@ object Transfer {
                 put("autoCenterOnMe", s.autoCenterOnMe.value)
                 put("autoFitMap", s.autoFitMap.value)
                 put("showGreenFriday", s.showGreenFriday.value)
+                put("regions", buildJsonObject { put(Backend.CITY, buildJsonObject { put("showGreenFriday", s.showGreenFriday.value) }) })
             })
             put("favorites", buildJsonObject {
                 put("routes", json.encodeToJsonElement(f.routes.value))
@@ -121,7 +122,8 @@ object Transfer {
         s.flag("showNews")?.let(settings::setShowNews)
         s.flag("autoCenterOnMe")?.let(settings::setAutoCenterOnMe)
         s.flag("autoFitMap")?.let(settings::setAutoFitMap)
-        s.flag("showGreenFriday")?.let(settings::setShowGreenFriday)
+        val region = (s["regions"] as? JsonObject)?.get(Backend.CITY) as? JsonObject
+        (region?.flag("showGreenFriday") ?: s.flag("showGreenFriday"))?.let(settings::setShowGreenFriday)
         Services.favorites.importAll(export["favorites"] as? JsonObject ?: JsonObject(emptyMap()))
         (export["followedLines"] as? JsonArray)?.let(Services.routeUpdates::importFollowed)
     }

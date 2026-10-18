@@ -10,8 +10,12 @@ import java.util.Locale
 data class NewsItem(val url: String = "", val date: String = "", val title: String = "")
 
 object NewsApi {
-    // The endpoint returns null when the scrape found nothing.
-    suspend fun fetch(): List<NewsItem> = Api.getFresh<List<NewsItem>?>("news").orEmpty()
+    // The endpoint returns null when the scrape found nothing, and is gone from the per-city server.
+    suspend fun fetch(): List<NewsItem> = try {
+        Api.getFresh<List<NewsItem>?>("news").orEmpty()
+    } catch (e: HttpException) {
+        if (e.code == 404) emptyList() else throw e
+    }
 }
 
 private val NEWS_DATE_FORMATS: List<DateTimeFormatter> = listOf(
