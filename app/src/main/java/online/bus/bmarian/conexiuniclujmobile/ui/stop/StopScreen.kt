@@ -179,7 +179,6 @@ fun StopScreen(stopId: Int) {
     val infos by vm.infos.collectAsStateWithLifecycle()
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val look = remember(index, stopId) { index?.look(stopId) }
-    // A station is a favourite when any of its platforms is.
     val favoritePlatform = (infos.map { it.stopId }.ifEmpty { listOf(stopId) }).firstOrNull { it in favoriteStops }
     val isFavorite = favoritePlatform != null
     val follows by FollowManager.follows.collectAsStateWithLifecycle()
@@ -222,7 +221,6 @@ fun StopScreen(stopId: Int) {
     }
     val keyedDepartures = remember(departures) { departures?.let { list -> withUniqueKeys(list) { it.tripId } } }
 
-    // The platform the bus calls at.
     fun platformOf(departure: StopDeparture) = if (departure.stopId != 0) departure.stopId else stopId
 
     fun openDeparture(departure: StopDeparture) {
@@ -402,7 +400,6 @@ fun StopScreen(stopId: Int) {
                             icon = Icons.Rounded.Map,
                         )
                     }
-                    // By mode when several stop here, each with its favourites first.
                     val groups = groupByMode(routesHere, { it.type }, { it.shortName }).map { (mode, lines) ->
                         mode to lines.sortedBy { if (Services.favorites.isRouteFavorite(it.routeId)) 0 else 1 }
                     }

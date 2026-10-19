@@ -471,7 +471,6 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         applyMe()
     }
 
-    // Each station in its mode and colour; images are made once per mode and colour.
     private fun stationImage(stopId: Int, selected: Boolean): String {
         val look = looks?.look(stopId) ?: return if (selected) "stop-selected" else "stop"
         val name = "${if (selected) "sel" else "st"}-${look.mode}-${look.color}"

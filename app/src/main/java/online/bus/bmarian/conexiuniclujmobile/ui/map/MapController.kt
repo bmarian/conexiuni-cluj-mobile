@@ -8,7 +8,6 @@ import androidx.compose.runtime.setValue
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
 
-// A favourite stop is drawn with a heart, apart from the red of a journey's end.
 enum class StopHighlight { Green, Purple, Red, Gray, Amber, Favorite }
 
 class MapShape(val tripId: String, val shortName: String, val color: String, val points: List<LatLon>)
