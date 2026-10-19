@@ -1,21 +1,22 @@
 # Ce autobuz iau? for Android
 
-The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus and tram tracker as an Android app. Same buses and timetables as the website, but designed for mobile.
+The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus and tram tracker as an Android app, for Cluj-Napoca, București, Iași, Oradea and Constanța. Same buses and timetables as the website, but designed for mobile.
 
 **Join the beta:** [join the testers group](https://groups.google.com/g/conexiuni-cluj-beta), then [get the app on Google Play](https://play.google.com/apps/testing/online.bmarian.bus). Needs Android 8 or newer.
 
 <p align="center">
   <img src="readme/home.png" width="200" alt="Home with a followed bus, a reminder and favorite lines">
-  <img src="readme/stop.png" width="200" alt="Departures from a stop">
+  <img src="readme/stop.png" width="200" alt="Departures from every platform of a metro station">
   <img src="readme/line.png" width="200" alt="A line's stops with the next arrivals">
   <img src="readme/plan.png" width="200" alt="A planned trip">
 </p>
 
 ## What it does
 
-- Every CTP bus and tram on the map, live
+- Live buses, trams and trolleybuses on the map
 - The stops around you and their next buses, on the first screen
 - Departures for any stop. Tracked buses get a live countdown, the rest show the timetable
+- Platforms with the same name are one station, marked with a metro, tram, trolleybus or bus icon in the colour of its lines
 - Full timetables for every line
 - A route planner: leave now, leave at, arrive by, or the last one today
 - Step-by-step guidance for a planned trip, with voice
@@ -24,7 +25,8 @@ The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus and tram tr
 - Favorite stops and lines
 - A home screen widget for a stop
 - Share a place to the app and it plans the trip there
-- A notification when CTP changes a line you follow
+- The operator's news, and a notification when a line you follow changes
+- Pick the city in Settings
 - Works with the [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos)
 - Move your favorites and settings to another phone, the website or your watch by scanning a code
 
@@ -61,12 +63,13 @@ Phone version codes are 1xxxx and the watch's 2xxxx. `./gradlew bundleRelease` b
 
 ## Credits
 
-| Source                                                       | Used for                                             |
-| ------------------------------------------------------------ | ---------------------------------------------------- |
-| [Tranzy.ai](https://tranzy.ai/)                              | Live GPS positions and GTFS data for CTP Cluj-Napoca |
-| [CTP Cluj-Napoca](https://www.ctpcj.ro/)                     | Official timetables                                  |
-| [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data                                             |
-| [OpenFreeMap](https://openfreemap.org/)                      | Map tiles                                            |
-| [MapLibre](https://maplibre.org/)                            | The map                                              |
-| [Photon](https://photon.komoot.io/)                          | Place search                                         |
-| [ZXing](https://github.com/zxing/zxing)                      | QR codes                                             |
+| Source                                                                             | Used for                                                                  |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Tranzy.ai](https://tranzy.ai/)                                                    | Live positions, lines and stops for Cluj-Napoca, Iași, Oradea and Constanța |
+| [CTP Cluj-Napoca](https://ctpcj.ro/)                                               | Cluj-Napoca's timetables and news                                         |
+| [gtfs.ro](https://gtfs.ro/)                                                        | Timetables for Iași, Oradea and Constanța                                 |
+| [TPBI](https://tpbi.ro/)                                                           | Lines, timetables, live positions and news for București                  |
+| [OpenStreetMap](https://www.openstreetmap.org/) contributors                       | Map data, walking routes, place search, town and street names             |
+| [OpenFreeMap](https://openfreemap.org/), [OpenMapTiles](https://openmaptiles.org/) | Map tiles                                                                 |
+| [MapLibre](https://maplibre.org/)                                                  | The map                                                                   |
+| [ZXing](https://github.com/zxing/zxing)                                            | QR codes                                                                  |
