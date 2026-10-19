@@ -37,7 +37,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -54,7 +54,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
+import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
+import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -70,7 +73,7 @@ data class MapInsets(val top: Float = 0f, val bottom: Float = 0f, val right: Flo
 private sealed interface Tooltip {
     val at: LatLon
 
-    class StopName(override val at: LatLon, val name: String) : Tooltip
+    class StopName(override val at: LatLon, val name: String, val look: StationLook?) : Tooltip
     class Pin(override val at: LatLon, val label: String) : Tooltip
 }
 
@@ -187,7 +190,7 @@ fun TransitMap(
                 val stop = created.stopAt(point, with(density) { 20.dp.toPx() })?.let { currentStopsById[it] }
                     ?: return@addOnMapLongClickListener false
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                tooltip = Tooltip.StopName(LatLon(stop.lat, stop.lon), stop.name)
+                tooltip = Tooltip.StopName(LatLon(stop.lat, stop.lon), stop.name, Services.repository.network.index.value?.look(stop.stopId))
                 true
             }
             session = created
@@ -431,22 +434,31 @@ private class MapHost(context: Context, val map: MapView) : FrameLayout(context)
 }
 
 @Composable
-private fun Anchored(session: MapSession, at: () -> LatLon?, lift: Float, alignStart: Float? = null, content: @Composable () -> Unit) {
+private fun Anchored(
+    session: MapSession,
+    at: () -> LatLon?,
+    lift: Float,
+    alignStart: Float? = null,
+    pointer: @Composable () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
     val margin = with(LocalDensity.current) { 8.dp.toPx() }
-    Box(
-        Modifier.layout { measurable, constraints ->
-            val placeable = measurable.measure(Constraints(maxWidth = constraints.maxWidth, maxHeight = constraints.maxHeight))
-            layout(placeable.width, placeable.height) {
-                session.frame.intValue
-                val target = at() ?: return@layout
-                val p = session.screen(target)
-                val x = if (alignStart != null) p.x + alignStart
-                else (p.x - placeable.width / 2f).coerceIn(margin, maxOf(margin, constraints.maxWidth - placeable.width - margin))
-                val y = if (alignStart != null) p.y - placeable.height / 2f else p.y - lift - placeable.height
-                placeable.place(x.roundToInt(), y.roundToInt())
-            }
-        },
-    ) { content() }
+    Layout({ Box { content() }; Box { pointer() } }) { measurables, constraints ->
+        val loose = Constraints(maxWidth = constraints.maxWidth, maxHeight = constraints.maxHeight)
+        val body = measurables[0].measure(loose)
+        val tip = measurables[1].measure(loose)
+        layout(body.width, body.height + tip.height) {
+            session.frame.intValue
+            val target = at() ?: return@layout
+            val p = session.screen(target)
+            val x = if (alignStart != null) p.x + alignStart
+            else (p.x - body.width / 2f).coerceIn(margin, maxOf(margin, constraints.maxWidth - body.width - margin))
+            val y = if (alignStart != null) p.y - body.height / 2f else p.y - lift - tip.height - body.height
+            body.place(x.roundToInt(), y.roundToInt())
+            // The card may be pushed off-centre at the edges; the arrow stays on the target.
+            tip.place((p.x - tip.width / 2f).roundToInt(), (y + body.height).roundToInt())
+        }
+    }
 }
 
 @Composable
@@ -455,25 +467,31 @@ private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
     val fg = if (dark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
     val sub = if (dark) Color(0xFF94A3B8) else Color(0xFF64748B)
     val lift = with(LocalDensity.current) { (if (tip is Tooltip.Pin) 30.dp else 18.dp).toPx() }
-    Anchored(session, { tip.at }, lift) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Column(
-                Modifier.shadow(4.dp, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp)).background(bg)
-                    .widthIn(max = 320.dp).padding(horizontal = 10.dp, vertical = 5.dp),
-            ) {
-                when (tip) {
-                    is Tooltip.StopName -> Text(tip.name, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    is Tooltip.Pin -> {
-                        val parts = tip.label.split(',').map { it.trim() }
-                        Text(parts.firstOrNull() ?: tip.label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        parts.drop(1).joinToString(", ").takeIf { it.isNotEmpty() }?.let {
-                            Text(it, color = sub, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        }
+    val arrow = @Composable {
+        Canvas(Modifier.size(12.dp, 6.dp)) {
+            drawPath(Path().apply { moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2, size.height); close() }, bg)
+        }
+    }
+    Anchored(session, { tip.at }, lift, pointer = arrow) {
+        Column(
+            Modifier.shadow(4.dp, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp)).background(bg)
+                .widthIn(max = 320.dp).padding(horizontal = 10.dp, vertical = 5.dp),
+        ) {
+            when (tip) {
+                is Tooltip.StopName -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (tip.look != null) StationIcon(tip.look, size = 24.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(tip.name, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        StationLines(tip.look, Modifier.widthIn(max = 224.dp))
                     }
                 }
-            }
-            Canvas(Modifier.size(12.dp, 6.dp)) {
-                drawPath(Path().apply { moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2, size.height); close() }, bg)
+                is Tooltip.Pin -> {
+                    val parts = tip.label.split(',').map { it.trim() }
+                    Text(parts.firstOrNull() ?: tip.label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    parts.drop(1).joinToString(", ").takeIf { it.isNotEmpty() }?.let {
+                        Text(it, color = sub, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }

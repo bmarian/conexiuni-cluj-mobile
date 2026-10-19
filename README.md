@@ -2,7 +2,7 @@
 
 The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus and tram tracker as an Android app, for Cluj-Napoca, București, Iași, Oradea and Constanța. Same buses and timetables as the website, but designed for mobile.
 
-**Join the beta:** [join the testers group](https://groups.google.com/g/conexiuni-cluj-beta), then [get the app on Google Play](https://play.google.com/apps/testing/online.bmarian.bus). Needs Android 8 or newer.
+**Join the beta:** [join the testers group](https://groups.google.com/g/ce-autobuz-iau-beta), then [get the app on Google Play](https://play.google.com/apps/testing/online.bmarian.bus). Needs Android 8 or newer.
 
 <p align="center">
   <img src="readme/home.png" width="200" alt="Home with a followed bus, a reminder and favorite lines">
