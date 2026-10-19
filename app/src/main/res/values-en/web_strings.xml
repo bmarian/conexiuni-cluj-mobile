@@ -43,6 +43,16 @@
     <string name="w_frequency_every_other">Every %1$s min</string>
     <string name="w_frequency_window">between %1$s and %2$s</string>
     <string name="w_bus_stop">Bus stop</string>
+    <string name="w_stop_kind_bus">Bus stop</string>
+    <string name="w_stop_kind_trolleybus">Trolleybus stop</string>
+    <string name="w_stop_kind_tram">Tram stop</string>
+    <string name="w_stop_kind_metro">Metro station</string>
+    <string name="w_stop_kind_rail">Train station</string>
+    <string name="w_mode_lines_bus">Buses</string>
+    <string name="w_mode_lines_trolleybus">Trolleybuses</string>
+    <string name="w_mode_lines_tram">Trams</string>
+    <string name="w_mode_lines_metro">Metro</string>
+    <string name="w_mode_lines_rail">Trains</string>
     <string name="w_next_departures">Departures</string>
     <string name="w_all_routes">All lines</string>
     <string name="w_all_stops">All stops</string>

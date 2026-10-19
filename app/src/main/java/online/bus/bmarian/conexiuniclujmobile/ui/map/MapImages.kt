@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import kotlin.math.ceil
 import kotlin.math.max
@@ -45,9 +46,18 @@ internal class MapImages(context: Context) {
         stopMarker(center, 24.dp.toPx(), if (dark) MapColors.StopDark else MapColors.StopLight, 14.dp.toPx())
     }
 
-    fun highlight(h: StopHighlight) = draw(28f, 28f) { stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), 14.dp.toPx(), shadow = 1.2f) }
+    fun highlight(h: StopHighlight) = draw(28f, 28f) {
+        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), if (h == StopHighlight.Favorite) 13.dp.toPx() else 14.dp.toPx(), shadow = 1.2f, heart = h == StopHighlight.Favorite)
+    }
 
     fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f) }
+
+    fun station(mode: Mode, color: String) = draw(28f, 28f) { stopMarker(center, 24.dp.toPx(), routeColor(color), 14.dp.toPx(), mode = mode) }
+
+    /** The selected station keeps its look, larger. */
+    fun selectedStation(mode: Mode, color: String) = draw(36f, 36f) {
+        stopMarker(center, 32.dp.toPx(), routeColor(color), 16.dp.toPx(), shadow = 1.6f, mode = mode)
+    }
 
     fun pin(color: Color) = draw(22f, 28f) { pinMarker(Offset(11.dp.toPx(), 28.dp.toPx()), color) }
 

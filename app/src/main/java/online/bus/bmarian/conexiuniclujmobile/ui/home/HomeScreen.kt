@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import androidx.compose.foundation.layout.Box
+import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -114,7 +117,8 @@ fun HomeScreen() {
         map.claim(owner)
         onDispose { map.release(owner) }
     }
-    LaunchedEffect(favoriteStopIds) { map.highlightedStops = favoriteStopIds.associateWith { StopHighlight.Red } }
+    LaunchedEffect(favoriteStopIds) { map.highlightedStops = favoriteStopIds.associateWith { StopHighlight.Favorite } }
+    val index by Services.repository.network.index.collectAsStateWithLifecycle()
 
     val routesById = remember(routes) { routes.associateBy { it.routeId } }
     val stopsById = remember(stops) { stops.associateBy { it.stopId } }
@@ -232,10 +236,12 @@ fun HomeScreen() {
             item(key = "stops") {
                 Column {
                     for (stop in favoriteStops) key(stop.stopId) {
+                        val look = index?.look(stop.stopId)
                         FavoriteRow(
                             modifier = Modifier.reorderItem(stopReorder, stop.stopId).longPressDrag(stopReorder, stop.stopId),
-                            icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, size = 30.dp) },
+                            icon = { StationIcon(look, size = 30.dp) },
                             title = stop.name,
+                            lines = { StationLines(look) },
                             kicker = null,
                             removeLabel = stringResource(R.string.w_remove_from_favorites),
                             onClick = { nav.stop(stop.stopId) },
@@ -337,6 +343,7 @@ private fun FavoriteRow(
     onClick: () -> Unit,
     onRemove: () -> Unit,
     titlePrefix: String? = null,
+    lines: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).squishClickable(onClick = onClick)
@@ -364,6 +371,7 @@ private fun FavoriteRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            lines?.let { Box(Modifier.padding(top = 4.dp)) { it() } }
         }
         IconButton(onClick = onRemove) {
             Icon(Icons.Rounded.Close, contentDescription = removeLabel, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -26,7 +26,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.NaturalOrder
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.hasTimetableEntries
-import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
+import online.bus.bmarian.conexiuniclujmobile.logic.stationDepartures
 import online.bus.bmarian.conexiuniclujmobile.logic.trackableTripIds
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
@@ -50,11 +50,18 @@ class StopViewModel(val stopId: Int) : ViewModel() {
     private val shapes = MutableStateFlow<Map<String, List<ShapePoint>>>(emptyMap())
     private val live = MutableStateFlow<LiveState?>(null)
 
-    val ui: StateFlow<StopUi?> = combine(_info, live, Services.clock) { info, live, _ ->
-        if (info == null) return@combine null
+    /** The stop and the other platforms of its station. */
+    val infos: StateFlow<List<StopInfo>> = combine(_info, repository.network.index) { info, index ->
+        if (info == null) return@combine emptyList()
+        val nowMs = System.currentTimeMillis()
+        listOf(info) + index?.platforms(stopId)?.drop(1)?.mapNotNull { index.stopInfo(it.stopId, nowMs) }.orEmpty()
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val ui: StateFlow<StopUi?> = combine(infos, live, Services.clock) { infos, live, _ ->
+        if (infos.isEmpty()) return@combine null
         val nowMs = System.currentTimeMillis()
         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
-        StopUi(stopDepartures(info, live, now, nowMs), now)
+        StopUi(stationDepartures(infos, live, now, nowMs), now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val mapLayer: StateFlow<StopMapLayer> = combine(ui, shapes, live, Services.favorites.routes) { ui, shapes, live, _ ->
@@ -71,16 +78,16 @@ class StopViewModel(val stopId: Int) : ViewModel() {
         StopMapLayer(lines, buses)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, StopMapLayer(emptyList(), emptyList()))
 
-    val routesHere: StateFlow<List<ShapeInfo>> = combine(_info, Services.favorites.routes) { info, _ ->
-        info?.shapesInfo.orEmpty().filter { hasTimetableEntries(it.timetable) }.sortedWith(
+    val routesHere: StateFlow<List<ShapeInfo>> = combine(infos, Services.favorites.routes) { infos, _ ->
+        infos.flatMap { it.shapesInfo }.distinctBy { it.routeId }.filter { hasTimetableEntries(it.timetable) }.sortedWith(
             compareBy<ShapeInfo> { if (Services.favorites.isRouteFavorite(it.routeId)) 0 else 1 }
                 .thenComparator { a, b -> NaturalOrder.compare(a.shortName, b.shortName) },
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Buses are drawn for favourite lines only, so only their trips are subscribed.
-    private val favoriteTripIds = combine(_info.filterNotNull(), Services.favorites.routes) { info, _ ->
-        trackableTripIds(info).filter { tripId -> routeIdFromTripId(tripId)?.let(Services.favorites::isRouteFavorite) == true }
+    private val favoriteTripIds = combine(infos, Services.favorites.routes) { infos, _ ->
+        infos.flatMap(::trackableTripIds).distinct().filter { tripId -> routeIdFromTripId(tripId)?.let(Services.favorites::isRouteFavorite) == true }
     }.distinctUntilChanged()
 
     init {
@@ -114,11 +121,15 @@ class StopViewModel(val stopId: Int) : ViewModel() {
                 shapes.value = runCatching { repository.shapes(ids) }.getOrDefault(emptyMap())
             }
         }
-        favoriteTripIds.collectLatest { ids ->
-            LiveStream.live(listOf(stopId), ids).collect { live.value = it }
-        }
+        combine(infos.map { list -> list.map { it.stopId }.ifEmpty { listOf(stopId) } }.distinctUntilChanged(), favoriteTripIds) { a, b -> a to b }
+            .collectLatest { (stopIds, ids) -> LiveStream.live(stopIds, ids).collect { live.value = it } }
     }
 
     fun isDepartureFavorite(departure: StopDeparture) =
         Services.favorites.isRouteFavorite(departure.routeId)
+
+    /** The platform where a line calls, the stop itself first. */
+    fun platformOf(routeId: Int): StopInfo? = infos.value.firstOrNull { info -> info.shapesInfo.any { it.routeId == routeId } }
+
+    fun platform(stopId: Int): StopInfo? = infos.value.firstOrNull { it.stopId == stopId }
 }

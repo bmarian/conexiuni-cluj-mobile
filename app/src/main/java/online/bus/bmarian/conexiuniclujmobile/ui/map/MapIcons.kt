@@ -12,6 +12,9 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
+import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.ui.ModeGlyphs
+import online.bus.bmarian.conexiuniclujmobile.ui.drawModeGlyph
 
 // Port of the artwork in utils/mapIcons.ts.
 object Glyphs {
@@ -58,7 +61,7 @@ object MapColors {
     fun highlight(h: StopHighlight) = when (h) {
         StopHighlight.Green -> Green
         StopHighlight.Purple -> Purple
-        StopHighlight.Red -> Red
+        StopHighlight.Red, StopHighlight.Favorite -> Red
         StopHighlight.Amber -> Amber
         StopHighlight.Gray -> Gray
     }
@@ -67,18 +70,21 @@ object MapColors {
         StopHighlight.Green -> 1200
         StopHighlight.Purple -> 1100
         StopHighlight.Amber -> 1050
-        StopHighlight.Red -> 1000
+        StopHighlight.Red, StopHighlight.Favorite -> 1000
         StopHighlight.Gray -> 800
     }
 }
 
-fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Float, shadow: Float = 1f) {
+/** A station's marker: its mode in its colour; a heart for a favourite. */
+fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Float, shadow: Float = 1f, mode: Mode = Mode.BUS, heart: Boolean = false) {
     val r = diameter / 2
     drawCircle(Color.Black.copy(alpha = 0.18f * shadow), r + 1.dp.toPx(), center + Offset(0f, 1.dp.toPx()))
     drawCircle(Color.White, r, center)
     drawCircle(fill, r - 2.dp.toPx(), center)
     translate(center.x - glyph / 2, center.y - glyph / 2) {
-        scale(glyph / 24f, glyph / 24f, pivot = Offset.Zero) { drawPath(Glyphs.busStop, Color.White) }
+        scale(glyph / 24f, glyph / 24f, pivot = Offset.Zero) {
+            if (heart) drawPath(ModeGlyphs.path(ModeGlyphs.HEART), Color.White) else drawModeGlyph(mode, Color.White)
+        }
     }
 }
 

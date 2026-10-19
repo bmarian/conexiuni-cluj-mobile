@@ -18,6 +18,7 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.sin
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
+import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
@@ -115,6 +116,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     val frame = mutableIntStateOf(0)
 
     private var stops: List<Stop> = emptyList()
+    private var looks: NetworkIndex? = null
     private var selected: Stop? = null
     private var highlights: List<Pair<Stop, StopHighlight>> = emptyList()
     private var scene = MapScene.Empty
@@ -162,10 +164,12 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
     }
 
-    fun setStops(list: List<Stop>) {
-        if (list === stops) return
+    fun setStops(list: List<Stop>, index: NetworkIndex?) {
+        if (list === stops && index === looks) return
         stops = list
+        looks = index
         applyStops()
+        applySelected()
     }
 
     fun setSelectedStop(stop: Stop?) {
@@ -397,7 +401,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             layer.setProperties(iconAllowOverlap(true), iconIgnorePlacement(true))
             if (puck != null) style.addLayerBelow(layer, puck) else style.addLayer(layer)
         }
-        over(SymbolLayer(LAYER_STOPS, SRC_STOPS).withProperties(iconImage("stop")).also { it.minZoom = STOP_ZOOM })
+        over(SymbolLayer(LAYER_STOPS, SRC_STOPS).withProperties(iconImage(get("img"))).also { it.minZoom = STOP_ZOOM })
         over(SymbolLayer(LAYER_HIGHLIGHTS, SRC_HIGHLIGHTS).withProperties(iconImage(get("img")), symbolSortKey(get("z"))))
         over(SymbolLayer("ct-ends", SRC_ENDS).withProperties(iconImage(get("img"))))
         over(SymbolLayer("ct-badges", SRC_BADGES).withProperties(iconImage(get("img"))))
@@ -418,7 +422,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 iconTranslateAnchor(Property.ICON_TRANSLATE_ANCHOR_VIEWPORT),
             ),
         )
-        over(SymbolLayer(LAYER_SELECTED, SRC_SELECTED).withProperties(iconImage("stop-selected")))
+        over(SymbolLayer(LAYER_SELECTED, SRC_SELECTED).withProperties(iconImage(get("img"))))
         over(
             SymbolLayer(LAYER_VEHICLES, SRC_VEHICLES).withProperties(
                 iconImage(get("img")),
@@ -467,12 +471,23 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         applyMe()
     }
 
+    // Each station in its mode and colour; images are made once per mode and colour.
+    private fun stationImage(stopId: Int, selected: Boolean): String {
+        val look = looks?.look(stopId) ?: return if (selected) "stop-selected" else "stop"
+        val name = "${if (selected) "sel" else "st"}-${look.mode}-${look.color}"
+        image(name) { if (selected) images.selectedStation(look.mode, look.color) else images.station(look.mode, look.color) }
+        return name
+    }
+
     private fun applyStops() {
         val src = source(SRC_STOPS) ?: return
         src.setGeoJson(
             FeatureCollection.fromFeatures(
                 stops.map { s ->
-                    Feature.fromGeometry(point(LatLon(s.lat, s.lon))).apply { addNumberProperty("id", s.stopId) }
+                    Feature.fromGeometry(point(LatLon(s.lat, s.lon))).apply {
+                        addNumberProperty("id", s.stopId)
+                        addStringProperty("img", stationImage(s.stopId, false))
+                    }
                 },
             ),
         )
@@ -487,7 +502,14 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val stop = selected
         src.setGeoJson(
             FeatureCollection.fromFeatures(
-                listOfNotNull(stop?.let { Feature.fromGeometry(point(LatLon(it.lat, it.lon))).apply { addNumberProperty("id", it.stopId) } }),
+                listOfNotNull(
+                    stop?.let {
+                        Feature.fromGeometry(point(LatLon(it.lat, it.lon))).apply {
+                            addNumberProperty("id", it.stopId)
+                            addStringProperty("img", stationImage(it.stopId, true))
+                        }
+                    },
+                ),
             ),
         )
     }
