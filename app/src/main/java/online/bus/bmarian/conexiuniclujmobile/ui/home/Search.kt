@@ -44,6 +44,13 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
+import online.bus.bmarian.conexiuniclujmobile.data.StationLook
+import online.bus.bmarian.conexiuniclujmobile.logic.stopMatchRank
+import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
+import androidx.compose.ui.unit.Dp
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Places
 import online.bus.bmarian.conexiuniclujmobile.data.Place
@@ -87,12 +94,14 @@ class SearchState {
         return routes.filter { norm(it.shortName).contains(q) || norm(it.longName).contains(q) }.take(3)
     }
 
-    fun stops(stops: List<Stop>, me: Fix?): List<Stop> {
+    /** Port of searchStopResults: the stop's own name before what tells namesakes apart, one stop per station. */
+    fun stops(stops: List<Stop>, me: Fix?, index: NetworkIndex?): List<Stop> {
         val q = norm(query.trim())
         if (q.isEmpty()) return emptyList()
-        val filtered = stops.filter { norm(it.name).contains(q) }
-        val sorted = if (me != null) sortByDistance(filtered, me.lat, me.lon, { it.lat }, { it.lon }) else filtered
-        return sorted.take(3)
+        val matches = stops.mapNotNull { stop -> stopMatchRank(norm(stop.name), q).takeIf { it >= 0 }?.let { stop to it } }
+        val sorted = if (me != null) sortByDistance(matches, me.lat, me.lon, { it.first.lat }, { it.first.lon }) else matches
+        val ranked = sorted.sortedBy { it.second }.map { it.first }
+        return (index?.oneStopPerStation(ranked) ?: ranked).take(3)
     }
 
     suspend fun searchPlaces(query: String, online: Boolean, me: Fix?) {
@@ -160,7 +169,8 @@ fun LazyListScope.searchResults(
     onDropPin: () -> Unit,
 ) {
     val routeResults = state.routes(routes)
-    val stopResults = state.stops(stops, me)
+    val index = Services.repository.network.index.value
+    val stopResults = state.stops(stops, me, index)
     val places = if (online) state.places else emptyList()
     val loading = state.placesLoading(online)
     if (loading) {
@@ -186,12 +196,7 @@ fun LazyListScope.searchResults(
     if (stopResults.isNotEmpty()) {
         item { SubLabel(stringResource(R.string.w_search_results_stops), Modifier.padding(top = 8.dp)) }
         items(stopResults, key = { "stop-${it.stopId}" }) { stop ->
-            ResultRow(
-                icon = { RowIcon(Icons.Rounded.DirectionsBus, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) },
-                title = stop.name,
-                distance = distanceFrom(me, stop.lat, stop.lon),
-                onClick = { onStop(stop) },
-            )
+            StationRow(stop, index?.look(stop.stopId), distanceFrom(me, stop.lat, stop.lon)) { onStop(stop) }
         }
     }
     if (!loading && places.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()) {
@@ -212,6 +217,24 @@ fun LazyListScope.searchResults(
                 Text(stringResource(R.string.w_no_results), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+/** A station: its mode in its colour, its name and every line calling there. */
+@Composable
+fun StationRow(stop: Stop, look: StationLook?, distance: String?, iconSize: Dp = 36.dp, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        StationIcon(look, size = iconSize)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stop.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            StationLines(look)
+        }
+        distance?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
     }
 }
 

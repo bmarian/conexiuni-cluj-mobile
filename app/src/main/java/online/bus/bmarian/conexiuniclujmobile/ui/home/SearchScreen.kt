@@ -129,7 +129,10 @@ private fun SearchContent(state: SearchState, onClose: (clear: Boolean) -> Unit)
     val collator = remember(locale) {
         (Collator.getInstance(Locale.forLanguageTag(locale)) as RuleBasedCollator).apply { numericCollation = true }
     }
-    val sortedStops = remember(stops, collator) { stops.sortedWith { a, b -> collator.compare(a.name, b.name) } }
+    val index by Services.repository.network.index.collectAsStateWithLifecycle()
+    val sortedStops = remember(stops, collator, index) {
+        stops.sortedWith { a, b -> collator.compare(a.name, b.name) }.let { sorted -> index?.oneStopPerStation(sorted) ?: sorted }
+    }
     val recents = remember(recentPlans, favoritePlans) {
         recentPlans.filterNot { p -> favoritePlans.any { it.samePlace(p) } }.take(8)
     }
@@ -251,12 +254,7 @@ private fun SearchContent(state: SearchState, onClose: (clear: Boolean) -> Unit)
                 if (showAllStops) {
                     if (stops.isEmpty()) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp)) }
                     items(sortedStops, key = { "all-s-${it.stopId}" }, contentType = { "stop" }) { stop ->
-                        ResultRow(
-                            icon = { RowIcon(Icons.Rounded.DirectionsBus, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, size = 32.dp) },
-                            title = stop.name,
-                            distance = null,
-                            onClick = { go { nav.stop(stop.stopId) } },
-                        )
+                        StationRow(stop, index?.look(stop.stopId), distance = null, iconSize = 32.dp) { go { nav.stop(stop.stopId) } }
                     }
                 }
                 item { Spacer(Modifier.height(24.dp)) }

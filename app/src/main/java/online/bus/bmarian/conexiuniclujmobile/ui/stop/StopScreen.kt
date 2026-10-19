@@ -105,7 +105,12 @@ import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
 import online.bus.bmarian.conexiuniclujmobile.follow.nextBusReminder
+import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
+import online.bus.bmarian.conexiuniclujmobile.logic.groupByMode
+import online.bus.bmarian.conexiuniclujmobile.logic.mainMode
+import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.logic.tripIdForRouteAtStop
 import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
@@ -171,7 +176,12 @@ fun StopScreen(stopId: Int) {
     val layer by vm.mapLayer.collectAsStateWithLifecycle()
     val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
     val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
-    val isFavorite = stopId in favoriteStops
+    val infos by vm.infos.collectAsStateWithLifecycle()
+    val index by Services.repository.network.index.collectAsStateWithLifecycle()
+    val look = remember(index, stopId) { index?.look(stopId) }
+    // A station is a favourite when any of its platforms is.
+    val favoritePlatform = (infos.map { it.stopId }.ifEmpty { listOf(stopId) }).firstOrNull { it in favoriteStops }
+    val isFavorite = favoritePlatform != null
     val follows by FollowManager.follows.collectAsStateWithLifecycle()
     val reminders by Reminders.all.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<String?>(null) }
@@ -210,20 +220,24 @@ fun StopScreen(stopId: Int) {
     val departures = remember(ui, favoriteRoutes) {
         ui?.departures?.sortedWith(compareBy({ if (vm.isDepartureFavorite(it)) 0 else 1 }, { it.minutesLeft }))
     }
-    val keyedDepartures = remember(departures) { departures?.let { list -> withUniqueKeys(list) { it.shortName } } }
+    val keyedDepartures = remember(departures) { departures?.let { list -> withUniqueKeys(list) { it.tripId } } }
+
+    // The platform the bus calls at.
+    fun platformOf(departure: StopDeparture) = if (departure.stopId != 0) departure.stopId else stopId
 
     fun openDeparture(departure: StopDeparture) {
-        val shape = info?.shapesInfo?.find { it.routeId == departure.routeId } ?: return
-        RouteHandoff.set(shape, departure.tripId, stopId, name.orEmpty())
-        nav.route(departure.routeId, directionFromTripId(departure.tripId), fromStopId = stopId)
+        val shape = vm.platformOf(departure.routeId)?.shapesInfo?.find { it.routeId == departure.routeId } ?: return
+        RouteHandoff.set(shape, departure.tripId, platformOf(departure), name.orEmpty())
+        nav.route(departure.routeId, directionFromTripId(departure.tripId), fromStopId = platformOf(departure))
     }
 
     fun openRoute(shape: ShapeInfo) {
-        val current = info
-        val tripId = current?.let { tripIdForRouteAtStop(it.outgoingTripIds, it.incomingTripIds, shape.routeId) }
+        val platform = vm.platformOf(shape.routeId) ?: info
+        val tripId = platform?.let { tripIdForRouteAtStop(it.outgoingTripIds, it.incomingTripIds, shape.routeId) }
             ?: tripIdFor(shape.routeId, "0")
-        RouteHandoff.set(shape, tripId, stopId, name.orEmpty())
-        nav.route(shape.routeId, directionFromTripId(tripId), fromStopId = stopId)
+        val from = platform?.stopId ?: stopId
+        RouteHandoff.set(shape, tripId, from, name.orEmpty())
+        nav.route(shape.routeId, directionFromTripId(tripId), fromStopId = from)
     }
 
     val context = LocalContext.current
@@ -235,7 +249,7 @@ fun StopScreen(stopId: Int) {
     // At the stop, or too late to walk there, it's told when the bus comes; otherwise reminded when to leave for it.
     fun remind(followed: Followed, departure: StopDeparture) = withNotifications {
         haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
-        val stop = info
+        val stop = vm.platform(platformOf(departure)) ?: info
         val walk = Services.location.value?.let { fix -> stop?.let { walkMinutes(fix.lat, fix.lon, it.lat, it.lon) } }
         if (stop == null || justNotify(walk, departure.minutesLeft)) {
             FollowManager.start(context, followed)
@@ -283,16 +297,11 @@ fun StopScreen(stopId: Int) {
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Box(
-                    Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Rounded.DirectionsBus, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onPrimary)
-                }
+                StationIcon(look, size = 52.dp, shape = RoundedCornerShape(16.dp))
                 Column(Modifier.weight(1f).padding(top = 2.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            stringResource(R.string.w_bus_stop),
+                            stringResource(stopKind(look?.mode ?: mainMode(routesHere.map { it.type }))),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -323,7 +332,7 @@ fun StopScreen(stopId: Int) {
                         tint = if (isFavorite) Palette.Rose else Color.Unspecified,
                     ) {
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
-                        Services.favorites.toggleStop(stopId)
+                        Services.favorites.toggleStop(favoritePlatform ?: stopId)
                     },
                     ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, "/stop/$stopId") },
                 ),
@@ -344,12 +353,13 @@ fun StopScreen(stopId: Int) {
                     departures == null -> items(3) { DepartureSkeleton() }
                     departures.isEmpty() -> item { MessageText(stringResource(R.string.w_no_schedule)) }
                     else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { index, (key, departure) ->
+                        val platform = platformOf(departure)
                         val followed = Followed(
-                            stopId, name.orEmpty(), departure.routeId, departure.tripId,
+                            platform, name.orEmpty(), departure.routeId, departure.tripId,
                             departure.shortName, departure.color, routeDestination(departure.longName), Cities.current.value,
                         )
-                        val following = follows.firstOrNull { it.matches(stopId, departure.routeId, departure.tripId) }
-                        val forBus = reminders.filter { it.isFor(stopId, departure.routeId, departure.tripId) }
+                        val following = follows.firstOrNull { it.matches(platform, departure.routeId, departure.tripId) }
+                        val forBus = reminders.filter { it.isFor(platform, departure.routeId, departure.tripId) }
                         // The clock's own: a one-off for this bus, until it starts following.
                         val clocked = forBus.filter { it.once }
                         Box(Modifier.animateItem().cascade(index, stopId)) {
@@ -392,13 +402,20 @@ fun StopScreen(stopId: Int) {
                             icon = Icons.Rounded.Map,
                         )
                     }
-                    items(routesHere, key = { "r-${it.routeId}" }) { shape ->
-                        RouteRow(
-                            shortName = shape.shortName,
-                            color = shape.color,
-                            name = shape.timetable.routeLongName,
-                            favorite = Services.favorites.isRouteFavorite(shape.routeId),
-                        ) { openRoute(shape) }
+                    // By mode when several stop here, each with its favourites first.
+                    val groups = groupByMode(routesHere, { it.type }, { it.shortName }).map { (mode, lines) ->
+                        mode to lines.sortedBy { if (Services.favorites.isRouteFavorite(it.routeId)) 0 else 1 }
+                    }
+                    for ((mode, lines) in groups) {
+                        if (groups.size > 1) item(key = "mode-$mode") { SubLabel(stringResource(modeLines(mode)), Modifier.padding(top = 8.dp)) }
+                        items(lines, key = { "r-${it.routeId}" }) { shape ->
+                            RouteRow(
+                                shortName = shape.shortName,
+                                color = shape.color,
+                                name = shape.timetable.routeLongName,
+                                favorite = Services.favorites.isRouteFavorite(shape.routeId),
+                            ) { openRoute(shape) }
+                        }
                     }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
@@ -407,6 +424,22 @@ fun StopScreen(stopId: Int) {
     }
     }
     reminding?.let { ReminderSheet(it) { reminding = null } }
+}
+
+private fun stopKind(mode: Mode) = when (mode) {
+    Mode.METRO -> R.string.w_stop_kind_metro
+    Mode.RAIL -> R.string.w_stop_kind_rail
+    Mode.TRAM -> R.string.w_stop_kind_tram
+    Mode.TROLLEYBUS -> R.string.w_stop_kind_trolleybus
+    Mode.BUS -> R.string.w_stop_kind_bus
+}
+
+private fun modeLines(mode: Mode) = when (mode) {
+    Mode.METRO -> R.string.w_mode_lines_metro
+    Mode.RAIL -> R.string.w_mode_lines_rail
+    Mode.TRAM -> R.string.w_mode_lines_tram
+    Mode.TROLLEYBUS -> R.string.w_mode_lines_trolleybus
+    Mode.BUS -> R.string.w_mode_lines_bus
 }
 
 @Composable

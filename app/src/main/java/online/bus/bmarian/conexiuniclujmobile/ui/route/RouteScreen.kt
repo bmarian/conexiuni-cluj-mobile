@@ -209,7 +209,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             id to when {
                 id == fromStopId -> StopHighlight.Green
                 idx == current.nearestStopIdx -> StopHighlight.Purple
-                id in favoriteStops -> StopHighlight.Red
+                id in favoriteStops -> StopHighlight.Favorite
                 else -> StopHighlight.Gray
             }
         }.toMap()

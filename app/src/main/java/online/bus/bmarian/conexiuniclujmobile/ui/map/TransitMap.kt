@@ -1,5 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
+import online.bus.bmarian.conexiuniclujmobile.Services
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PointF
@@ -272,7 +274,8 @@ fun TransitMap(
         shownCity = city
         s.flyToCity(MapCamera.restore(context, city), bounds)
     }
-    LaunchedEffect(session, stops) { session?.setStops(stops) }
+    val index by Services.repository.network.index.collectAsStateWithLifecycle()
+    LaunchedEffect(session, stops, index) { session?.setStops(stops, index) }
     val nav = controller.navigation
     val shownHighlights = nav?.highlights ?: controller.highlightedStops
     val shownWalks = nav?.walks ?: controller.walkingPolylines

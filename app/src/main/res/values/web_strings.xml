@@ -43,6 +43,16 @@
     <string name="w_frequency_every_other">La fiecare %1$s de min</string>
     <string name="w_frequency_window">între %1$s și %2$s</string>
     <string name="w_bus_stop">Stație</string>
+    <string name="w_stop_kind_bus">Stație de autobuz</string>
+    <string name="w_stop_kind_trolleybus">Stație de troleibuz</string>
+    <string name="w_stop_kind_tram">Stație de tramvai</string>
+    <string name="w_stop_kind_metro">Stație de metrou</string>
+    <string name="w_stop_kind_rail">Gară</string>
+    <string name="w_mode_lines_bus">Autobuze</string>
+    <string name="w_mode_lines_trolleybus">Troleibuze</string>
+    <string name="w_mode_lines_tram">Tramvaie</string>
+    <string name="w_mode_lines_metro">Metrou</string>
+    <string name="w_mode_lines_rail">Trenuri</string>
     <string name="w_next_departures">Plecări</string>
     <string name="w_all_routes">Toate liniile</string>
     <string name="w_all_stops">Toate stațiile</string>
