@@ -51,6 +51,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
+import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
@@ -87,7 +88,6 @@ class AlarmActivity : ComponentActivity() {
             journey = intent.getBooleanExtra(EXTRA_JOURNEY, false),
         )
         val stopId = intent.getIntExtra(EXTRA_STOP, 0)
-        val target = if (alarm.journey) "journey" else "stop/$stopId"
         val followed = intent.getStringExtra(EXTRA_FOLLOWED)?.takeIf { !alarm.journey }
             ?.let { runCatching { Api.json.decodeFromString<Followed>(it) }.getOrNull() }
         setContent {
@@ -122,7 +122,7 @@ class AlarmActivity : ComponentActivity() {
                         val open = followed?.let { FollowNotifications.followIntent(this, it, alarm.busAt) }
                             ?: Intent(this, MainActivity::class.java)
                                 .setAction(Intent.ACTION_VIEW)
-                                .setData("${BuildConfig.SITE_ORIGIN}/$target".toUri())
+                                .setData((if (alarm.journey) "${BuildConfig.SITE_ORIGIN}/journey" else Links.web("/stop/$stopId")).toUri())
                         startActivity(open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
                         finish()
                     },

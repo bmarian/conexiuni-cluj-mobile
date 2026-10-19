@@ -92,6 +92,7 @@ private const val FADED_VEHICLE_OPACITY = 0.5f
 private const val FADED_VEHICLE_SIZE = 0.7f
 
 private const val GLIDE_MAX_METERS = 600.0
+private const val CITY_FLIGHT_MS = 2_500
 private const val GLIDE_MS = 1400L
 
 /** In px. */
@@ -315,6 +316,40 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     fun cancelCamera() = map.cancelTransitions()
+
+    private var cityFlight = 0
+    private var flying = false
+    private var cityBounds: LatLngBounds? = null
+
+    /** The camera stays over the city; lifted while flying in from another one. */
+    fun setCityBounds(bounds: LatLngBounds?) {
+        cityBounds = bounds
+        if (!flying) map.setLatLngBoundsForCameraTarget(bounds)
+    }
+
+    fun flyToCity(camera: MapCamera, bounds: LatLngBounds?) {
+        val flight = ++cityFlight
+        cityBounds = bounds
+        flying = true
+        map.cancelTransitions()
+        map.setLatLngBoundsForCameraTarget(null)
+        val landed = {
+            if (flight == cityFlight) {
+                flying = false
+                map.setLatLngBoundsForCameraTarget(cityBounds)
+            }
+        }
+        val target = CameraPosition.Builder()
+            .target(LatLng(camera.center.lat, camera.center.lon))
+            .zoom(camera.zoom)
+            .bearing(camera.bearing)
+            .build()
+        map.animateCamera(CameraUpdateFactory.newCameraPosition(target), CITY_FLIGHT_MS, object : MapLibreMap.CancelableCallback {
+            override fun onFinish() = landed()
+
+            override fun onCancel() = landed()
+        })
+    }
 
     private fun addLayers(style: Style, dark: Boolean) {
         listOf(SRC_LINES, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS)

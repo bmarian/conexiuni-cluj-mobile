@@ -180,15 +180,15 @@ class JourneyService : Service() {
                 departure.value = null
                 val leg = journey.legs.getOrNull(i) ?: return@collectLatest
                 val repository = Services.repository
-                val info = MutableStateFlow(repository.cachedStopInfo(leg.boarding.id)?.only(leg.routeIds))
+                val info = MutableStateFlow(repository.cachedStopInfo(leg.boarding.id, journey.city)?.only(leg.routeIds))
                 val live = MutableStateFlow<LiveState?>(null)
                 launch {
                     while (true) {
-                        runCatching { info.value = repository.stopInfo(leg.boarding.id).only(leg.routeIds) }
+                        runCatching { info.value = repository.stopInfo(leg.boarding.id, journey.city).only(leg.routeIds) }
                         delay(STOP_INFO_REFRESH_MS)
                     }
                 }
-                launch { LiveStream.live(listOf(leg.boarding.id), emptyList()).collect { live.value = it } }
+                launch { LiveStream.live(listOf(leg.boarding.id), emptyList(), journey.city).collect { live.value = it } }
                 combine(info, live, clock) { stop, state, nowMs -> Triple(stop, state, nowMs) }.collect { (stop, state, nowMs) ->
                     if (stop == null) return@collect
                     departure.value = withContext(Dispatchers.Default) {

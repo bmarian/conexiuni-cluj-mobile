@@ -89,6 +89,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
@@ -324,7 +325,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             path = simplifyPath(path.map { LatLon(it.lat, it.lon) }),
         )
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-        JourneyManager.start(context, Journey(JourneyManager.newId(), js(ride.last()), listOf(leg), planPath = "/route/$routeId/$dir"))
+        JourneyManager.start(context, Journey(JourneyManager.newId(), js(ride.last()), listOf(leg), planPath = "/route/$routeId/$dir", city = Cities.current.value))
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -414,7 +415,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 val arrivals = current?.arrivals?.getOrNull(idx).orEmpty()
                 val name = stop.stop.headsign.ifEmpty { "Stop ${idx + 1}" }
                 val alerting = follows.firstOrNull { it.matches(stop.stop.stopId, routeId, tripId) }
-                val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir))
+                val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir), Cities.current.value)
                 Box(Modifier.cascade(idx, dir)) {
                     StopLine(
                         name = name,

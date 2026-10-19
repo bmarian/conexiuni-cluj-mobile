@@ -16,6 +16,7 @@ import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import androidx.compose.ui.graphics.toArgb
 
@@ -93,7 +94,7 @@ object FollowNotifications {
             .setShowWhen(false)
             // Not bridged: the watch shows its own.
             .setLocalOnly(true)
-            .setContentIntent(openStop(context, followed.stopId))
+            .setContentIntent(openStop(context, followed))
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(context, R.drawable.ic_bus),
@@ -172,7 +173,7 @@ object FollowNotifications {
             .setLocalOnly(true)
             .setAutoCancel(true)
             .setTimeoutAfter(DONE_SHOWN_MS)
-            .setContentIntent(openStop(context, followed.stopId))
+            .setContentIntent(openStop(context, followed))
         if (reason == "left" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) builder.setStyle(progress(context, followed, color, 100))
         return builder.build()
     }
@@ -217,7 +218,7 @@ object FollowNotifications {
     fun followIntent(context: Context, followed: Followed, atMs: Long): Intent =
         Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
-            .setData(Uri.parse("${BuildConfig.SITE_ORIGIN}/stop/${followed.stopId}"))
+            .setData(Uri.parse(Links.web("/stop/${followed.stopId}", followed.city)))
             .putExtra(EXTRA_FOLLOW, Api.json.encodeToString(followed))
             .putExtra(EXTRA_FOLLOW_AT, atMs)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -255,11 +256,11 @@ object FollowNotifications {
         manager(context).cancel(slot(id))
     }
 
-    private fun openStop(context: Context, stopId: Int): PendingIntent = PendingIntent.getActivity(
-        context, stopId,
+    private fun openStop(context: Context, followed: Followed): PendingIntent = PendingIntent.getActivity(
+        context, followed.stopId,
         Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
-            .setData(Uri.parse("${BuildConfig.SITE_ORIGIN}/stop/$stopId"))
+            .setData(Uri.parse(Links.web("/stop/${followed.stopId}", followed.city)))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )

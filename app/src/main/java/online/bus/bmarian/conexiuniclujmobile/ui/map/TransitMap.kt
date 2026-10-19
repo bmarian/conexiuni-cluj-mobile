@@ -50,6 +50,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import org.maplibre.android.camera.CameraPosition
@@ -80,6 +81,8 @@ private class PinDrag(val kind: PinKind, val grab: Offset, val down: Offset) {
 fun TransitMap(
     controller: MapController,
     camera: MapCamera,
+    city: String,
+    cityBounds: Bounds?,
     stops: List<Stop>,
     me: Fix?,
     dark: Boolean,
@@ -157,7 +160,6 @@ fun TransitMap(
 
     DisposableEffect(host) {
         host.map.getMapAsync { map ->
-            map.setLatLngBoundsForCameraTarget(LatLngBounds.from(CLUJ_NE.lat, CLUJ_NE.lon, CLUJ_SW.lat, CLUJ_SW.lon))
             map.uiSettings.isRotateGesturesEnabled = true
             map.uiSettings.isFlingVelocityAnimationEnabled = true
             val created = MapSession(context, map)
@@ -262,6 +264,14 @@ fun TransitMap(
     fun flyToVisible(target: LatLon, zoom: Double) = session?.flyTo(target, zoom, padding(0f))
 
     LaunchedEffect(session, dark) { session?.setDark(dark) }
+    val bounds = cityBounds?.let { LatLngBounds.from(it.north, it.east, it.south, it.west) }
+    var shownCity by remember { mutableStateOf(camera.city) }
+    LaunchedEffect(session, city, bounds) {
+        val s = session ?: return@LaunchedEffect
+        if (city == shownCity) return@LaunchedEffect s.setCityBounds(bounds)
+        shownCity = city
+        s.flyToCity(MapCamera.restore(context, city), bounds)
+    }
     LaunchedEffect(session, stops) { session?.setStops(stops) }
     val nav = controller.navigation
     val shownHighlights = nav?.highlights ?: controller.highlightedStops

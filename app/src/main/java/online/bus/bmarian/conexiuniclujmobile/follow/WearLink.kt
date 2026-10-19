@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.core.content.edit
 import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.google.android.gms.wearable.CapabilityClient
+import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -28,12 +29,14 @@ import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
+import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 
-/** Shared with the watch app. */
+/** Shared with the watch app, one data item per city. */
 @Serializable
 data class SharedFavorites(
     val stops: List<Int>,
@@ -49,9 +52,19 @@ object WearLink {
     const val PATH_JOURNEY_STOP = "/journey/stop"
     const val PATH_JOURNEY_PLAN = "/journey/plan"
     const val PATH_JOURNEY_PLAN_REQUEST = "/journey/plan/request"
+    // Cluj's; other cities' under it, as /sync/favorites/{city}. Older builds know only Cluj's.
     const val PATH_FAVORITES = "/sync/favorites"
     const val PATH_LANGUAGE = "/sync/language"
-    const val APP_SCHEME = "conexiunicluj"
+    const val PATH_CITY = "/sync/city"
+
+    fun favoritesPath(city: String) = if (city == Cities.DEFAULT) PATH_FAVORITES else "$PATH_FAVORITES/$city"
+
+    /** The city a favorites item belongs to; null for another path. */
+    fun favoritesCity(path: String?): String? = when {
+        path == PATH_FAVORITES -> Cities.DEFAULT
+        path != null && path.startsWith("$PATH_FAVORITES/") -> path.removePrefix("$PATH_FAVORITES/").takeIf(Cities::isSlug)
+        else -> null
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -71,10 +84,13 @@ object WearLink {
                 checkWatchApp(app)
             }, CAPABILITY)
         }
-        Services.favorites.onSharedChange = { publishFavorites(app) }
+        Services.favorites.onSharedChange = { city -> publishFavorites(app, city) }
         scope.launch { catchUpFavorites(app) }
         scope.launch {
             Services.settings.locale.collect { tag -> if (prefs(app).getString("language", null) != tag) publishLanguage(app, tag) }
+        }
+        scope.launch {
+            Cities.current.collect { city -> if (prefs(app).getString("city", null) != city) publishCity(app, city) }
         }
     }
 
@@ -160,7 +176,7 @@ object WearLink {
         if (nodes.isEmpty()) return false
         val intent = Intent(Intent.ACTION_VIEW)
             .addCategory(Intent.CATEGORY_BROWSABLE)
-            .setData(Uri.parse("$APP_SCHEME://bus.bmarian.online$path"))
+            .setData(Uri.parse("${Links.SCHEME}://${Links.HOST}$path"))
         val helper = RemoteActivityHelper(context)
         var asked = false
         for (node in nodes) {
@@ -196,26 +212,42 @@ object WearLink {
             PATH_STOP -> FollowManager.onRemoteStop(context, data.decodeToString())
             PATH_JOURNEY_STOP -> JourneyManager.onRemoteStop(context, data.decodeToString())
             PATH_JOURNEY_PLAN_REQUEST -> JourneyManager.onPlanRequest(context, data.decodeToString())
-            PATH_FAVORITES -> onFavorites(context, data.decodeToString())
+            PATH_FAVORITES -> onFavorites(context, Cities.DEFAULT, data.decodeToString())
         }
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences("wear_sync", Context.MODE_PRIVATE)
 
-    // Newest write wins.
-    private fun publishFavorites(context: Context) {
-        val favorites = Services.favorites
+    // Saved before cities under the bare key: Cluj's.
+    private fun favoritesAtKey(city: String) = if (city == Cities.DEFAULT) "favoritesAt" else "favoritesAt:$city"
+
+    // Newest write wins, city by city.
+    private fun publishFavorites(context: Context, city: String) {
+        val saved = Services.favorites.saved(city)
         val now = System.currentTimeMillis()
-        prefs(context).edit { putLong("favoritesAt", now) }
-        val shared = SharedFavorites(favorites.stops.value, favorites.routes.value, now)
-        relay(PATH_FAVORITES, Api.json.encodeToString(shared).encodeToByteArray())
+        prefs(context).edit { putLong(favoritesAtKey(city), now) }
+        val shared = SharedFavorites(saved.stops, saved.routes, now)
+        val path = favoritesPath(city)
+        relay(path, Api.json.encodeToString(shared).encodeToByteArray())
         scope.launch {
             runCatching {
-                val request = PutDataMapRequest.create(PATH_FAVORITES).apply {
+                val request = PutDataMapRequest.create(path).apply {
                     dataMap.putString("json", Api.json.encodeToString(shared))
                 }.asPutDataRequest().setUrgent()
                 Wearable.getDataClient(context).putDataItem(request).await()
             }
+        }
+    }
+
+    // The watch shows the phone's city.
+    private suspend fun publishCity(context: Context, city: String) {
+        runCatching {
+            val request = PutDataMapRequest.create(PATH_CITY).apply {
+                dataMap.putString("city", city)
+                dataMap.putLong("at", System.currentTimeMillis())
+            }.asPutDataRequest().setUrgent()
+            Wearable.getDataClient(context).putDataItem(request).await()
+            prefs(context).edit { putString("city", city) }
         }
     }
 
@@ -230,24 +262,26 @@ object WearLink {
         }
     }
 
-    internal fun onFavorites(context: Context, json: String) {
+    internal fun onFavorites(context: Context, city: String, json: String) {
         val shared = runCatching { Api.json.decodeFromString<SharedFavorites>(json) }.getOrNull() ?: return
         val prefs = prefs(context)
-        if (shared.updatedAt <= prefs.getLong("favoritesAt", 0L)) return
-        prefs.edit { putLong("favoritesAt", shared.updatedAt) }
-        Services.favorites.replaceShared(shared.stops, shared.routes)
+        if (shared.updatedAt <= prefs.getLong(favoritesAtKey(city), 0L)) return
+        prefs.edit { putLong(favoritesAtKey(city), shared.updatedAt) }
+        Services.favorites.replaceShared(city, shared.stops, shared.routes)
     }
 
     private suspend fun catchUpFavorites(context: Context) {
         runCatching {
             val local = Wearable.getNodeClient(context).localNode.await().id
-            val items = Wearable.getDataClient(context).getDataItems(Uri.parse("wear://*$PATH_FAVORITES")).await()
+            val items = Wearable.getDataClient(context).getDataItems(Uri.parse("wear://*$PATH_FAVORITES"), DataClient.FILTER_PREFIX).await()
             val newest = items.use { buffer ->
-                buffer.filter { it.uri.host != local }
-                    .mapNotNull { DataMapItem.fromDataItem(it).dataMap.getString("json") }
-            }.mapNotNull { runCatching { Api.json.decodeFromString<SharedFavorites>(it) }.getOrNull() }
-                .maxByOrNull { it.updatedAt }
-            if (newest != null) onFavorites(context, Api.json.encodeToString(newest))
+                buffer.filter { it.uri.host != local }.mapNotNull { item ->
+                    val city = favoritesCity(item.uri.path) ?: return@mapNotNull null
+                    val json = DataMapItem.fromDataItem(item).dataMap.getString("json") ?: return@mapNotNull null
+                    runCatching { city to Api.json.decodeFromString<SharedFavorites>(json) }.getOrNull()
+                }
+            }.groupBy({ it.first }, { it.second }).mapValues { (_, list) -> list.maxBy { it.updatedAt } }
+            for ((city, shared) in newest) onFavorites(context, city, Api.json.encodeToString(shared))
         }
     }
 }
@@ -261,8 +295,9 @@ class WearListener : WearableListenerService() {
         val local = runCatching { com.google.android.gms.tasks.Tasks.await(Wearable.getNodeClient(this).localNode).id }.getOrNull()
         events.forEach { event ->
             val item = event.dataItem
-            if (event.type != DataEvent.TYPE_CHANGED || item.uri.path != WearLink.PATH_FAVORITES || item.uri.host == local) return@forEach
-            DataMapItem.fromDataItem(item).dataMap.getString("json")?.let { WearLink.onFavorites(applicationContext, it) }
+            val city = WearLink.favoritesCity(item.uri.path)
+            if (event.type != DataEvent.TYPE_CHANGED || city == null || item.uri.host == local) return@forEach
+            DataMapItem.fromDataItem(item).dataMap.getString("json")?.let { WearLink.onFavorites(applicationContext, city, it) }
         }
     }
 }

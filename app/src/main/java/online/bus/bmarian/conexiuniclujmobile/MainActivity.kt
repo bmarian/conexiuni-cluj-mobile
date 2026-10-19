@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
+import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.data.Places
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowNotifications
@@ -108,10 +109,10 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val place = Places.search(query, 1).firstOrNull()
             links.value = if (place != null) {
-                (BuildConfig.SITE_ORIGIN + "/plan?" + PlanQuery(lat = place.lat, lon = place.lon, name = place.label).encode()).toUri()
+                Links.web("/plan?" + PlanQuery(lat = place.lat, lon = place.lon, name = place.label).encode()).toUri()
             } else {
                 Services.settings.showToast(getString(R.string.share_not_found))
-                "${WearLink.APP_SCHEME}://bus.bmarian.online/search?q=${Uri.encode(query)}".toUri()
+                "${Links.SCHEME}://${Links.HOST}/search?q=${Uri.encode(query)}".toUri()
             }
         }
     }
@@ -120,6 +121,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_LINK = "link"
 
         // Shared links can still point at the old host.
-        private val SITE_HOSTS = setOf(BuildConfig.SITE_ORIGIN.toUri().host, "bus.bmarian.online")
+        private val SITE_HOSTS = setOf(BuildConfig.SITE_ORIGIN.toUri().host, Links.HOST)
     }
 }

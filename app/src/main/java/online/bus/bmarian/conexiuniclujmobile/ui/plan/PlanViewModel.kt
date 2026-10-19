@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.Places
 import online.bus.bmarian.conexiuniclujmobile.data.Place
@@ -147,6 +148,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
             walkEndMinutes = walkSeconds / 60.0,
             walks = plan.legs.filter { !it.isRide }.map { simplifyPath(points(it.path), 8.0) },
             runs = plan.runs.map { run -> PlannedRun(run.arrive, run.rides.map { it.depart }) },
+            city = Cities.current.value,
         )
     }
 
@@ -160,7 +162,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         val (date, minute) = serviceSlot(ride.depart * 1000, CLUJ_ZONE)
         return Reminder(
             id = UUID.randomUUID().toString(),
-            followed = Followed(leg.from, stopName, ride.routeId, ride.tripId, line.shortName, line.color, journey.destination.name),
+            followed = Followed(leg.from, stopName, ride.routeId, ride.tripId, line.shortName, line.color, journey.destination.name, Cities.current.value),
             lat = at.first,
             lon = at.second,
             time = minute,

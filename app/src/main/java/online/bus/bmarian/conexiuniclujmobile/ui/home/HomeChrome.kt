@@ -65,6 +65,7 @@ import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.AppUpdates
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
@@ -79,7 +80,11 @@ import kotlin.math.ceil
 fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifier) {
     val nav = LocalNavigator.current
     val online by Services.online.collectAsStateWithLifecycle()
-    val showNews by Services.settings.showNews.collectAsStateWithLifecycle()
+    val followed by Services.routeUpdates.followed.collectAsStateWithLifecycle()
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val cities by Cities.list.collectAsStateWithLifecycle()
+    // The city's news, or changes to the lines followed here.
+    val showNews = online && (followed.isNotEmpty() || cities.any { it.slug == city && it.news })
     val places by Services.favorites.plans.collectAsStateWithLifecycle()
     Column(modifier) {
         Surface(
@@ -107,7 +112,7 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (showNews && online) {
+            if (showNews) {
                 item(key = "news") {
                     MapChip(Icons.Rounded.Newspaper, stringResource(R.string.w_news), dot = rememberNewsDot(), onClick = nav::news)
                 }

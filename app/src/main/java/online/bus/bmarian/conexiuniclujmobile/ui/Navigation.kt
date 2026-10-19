@@ -50,8 +50,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.data.Links
 
 interface Navigator {
     val canGoBack: Boolean
@@ -183,7 +183,7 @@ fun ShareButton(path: String) {
 }
 
 fun share(context: Context, path: String) {
-    val url = BuildConfig.SITE_ORIGIN + path
+    val url = Links.web(path)
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, url)
     context.startActivity(Intent.createChooser(send, null))
 }

@@ -3,6 +3,7 @@ package online.bus.bmarian.conexiuniclujmobile.journey
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,6 +48,8 @@ data class Journey(
     val walks: List<List<JourneyPoint>> = emptyList(),
     /** The plan's timed runs: when each ride's bus leaves (unix s) and when the run arrives. */
     val runs: List<PlannedRun> = emptyList(),
+    // Started before cities: Cluj.
+    val city: String = Cities.DEFAULT,
 ) {
     val endsAtStop get() = destination.id == legs.last().alighting.id
 }

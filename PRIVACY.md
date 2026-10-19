@@ -1,10 +1,10 @@
 # Privacy policy
 
-The “Ce autobuz iau?” apps for Android and Wear OS show live bus and tram departures in Cluj-Napoca and plan trips. They have no accounts, no ads and no analytics or tracking libraries.
+The “Ce autobuz iau?” apps for Android and Wear OS show live bus and tram departures in Cluj-Napoca and other Romanian cities and plan trips. They have no accounts, no ads and no analytics or tracking libraries.
 
 ## Location
 
-With your permission, the app uses your location on the phone: to show the stops near you and where you are on the map, to plan trips from where you are, to tell you where to get off during a trip, and to time your walk to the stop for a reminder.
+With your permission, the app uses your location on the phone: to open on the city you are in, to show the stops near you and where you are on the map, to plan trips from where you are, to tell you where to get off during a trip, and to time your walk to the stop for a reminder.
 
 Outside a trip you started, the app doesn't read your location in the background. During a trip it keeps following you with the screen off, with a notification showing, until the trip ends. A reminder times the walk from where you were the last time the app was open, if that was within the hour, and otherwise comes 20 minutes before the bus. That last position is kept only on the phone.
 
@@ -31,7 +31,7 @@ Like any website, these services see your IP address when the app connects to th
 
 ## On the watch
 
-The watch app uses your location, with your permission, to list the stops near you and show where you are on the map. That happens on the watch, and the location is never sent anywhere.
+The watch app uses your location, with your permission, to list the stops near you and show where you are on the map, and, until the phone app tells it a city, to open on the city you are in. That happens on the watch, and the location is never sent anywhere.
 
 Search on the watch uses its own voice and keyboard input; the app only gets the words, and looks them up in the stops and lines on the watch.
 

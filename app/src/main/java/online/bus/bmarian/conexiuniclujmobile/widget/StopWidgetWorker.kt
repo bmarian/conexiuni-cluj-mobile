@@ -18,6 +18,7 @@ import androidx.work.WorkerParameters
 import kotlinx.coroutines.withTimeoutOrNull
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
@@ -33,7 +34,9 @@ class StopWidgetWorker(context: Context, params: WorkerParameters) : CoroutineWo
         for (id in manager.getGlanceIds(StopWidget::class.java)) {
             val prefs = getAppWidgetState(context, PreferencesGlanceStateDefinition, id)
             val stopId = prefs[StopWidget.STOP_ID] ?: continue
-            val rows = runCatching { departures(stopId) }.getOrNull() ?: continue
+            // Widgets from before cities are Cluj's.
+            val city = prefs[StopWidget.CITY] ?: Cities.DEFAULT
+            val rows = runCatching { departures(stopId, city) }.getOrNull() ?: continue
             updateAppWidgetState(context, id) {
                 it[StopWidget.ROWS] = Api.json.encodeToString(rows)
                 it[StopWidget.UPDATED] = System.currentTimeMillis()
@@ -43,10 +46,9 @@ class StopWidgetWorker(context: Context, params: WorkerParameters) : CoroutineWo
         return Result.success()
     }
 
-    private suspend fun departures(stopId: Int): List<WidgetRow> {
-        val repository = Services.repository
-        val info = repository.stopInfo(stopId)
-        val live = withTimeoutOrNull(8_000) { LiveStream.once(listOf(stopId), emptyList()) }
+    private suspend fun departures(stopId: Int, city: String): List<WidgetRow> {
+        val info = Services.repository.stopInfo(stopId, city)
+        val live = withTimeoutOrNull(8_000) { LiveStream.once(listOf(stopId), emptyList(), city) }
         val nowMs = System.currentTimeMillis()
         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
         return stopDepartures(info, live, now, nowMs).map { departure ->

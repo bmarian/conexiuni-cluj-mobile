@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import java.util.UUID
 
 /** Shared with the watch app. */
@@ -21,6 +22,8 @@ data class Followed(
     val shortName: String,
     val color: String,
     val destination: String,
+    // Saved before cities: Cluj.
+    val city: String = Cities.DEFAULT,
 )
 
 /** Wire format shared with the watch app. */
@@ -65,8 +68,8 @@ data class FollowState(
     fun toSync(end: String? = null, alert: Boolean = false) =
         FollowSync(id, followed, minutes, live, later, arrivalAt, end, alert, leaveAt, walkMinutes, leaveBy)
 
-    fun matches(stopId: Int, routeId: Int, tripId: String) =
-        followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
+    fun matches(stopId: Int, routeId: Int, tripId: String, city: String = Cities.current.value) =
+        followed.city == city && followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
 }
 
 @Serializable
@@ -82,7 +85,7 @@ object FollowManager {
 
     /** False when the system won't let it start from the background. */
     fun start(context: Context, followed: Followed, target: FollowTarget? = null): Boolean {
-        if (find(followed.stopId, followed.routeId, followed.tripId) != null) return true
+        if (follows.value.any { it.matches(followed.stopId, followed.routeId, followed.tripId, followed.city) }) return true
         val state = FollowState(UUID.randomUUID().toString(), followed, target = target)
         mutableFollows.update { it + state }
         save(context)
