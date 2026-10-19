@@ -16,7 +16,7 @@ The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus and tram tr
 - Live buses, trams and trolleybuses on the map
 - The stops around you and their next buses, on the first screen
 - Departures for any stop. Tracked buses get a live countdown, the rest show the timetable
-- Platforms with the same name are one station, marked with a metro, tram, trolleybus or bus icon in the colour of its lines
+- Stations with a metro, tram, trolleybus or bus icon
 - Full timetables for every line
 - A route planner: leave now, leave at, arrive by, or the last one today
 - Step-by-step guidance for a planned trip, with voice
@@ -25,7 +25,7 @@ The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus and tram tr
 - Favorite stops and lines
 - A home screen widget for a stop
 - Share a place to the app and it plans the trip there
-- The operator's news, and a notification when a line you follow changes
+- Operator news, and a notification when a line you follow changes
 - Pick the city in Settings
 - Works with the [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos)
 - Move your favorites and settings to another phone, the website or your watch by scanning a code
@@ -69,7 +69,7 @@ Phone version codes are 1xxxx and the watch's 2xxxx. `./gradlew bundleRelease` b
 | [CTP Cluj-Napoca](https://ctpcj.ro/)                                               | Cluj-Napoca's timetables and news                                         |
 | [gtfs.ro](https://gtfs.ro/)                                                        | Timetables for Iași, Oradea and Constanța                                 |
 | [TPBI](https://tpbi.ro/)                                                           | Lines, timetables, live positions and news for București                  |
-| [OpenStreetMap](https://www.openstreetmap.org/) contributors                       | Map data, walking routes, place search, town and street names             |
+| [OpenStreetMap](https://www.openstreetmap.org/) contributors                       | Map data, walking routes, place search                                    |
 | [OpenFreeMap](https://openfreemap.org/), [OpenMapTiles](https://openmaptiles.org/) | Map tiles                                                                 |
 | [MapLibre](https://maplibre.org/)                                                  | The map                                                                   |
 | [ZXing](https://github.com/zxing/zxing)                                            | QR codes                                                                  |
