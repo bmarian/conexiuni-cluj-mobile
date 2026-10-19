@@ -229,4 +229,6 @@
     <string name="w_send_failed">Nu s-a putut trimite</string>
     <string name="w_yes">Da</string>
     <string name="w_no">Nu</string>
+    <string name="w_contact">Contact</string>
+    <string name="w_contact_desc">Ajutor, sugestii sau orice altceva.</string>
 </resources>

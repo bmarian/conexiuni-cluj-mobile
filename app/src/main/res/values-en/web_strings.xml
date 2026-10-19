@@ -229,4 +229,6 @@
     <string name="w_send_failed">Couldn\'t send</string>
     <string name="w_yes">Yes</string>
     <string name="w_no">No</string>
+    <string name="w_contact">Contact</string>
+    <string name="w_contact_desc">Help, suggestions or anything else.</string>
 </resources>
