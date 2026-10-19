@@ -54,7 +54,6 @@ internal class MapImages(context: Context) {
 
     fun station(mode: Mode, color: String) = draw(28f, 28f) { stopMarker(center, 24.dp.toPx(), routeColor(color), 14.dp.toPx(), mode = mode) }
 
-    /** The selected station keeps its look, larger. */
     fun selectedStation(mode: Mode, color: String) = draw(36f, 36f) {
         stopMarker(center, 32.dp.toPx(), routeColor(color), 16.dp.toPx(), shadow = 1.6f, mode = mode)
     }

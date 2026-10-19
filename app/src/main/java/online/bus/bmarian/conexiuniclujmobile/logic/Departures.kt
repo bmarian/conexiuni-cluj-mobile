@@ -36,7 +36,7 @@ fun stopDepartures(info: StopInfo, live: LiveState?, now: LocalDateTime, nowMs: 
         }
     }.sortedBy { it.minutesLeft }
 
-/** A station's departures from all its platforms; a trip calling at two is listed at the one it reaches first. */
+/** A trip calling at two platforms is listed at the one it reaches first. */
 fun stationDepartures(infos: List<StopInfo>, live: LiveState?, now: LocalDateTime, nowMs: Long): List<StopDeparture> =
     infos.flatMap { info -> stopDepartures(info, live, now, nowMs).map { it.copy(stopId = info.stopId) } }
         .groupBy { it.tripId }.values.map { list -> list.minBy { it.minutesLeft } }

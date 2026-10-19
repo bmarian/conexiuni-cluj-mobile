@@ -50,7 +50,6 @@ class StopViewModel(val stopId: Int) : ViewModel() {
     private val shapes = MutableStateFlow<Map<String, List<ShapePoint>>>(emptyMap())
     private val live = MutableStateFlow<LiveState?>(null)
 
-    /** The stop and the other platforms of its station. */
     val infos: StateFlow<List<StopInfo>> = combine(_info, repository.network.index) { info, index ->
         if (info == null) return@combine emptyList()
         val nowMs = System.currentTimeMillis()
@@ -128,7 +127,6 @@ class StopViewModel(val stopId: Int) : ViewModel() {
     fun isDepartureFavorite(departure: StopDeparture) =
         Services.favorites.isRouteFavorite(departure.routeId)
 
-    /** The platform where a line calls, the stop itself first. */
     fun platformOf(routeId: Int): StopInfo? = infos.value.firstOrNull { info -> info.shapesInfo.any { it.routeId == routeId } }
 
     fun platform(stopId: Int): StopInfo? = infos.value.firstOrNull { it.stopId == stopId }

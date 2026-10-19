@@ -94,7 +94,7 @@ class SearchState {
         return routes.filter { norm(it.shortName).contains(q) || norm(it.longName).contains(q) }.take(3)
     }
 
-    /** Port of searchStopResults: the stop's own name before what tells namesakes apart, one stop per station. */
+    /** Port of searchStopResults. */
     fun stops(stops: List<Stop>, me: Fix?, index: NetworkIndex?): List<Stop> {
         val q = norm(query.trim())
         if (q.isEmpty()) return emptyList()
@@ -220,7 +220,6 @@ fun LazyListScope.searchResults(
     }
 }
 
-/** A station: its mode in its colour, its name and every line calling there. */
 @Composable
 fun StationRow(stop: Stop, look: StationLook?, distance: String?, iconSize: Dp = 36.dp, onClick: () -> Unit) {
     Row(

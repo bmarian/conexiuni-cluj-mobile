@@ -75,7 +75,6 @@ object MapColors {
     }
 }
 
-/** A station's marker: its mode in its colour; a heart for a favourite. */
 fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Float, shadow: Float = 1f, mode: Mode = Mode.BUS, heart: Boolean = false) {
     val r = diameter / 2
     drawCircle(Color.Black.copy(alpha = 0.18f * shadow), r + 1.dp.toPx(), center + Offset(0f, 1.dp.toPx()))
