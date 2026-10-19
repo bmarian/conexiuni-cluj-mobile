@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Eco
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.LightMode
@@ -251,6 +252,17 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TransferPanel(transfer)
+
+            Section(stringResource(R.string.w_contact))
+            ListItem(
+                modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$CONTACT_EMAIL".toUri())) }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                leadingContent = { Icon(Icons.Rounded.Email, null) },
+                headlineContent = { Text(CONTACT_EMAIL) },
+                supportingContent = { Text(stringResource(R.string.w_contact_desc)) },
+            )
             Text(
                 stringResource(R.string.app_version, BuildConfig.VERSION_NAME),
                 Modifier.fillMaxWidth().padding(top = 24.dp),
@@ -262,6 +274,8 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
         }
     }
 }
+
+private const val CONTACT_EMAIL = "ceautobuziau@gmail.com"
 
 private fun regionIcon(key: String): ImageVector = when (key) {
     RegionSettings.GREEN_FRIDAY -> Icons.Rounded.Eco
