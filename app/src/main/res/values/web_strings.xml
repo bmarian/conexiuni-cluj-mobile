@@ -55,7 +55,7 @@
     <string name="w_favorite_plans">Destinații preferate</string>
     <string name="w_recent_destinations">Recente</string>
     <string name="w_remove_from_recents">Șterge din istoric</string>
-    <string name="w_no_favorites">Nu ai preferate încă. Apasă inima la o linie sau stație ca s-o salvezi.</string>
+    <string name="w_no_favorites">Nu ai preferate încă. Salvează o stație sau o linie ca să apară aici.</string>
     <string name="w_search_placeholder">Caută linii, stații sau locuri…</string>
     <string name="w_search_results_places">Locuri</string>
     <string name="w_search_results_routes">Linii</string>
@@ -146,7 +146,6 @@
     <string name="w_news_error">Nu s-a încărcat</string>
     <string name="w_news_today">Azi</string>
     <string name="w_news_yesterday">Ieri</string>
-    <string name="w_news_follow_hint">Urmărește o linie din meniul ei ca să-i vezi schimbările aici.</string>
     <string name="w_news_new">Nou</string>
     <string name="w_follow_line">Urmărește linia %1$s</string>
     <string name="w_unfollow_line">Nu mai urmări linia %1$s</string>
@@ -188,10 +187,11 @@
     <string name="w_share_url">Trimite</string>
     <string name="w_url_copied">Link copiat!</string>
     <string name="w_settings_all_settings">Toate setările</string>
+    <string name="w_city_auto">Cel mai apropiat oraș</string>
+    <string name="w_city">Oraș</string>
     <string name="w_settings_map">Hartă</string>
     <string name="w_settings_notifications">Notificări</string>
     <string name="w_language_desc">Numele stațiilor și liniilor rămân în română.</string>
-    <string name="w_news_desc">Arată știrile CTP și schimbările liniilor urmărite.</string>
     <string name="w_green_friday_setting_desc">Afișează un memento vinerea, când transportul e gratuit.</string>
     <string name="w_vehicle_extras_desc">Arată accesul pentru scaune cu rotile și biciclete.</string>
     <string name="w_auto_center_on_me_desc">Centrează harta pe tine când se deschide.</string>

@@ -35,14 +35,15 @@ object UserLocation {
 
     private fun prefs(context: Context) = context.getSharedPreferences("location", Context.MODE_PRIVATE)
 
-    fun recent(context: Context): Fix? {
+    /** Null [city] for anywhere. */
+    fun recent(context: Context, city: String? = Cities.current.value): Fix? {
         val prefs = prefs(context)
         if (!permitted(context) || System.currentTimeMillis() - prefs.getLong("at", 0) > RECENT_MS) return null
         return Fix(
             Double.fromBits(prefs.getLong("lat", 0)),
             Double.fromBits(prefs.getLong("lon", 0)),
             prefs.getFloat("accuracy", 0f),
-        )
+        ).takeIf { city == null || Cities.contains(it.lat, it.lon, city) }
     }
 
     fun save(context: Context, fix: Fix) {
@@ -57,19 +58,16 @@ object UserLocation {
         }
     }
 
-    /** Null unless the app is open. */
+    /** Null unless the app is open, or away from [city]. */
     @SuppressLint("MissingPermission")
-    suspend fun current(context: Context): Fix? {
+    suspend fun current(context: Context, city: String = Cities.current.value): Fix? {
         val open = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
         if (!open || !permitted(context)) return null
         val client = LocationServices.getFusedLocationProviderClient(context)
         val location = runCatching { client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).await() }.getOrNull()
             ?: runCatching { client.lastLocation.await() }.getOrNull()
-        return location?.takeIf(::inClujCounty)?.let { Fix(it.latitude, it.longitude, it.accuracy) }
+        return location?.takeIf { Cities.contains(it.latitude, it.longitude, city) }?.let { Fix(it.latitude, it.longitude, it.accuracy) }
     }
-
-    private fun inClujCounty(location: Location) =
-        location.latitude in 46.38..47.50 && location.longitude in 22.75..24.27
 
     @SuppressLint("MissingPermission")
     fun updates(context: Context, intervalMs: Long = LOCATION_UPDATE_MS): Flow<Fix?> = callbackFlow {
@@ -81,7 +79,7 @@ object UserLocation {
         val client = LocationServices.getFusedLocationProviderClient(context)
         fun offer(location: Location?) {
             trySend(
-                location?.takeIf(::inClujCounty)?.let {
+                location?.let {
                     Fix(it.latitude, it.longitude, it.accuracy, it.bearing.takeIf { _ -> it.hasBearing() }, it.speed.takeIf { _ -> it.hasSpeed() })
                 },
             )

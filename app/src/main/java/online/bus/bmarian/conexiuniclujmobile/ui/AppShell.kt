@@ -87,6 +87,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
+import online.bus.bmarian.conexiuniclujmobile.data.MAP_CREDITS
+import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -124,7 +127,7 @@ val LocalSheet = compositionLocalOf<SheetState?> { null }
 
 class MapHolder(app: Application) : AndroidViewModel(app) {
     val controller = MapController()
-    val camera = MapCamera.restore(app)
+    val camera = MapCamera.restore(app, Cities.current.value)
 
     init {
         MapLibre.getInstance(app)
@@ -136,7 +139,12 @@ class MapHolder(app: Application) : AndroidViewModel(app) {
 
 private val LOCATION_PERMISSIONS = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
 
-const val CREDITS = "© OpenMapTiles © OpenStreetMap | © tranzy.ai, © CTP"
+@Composable
+fun rememberCredits(): String {
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val cities by Cities.list.collectAsStateWithLifecycle()
+    return cities.firstOrNull { it.slug == city }?.creditsText ?: MAP_CREDITS
+}
 
 @Composable
 fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
@@ -156,15 +164,37 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     val autoFit by Services.settings.autoFitMap.collectAsStateWithLifecycle()
     val autoCenter by Services.settings.autoCenterOnMe.collectAsStateWithLifecycle()
     val extras by Services.settings.showVehicleExtras.collectAsStateWithLifecycle()
-    val greenFriday by Services.settings.showGreenFriday.collectAsStateWithLifecycle()
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val cities by Cities.list.collectAsStateWithLifecycle()
+    val cityInfo = cities.firstOrNull { it.slug == city }
+    val credits = cityInfo?.creditsText ?: MAP_CREDITS
+    val regions by Services.settings.regions.collectAsStateWithLifecycle()
+    val greenFriday = Services.settings.regionSetting(city, RegionSettings.GREEN_FRIDAY, regions)
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         Services.locationPermissionChanged()
     }
 
+    // The screens on the stack belong to this city.
+    var stackCity by rememberSaveable { mutableStateOf(city) }
+    LaunchedEffect(city) {
+        if (city == stackCity) return@LaunchedEffect
+        stackCity = city
+        navigator.home()
+    }
+
     val link by links.collectAsStateWithLifecycle()
-    LaunchedEffect(link) {
+    LaunchedEffect(link, stackCity) {
         val uri = link ?: return@LaunchedEffect
+        // A city this server doesn't have (any more).
+        if (uri.pathSegments.firstOrNull().let { it != null && it !in SECTIONS && !Cities.known(it) }) {
+            links.value = null
+            return@LaunchedEffect navigator.home()
+        }
+        val target = linkCity(uri)
+        // Opened once the stack has moved to the link's city.
+        if (target != null && target != Cities.current.value) return@LaunchedEffect Services.showCity(target)
+        if (target != null && target != stackCity) return@LaunchedEffect
         links.value = null
         openLink(navigator, uri)
     }
@@ -213,6 +243,8 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
             TransitMap(
                 controller = map,
                 camera = holder.camera,
+                city = city,
+                cityBounds = cityInfo?.bounds,
                 stops = stops,
                 me = me,
                 dark = dark,
@@ -248,7 +280,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 chrome(Modifier.align(Alignment.TopStart).besidePanel(sidePanel, maxWidth = 520.dp))
                 if (!showNav) MapFabs(map, Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp))
                 Text(
-                    CREDITS,
+                    credits,
                     modifier = Modifier.align(Alignment.BottomStart).besidePanel(sidePanel, endReserve = 88.dp).navigationBarsPadding().padding(8.dp),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -305,7 +337,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                     above = {
                         Box(Modifier.fillMaxWidth()) {
                             Text(
-                                CREDITS,
+                                credits,
                                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 2.dp),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -496,8 +528,21 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
     }
 }
 
+// Pages a link can open; a first segment that is none of these is a city.
+private val SECTIONS = setOf("stop", "route", "plan", "journey", "search", "settings", "nav")
+
+// Links from before cities are Cluj's.
+private val CITY_SECTIONS = setOf("stop", "route", "plan")
+
+/** The city a link belongs to; null when it fits any. */
+private fun linkCity(uri: Uri): String? {
+    val first = uri.pathSegments.firstOrNull() ?: return null
+    if (first !in SECTIONS) return first.takeIf(Cities::known)
+    return Cities.DEFAULT.takeIf { first in CITY_SECTIONS }
+}
+
 private fun openLink(navigator: Navigator, uri: Uri) {
-    val segments = uri.pathSegments
+    val segments = uri.pathSegments.let { if (it.firstOrNull() in SECTIONS) it else it.drop(1) }
     when (segments.firstOrNull()) {
         "stop" -> segments.getOrNull(1)?.toIntOrNull()?.let(navigator::stop)
         "route" -> {
@@ -506,7 +551,7 @@ private fun openLink(navigator: Navigator, uri: Uri) {
             navigator.route(routeId, direction, change = uri.getQueryParameter("change")?.toLongOrNull())
         }
         "plan" -> navigator.plan(PlanQuery.fromUri(uri))
-        "journey" -> JourneyManager.openNavigation()
+        "journey", "nav" -> JourneyManager.openNavigation()
         "search" -> {
             navigator.home()
             HomeRequests.search.value = uri.getQueryParameter("q").orEmpty()

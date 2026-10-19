@@ -1,6 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,32 +36,69 @@ data class FavoritePlan(
 
 private const val MAX_RECENT_PLANS = 10
 
-// Same keys as the website's localStorage, for exports.
-class Favorites(context: Context) {
-    private val prefs = context.getSharedPreferences("favorites", Context.MODE_PRIVATE)
+/** Saved favorites of one city. */
+class SavedFavorites(
+    val routes: List<FavoriteRoute> = emptyList(),
+    val stops: List<Int> = emptyList(),
+    val plans: List<FavoritePlan> = emptyList(),
+    val recentPlans: List<FavoritePlan> = emptyList(),
+) {
+    val isEmpty get() = routes.isEmpty() && stops.isEmpty() && plans.isEmpty() && recentPlans.isEmpty()
+}
 
-    private val _routes = MutableStateFlow(parseFavoriteRoutes(read("routes")))
+// Same keys as the website's localStorage, for exports; one file per city.
+class Favorites(private val context: Context) {
+    var city = Cities.current.value
+        private set
+    private var prefs = cityPrefs(context, "favorites", city)
+
+    private val initial = read(prefs)
+    private val _routes = MutableStateFlow(initial.routes)
     val routes: StateFlow<List<FavoriteRoute>> = _routes
-    private val _stops = MutableStateFlow(parseStopIds(read("stops")))
+    private val _stops = MutableStateFlow(initial.stops)
     val stops: StateFlow<List<Int>> = _stops
-    private val _plans = MutableStateFlow(parsePlans(read("plans")))
+    private val _plans = MutableStateFlow(initial.plans)
     val plans: StateFlow<List<FavoritePlan>> = _plans
-    private val _recentPlans = MutableStateFlow(parsePlans(read("recentPlans")))
+    private val _recentPlans = MutableStateFlow(initial.recentPlans)
     val recentPlans: StateFlow<List<FavoritePlan>> = _recentPlans
 
-    var onSharedChange: (() -> Unit)? = null
+    /** The city whose stops or lines changed, for the watch. */
+    var onSharedChange: ((String) -> Unit)? = null
 
-    private fun read(key: String): JsonElement? =
-        prefs.getString(key, null)?.let { runCatching { Api.json.parseToJsonElement(it) }.getOrNull() }
+    private fun read(prefs: SharedPreferences): SavedFavorites {
+        fun get(key: String): JsonElement? =
+            prefs.getString(key, null)?.let { runCatching { Api.json.parseToJsonElement(it) }.getOrNull() }
+        return SavedFavorites(parseFavoriteRoutes(get("routes")), parseStopIds(get("stops")), parsePlans(get("plans")), parsePlans(get("recentPlans")))
+    }
 
-    private fun persist() {
+    private fun write(prefs: SharedPreferences, saved: SavedFavorites) {
         prefs.edit {
-            putString("routes", Api.json.encodeToString(_routes.value))
-            putString("stops", Api.json.encodeToString(_stops.value))
-            putString("plans", Api.json.encodeToString(_plans.value))
-            putString("recentPlans", Api.json.encodeToString(_recentPlans.value))
+            putString("routes", Api.json.encodeToString(saved.routes))
+            putString("stops", Api.json.encodeToString(saved.stops))
+            putString("plans", Api.json.encodeToString(saved.plans))
+            putString("recentPlans", Api.json.encodeToString(saved.recentPlans))
         }
     }
+
+    private fun show(saved: SavedFavorites) {
+        _routes.value = saved.routes
+        _stops.value = saved.stops
+        _plans.value = saved.plans
+        _recentPlans.value = saved.recentPlans
+    }
+
+    fun use(slug: String) {
+        if (slug == city) return
+        city = slug
+        prefs = cityPrefs(context, "favorites", slug)
+        show(read(prefs))
+    }
+
+    fun saved(city: String): SavedFavorites = if (city == this.city) current() else read(cityPrefs(context, "favorites", city))
+
+    private fun current() = SavedFavorites(_routes.value, _stops.value, _plans.value, _recentPlans.value)
+
+    private fun persist() = write(prefs, current())
 
     fun isStopFavorite(stopId: Int) = stopId in _stops.value
 
@@ -73,14 +111,14 @@ class Favorites(context: Context) {
     fun toggleStop(stopId: Int) {
         _stops.value = if (stopId in _stops.value) _stops.value - stopId else _stops.value + stopId
         persist()
-        onSharedChange?.invoke()
+        onSharedChange?.invoke(city)
     }
 
     fun toggleRoute(routeId: Int, direction: String) {
         val fav = FavoriteRoute(routeId, direction)
         _routes.value = if (fav in _routes.value) _routes.value - fav else _routes.value + fav
         persist()
-        onSharedChange?.invoke()
+        onSharedChange?.invoke(city)
     }
 
     fun togglePlan(plan: FavoritePlan) {
@@ -99,16 +137,22 @@ class Favorites(context: Context) {
     fun reorderRoutes(list: List<FavoriteRoute>) {
         _routes.value = list
         persist()
-        onSharedChange?.invoke()
+        onSharedChange?.invoke(city)
     }
 
     fun reorderStops(list: List<Int>) {
         _stops.value = list
         persist()
-        onSharedChange?.invoke()
+        onSharedChange?.invoke(city)
     }
 
-    fun replaceShared(stops: List<Int>, routes: List<FavoriteRoute>) {
+    fun replaceShared(city: String, stops: List<Int>, routes: List<FavoriteRoute>) {
+        if (city != this.city) {
+            val prefs = cityPrefs(context, "favorites", city)
+            val saved = read(prefs)
+            write(prefs, SavedFavorites(routes, stops, saved.plans, saved.recentPlans))
+            return
+        }
         _stops.value = stops
         _routes.value = routes
         persist()
@@ -129,13 +173,19 @@ class Favorites(context: Context) {
         persist()
     }
 
-    fun importAll(favorites: JsonObject) {
-        _routes.value = parseFavoriteRoutes(favorites["routes"])
-        _stops.value = parseStopIds(favorites["stops"])
-        _plans.value = parsePlans(favorites["plans"])
-        _recentPlans.value = parsePlans(favorites["recentPlans"])
-        persist()
-        onSharedChange?.invoke()
+    fun importAll(favorites: JsonObject, city: String) {
+        val saved = SavedFavorites(
+            parseFavoriteRoutes(favorites["routes"]),
+            parseStopIds(favorites["stops"]),
+            parsePlans(favorites["plans"]),
+            parsePlans(favorites["recentPlans"]),
+        )
+        if (city != this.city) write(cityPrefs(context, "favorites", city), saved)
+        else {
+            show(saved)
+            persist()
+        }
+        onSharedChange?.invoke(city)
     }
 
     companion object {

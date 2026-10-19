@@ -20,6 +20,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
+import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
@@ -73,8 +75,8 @@ data class Reminder(
         nextOccurrence(slots, days, date?.let(LocalDate::parse), maxOf(afterMs - MISSED_MS, handled), CLUJ_ZONE)
 
     /** A reminder for this bus alone. */
-    fun isFor(stopId: Int, routeId: Int, tripId: String) =
-        journey == null && followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
+    fun isFor(stopId: Int, routeId: Int, tripId: String, city: String = Cities.current.value) =
+        journey == null && followed.city == city && followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
 }
 
 /** How long before the bus to set off: the walk and a few minutes, or a fixed lead when there's no fix. */
@@ -92,7 +94,7 @@ fun tellAt(atMs: Long, walk: Int?): Long =
 suspend fun reminderTimes(info: StopInfo, followed: Followed): Map<String, List<Int>> {
     val shape = info.shapesInfo.firstOrNull { it.routeId == followed.routeId } ?: return emptyMap()
     val hourly = TimetableTab.entries.associate { tab ->
-        tab.dayType to runCatching { Services.repository.hourlyOffsets(shape.shortName, tab.dayType)[followed.tripId] }.getOrNull()
+        tab.dayType to runCatching { Services.repository.hourlyOffsets(shape.shortName, tab.dayType, followed.city)[followed.tripId] }.getOrNull()
     }
     return stopTimesByDayType(shape, followed.tripId, followed.stopId, hourly)
 }
@@ -184,7 +186,7 @@ object Reminders {
     private fun pending(context: Context, id: String, at: Long): PendingIntent = PendingIntent.getBroadcast(
         context, 0,
         Intent(context, ReminderReceiver::class.java)
-            .setData("${WearLink.APP_SCHEME}://reminder/$id".toUri())
+            .setData("${Links.SCHEME}://reminder/$id".toUri())
             .putExtra(ReminderReceiver.EXTRA_ID, id)
             .putExtra(ReminderReceiver.EXTRA_AT, at),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -196,7 +198,7 @@ object Reminders {
             context, 0,
             Intent(context, ReminderReceiver::class.java)
                 .setAction(ReminderReceiver.ACTION_LEAVE)
-                .setData("${WearLink.APP_SCHEME}://reminder/$id/leave".toUri())
+                .setData("${Links.SCHEME}://reminder/$id/leave".toUri())
                 .putExtra(ReminderReceiver.EXTRA_ID, id)
                 .putExtra(ReminderReceiver.EXTRA_FOLLOWED, followed?.let { Api.json.encodeToString(it) })
                 .putExtra(ReminderReceiver.EXTRA_AT, at)
@@ -214,8 +216,9 @@ object Reminders {
         if (at <= reminder.handled || at <= reminder.told) return
         val now = System.currentTimeMillis()
         if (at < now - MISSED_MS) return handled(context, reminder, at)
-        val fix = withTimeoutOrNull(LOCATE_MS) { UserLocation.current(context) }?.also { UserLocation.save(context, it) }
-            ?: UserLocation.recent(context)
+        val city = reminder.followed.city
+        val fix = withTimeoutOrNull(LOCATE_MS) { UserLocation.current(context, city) }?.also { UserLocation.save(context, it) }
+            ?: UserLocation.recent(context, city)
         val walk = fix?.let { walkMinutes(it.lat, it.lon, reminder.lat, reminder.lon) }
         val wakeAt = tellAt(at, walk)
         if (wakeAt > now + REARM_SLACK_MS) return alarm(context, id, at, wakeAt)
@@ -255,7 +258,7 @@ object Reminders {
         val repository = Services.repository
         var changed = false
         val updated = all.value.map { reminder ->
-            val info = runCatching { repository.stopInfo(reminder.followed.stopId) }.getOrNull() ?: return@map reminder
+            val info = runCatching { repository.stopInfo(reminder.followed.stopId, reminder.followed.city) }.getOrNull() ?: return@map reminder
             val slots = resolveSlots(reminderTimes(info, reminder.followed), reminder.time)
             if (slots.isEmpty() || slots == reminder.slots) reminder else reminder.copy(slots = slots).also { changed = true }
         }

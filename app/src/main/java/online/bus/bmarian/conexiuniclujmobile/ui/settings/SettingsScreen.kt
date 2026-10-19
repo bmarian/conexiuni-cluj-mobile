@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -18,6 +19,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,12 +48,14 @@ import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Eco
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MyLocation
-import androidx.compose.material.icons.rounded.Newspaper
+import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
@@ -64,6 +68,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -81,6 +86,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -114,8 +120,11 @@ import online.bus.bmarian.conexiuniclujmobile.AppUpdates
 import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
+import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.data.Transfer
+import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
@@ -124,6 +133,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.buzz
+import online.bus.bmarian.conexiuniclujmobile.ui.stop.LiveBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 @Composable
@@ -133,9 +143,9 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val settings = Services.settings
     val locale by settings.locale.collectAsStateWithLifecycle()
     val theme by settings.theme.collectAsStateWithLifecycle()
-    val news by settings.showNews.collectAsStateWithLifecycle()
     val extras by settings.showVehicleExtras.collectAsStateWithLifecycle()
-    val greenFriday by settings.showGreenFriday.collectAsStateWithLifecycle()
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val regions by settings.regions.collectAsStateWithLifecycle()
     val center by settings.autoCenterOnMe.collectAsStateWithLifecycle()
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
     val alarms by settings.fullScreenAlarms.collectAsStateWithLifecycle()
@@ -215,13 +225,20 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
 
             Section(stringResource(R.string.w_display))
             ThemeRow(theme, settings::setTheme)
-            Toggle(Icons.Rounded.Newspaper, stringResource(R.string.w_news), stringResource(R.string.w_news_desc), news, onChange = settings::setShowNews)
             Toggle(Icons.Rounded.Accessible, stringResource(R.string.w_vehicle_extras), stringResource(R.string.w_vehicle_extras_desc), extras, onChange = settings::setShowVehicleExtras)
-            Toggle(Icons.Rounded.Eco, stringResource(R.string.w_green_friday_title), stringResource(R.string.w_green_friday_setting_desc), greenFriday, onChange = settings::setShowGreenFriday)
 
             Section(stringResource(R.string.w_settings_map))
             Toggle(Icons.Rounded.MyLocation, stringResource(R.string.w_auto_center_on_me), stringResource(R.string.w_auto_center_on_me_desc), center, onChange = settings::setAutoCenterOnMe)
             Toggle(Icons.Rounded.CropFree, stringResource(R.string.w_auto_fit_map), stringResource(R.string.w_auto_fit_map_desc), fit, onChange = settings::setAutoFitMap)
+
+            Section(stringResource(R.string.w_city))
+            CityChooser()
+            for (setting in RegionSettings.forCity(city)) {
+                Toggle(
+                    regionIcon(setting.key), stringResource(setting.title), stringResource(setting.description),
+                    settings.regionSetting(city, setting.key, regions),
+                ) { settings.setRegionSetting(city, setting.key, it) }
+            }
 
             Section(stringResource(R.string.w_settings_notifications))
             Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, beta = true, onChange = ::toggleAlarms)
@@ -244,6 +261,71 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             Spacer(Modifier.height(32.dp))
         }
     }
+}
+
+private fun regionIcon(key: String): ImageVector = when (key) {
+    RegionSettings.GREEN_FRIDAY -> Icons.Rounded.Eco
+    else -> Icons.Rounded.Tune
+}
+
+/** The city on screen; the nearest one is offered only while location is already allowed. */
+@Composable
+private fun CityChooser() {
+    val context = LocalContext.current
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val choice by Cities.choice.collectAsStateWithLifecycle()
+    val cities by Cities.list.collectAsStateWithLifecycle()
+    val located = remember { UserLocation.permitted(context) }
+    val automatic = located && choice == null
+    val info = cities.firstOrNull { it.slug == city }
+    var open by rememberSaveable { mutableStateOf(false) }
+    val turn by animateFloatAsState(if (open) 180f else 0f, label = "chevron")
+    fun choose(slug: String?) {
+        open = false
+        Services.chooseCity(slug)
+    }
+    ListItem(
+        modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable { open = !open },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = { Icon(Icons.Rounded.Place, null) },
+        headlineContent = { Text(if (automatic) stringResource(R.string.w_city_auto) else info?.name ?: city) },
+        supportingContent = (if (automatic) info?.name else info?.operator)?.let { { Text(it) } },
+        trailingContent = { Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(turn)) },
+    )
+    AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+        Column {
+            if (located) CityOption(stringResource(R.string.w_city_auto), null, null, automatic) { choose(null) }
+            for (option in cities) CityOption(option.name, option.operator, option.realtime, !automatic && option.slug == city) { choose(option.slug) }
+        }
+    }
+}
+
+@Composable
+private fun CityOption(name: String, operator: String?, realtime: Boolean?, selected: Boolean, onClick: () -> Unit) {
+    ListItem(
+        modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = { RadioButton(selected = selected, onClick = null) },
+        headlineContent = { Text(name) },
+        supportingContent = operator?.takeIf { it.isNotEmpty() }?.let { { Text(it) } },
+        trailingContent = when (realtime) {
+            true -> { { LiveBadge() } }
+            false -> { { TimetableBadge() } }
+            null -> null
+        },
+    )
+}
+
+/** A city without live positions, shaped like [LiveBadge]. */
+@Composable
+private fun TimetableBadge() {
+    Text(
+        stringResource(R.string.w_timetable).uppercase(),
+        Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 5.dp, vertical = 1.dp),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** A one-off question at the top. */

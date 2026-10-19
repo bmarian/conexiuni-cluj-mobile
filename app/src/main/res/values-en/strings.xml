@@ -81,7 +81,7 @@
     <string name="voice_mute">Mute</string>
     <string name="voice_unmute">Unmute</string>
     <string name="widget_loading">Loading…</string>
-    <string name="onboard_welcome_title">Buses and trams in Cluj, live</string>
+    <string name="onboard_welcome_title">Buses and trams, live</string>
     <string name="onboard_welcome_body">See departures, follow buses and plan trips.</string>
     <string name="onboard_location_title">Location</string>
     <string name="onboard_location_body">For stops near you and trips from where you are.</string>

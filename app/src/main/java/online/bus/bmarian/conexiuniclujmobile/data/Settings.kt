@@ -5,11 +5,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import android.os.LocaleList
+import androidx.annotation.StringRes
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import online.bus.bmarian.conexiuniclujmobile.R
 import java.util.Locale
 
 enum class ThemeMode(val key: String) {
@@ -104,24 +106,42 @@ class Settings(private val context: Context) {
         set(paperActive, "paperActive", on)
     }
 
-    val showNews = bool("showNews", true)
     val autoCenterOnMe = bool("autoCenterOnMe", true)
     val autoFitMap = bool("autoFitMap", true)
     val showVehicleExtras = bool("showVehicleExtras", true)
-    val showGreenFriday = bool("showGreenFriday", true)
     val journeyVoice = bool("journeyVoice", true)
     val fullScreenAlarms = bool("fullScreenAlarms", false)
 
     val onboarded = bool("onboarded", false)
     fun setOnboarded() = set(onboarded, "onboarded", true)
 
-    fun setShowNews(v: Boolean) = set(showNews, "showNews", v)
     fun setAutoCenterOnMe(v: Boolean) = set(autoCenterOnMe, "autoCenterOnMe", v)
     fun setAutoFitMap(v: Boolean) = set(autoFitMap, "autoFitMap", v)
     fun setShowVehicleExtras(v: Boolean) = set(showVehicleExtras, "showVehicleExtras", v)
-    fun setShowGreenFriday(v: Boolean) = set(showGreenFriday, "showGreenFriday", v)
     fun setJourneyVoice(v: Boolean) = set(journeyVoice, "journeyVoice", v)
     fun setFullScreenAlarms(v: Boolean) = set(fullScreenAlarms, "fullScreenAlarms", v)
+
+    // Saved as "{city}:{key}"; Cluj's were saved before cities under the bare key.
+    private fun regionKey(city: String, key: String) = "$city:$key"
+
+    private val _regions = MutableStateFlow(
+        RegionSettings.ALL.flatMap { setting ->
+            setting.cities.map { city ->
+                val saved = regionKey(city, setting.key).takeIf(prefs::contains)
+                    ?: setting.key.takeIf { city == Cities.DEFAULT && prefs.contains(it) }
+                regionKey(city, setting.key) to (saved?.let { prefs.getBoolean(it, setting.defaultOn) } ?: setting.defaultOn)
+            }
+        }.toMap(),
+    )
+    val regions: StateFlow<Map<String, Boolean>> = _regions
+
+    fun regionSetting(city: String, key: String, values: Map<String, Boolean> = _regions.value): Boolean = values[regionKey(city, key)] ?: false
+
+    fun setRegionSetting(city: String, key: String, value: Boolean) {
+        if (RegionSettings.forCity(city).none { it.key == key }) return
+        _regions.value += regionKey(city, key) to value
+        prefs.edit { putBoolean(regionKey(city, key), value) }
+    }
 
     private val _toasts = MutableSharedFlow<Toast>(extraBufferCapacity = 4)
     val toasts: SharedFlow<Toast> = _toasts
@@ -130,4 +150,17 @@ class Settings(private val context: Context) {
     fun showToast(title: String, body: String? = null, actionLabel: String? = null, action: (() -> Unit)? = null) {
         _toasts.tryEmit(Toast(++toastSeq, title, body, actionLabel, action))
     }
+}
+
+/** Port of utils/regionSettings.ts: settings that only some cities have. */
+object RegionSettings {
+    class Setting(val key: String, val cities: List<String>, val defaultOn: Boolean, @StringRes val title: Int, @StringRes val description: Int)
+
+    const val GREEN_FRIDAY = "showGreenFriday"
+
+    val ALL = listOf(
+        Setting(GREEN_FRIDAY, listOf("cluj"), true, R.string.w_green_friday_title, R.string.w_green_friday_setting_desc),
+    )
+
+    fun forCity(city: String) = ALL.filter { city in it.cities }
 }

@@ -154,6 +154,11 @@
                 <data android:pathPrefix="/route/" />
                 <data android:path="/plan" />
                 <data android:path="/settings" />
+                <!-- The same pages under a city: /{city}/stop/… -->
+                <data android:pathPattern="/.*/stop/.*" />
+                <data android:pathPattern="/.*/route/.*" />
+                <data android:pathPattern="/.*/plan" />
+                <data android:pathPattern="/.*/settings" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

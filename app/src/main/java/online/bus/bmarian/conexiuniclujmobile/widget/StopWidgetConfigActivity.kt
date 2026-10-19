@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.LegacyLocale
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
@@ -88,6 +89,7 @@ class StopWidgetConfigActivity : ComponentActivity() {
         updateAppWidgetState(this, glanceId) {
             it[StopWidget.STOP_ID] = stop.stopId
             it[StopWidget.STOP_NAME] = stop.name
+            it[StopWidget.CITY] = Cities.current.value
             it.remove(StopWidget.ROWS)
             it.remove(StopWidget.UPDATED)
         }

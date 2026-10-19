@@ -94,6 +94,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
 import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
 import online.bus.bmarian.conexiuniclujmobile.data.directionFromTripId
@@ -345,7 +346,7 @@ fun StopScreen(stopId: Int) {
                     else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { index, (key, departure) ->
                         val followed = Followed(
                             stopId, name.orEmpty(), departure.routeId, departure.tripId,
-                            departure.shortName, departure.color, routeDestination(departure.longName),
+                            departure.shortName, departure.color, routeDestination(departure.longName), Cities.current.value,
                         )
                         val following = follows.firstOrNull { it.matches(stopId, departure.routeId, departure.tripId) }
                         val forBus = reminders.filter { it.isFor(stopId, departure.routeId, departure.tripId) }

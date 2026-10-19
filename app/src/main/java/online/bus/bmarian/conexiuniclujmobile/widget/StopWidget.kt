@@ -48,7 +48,8 @@ import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Api
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
+import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -72,7 +73,7 @@ class StopWidget : GlanceAppWidget() {
         val rows = prefs[ROWS]?.let { runCatching { Api.json.decodeFromString<List<WidgetRow>>(it) }.getOrNull() }
         val updated = prefs[UPDATED]
         val open = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
-            .setData((if (stopId != null) "${WearLink.APP_SCHEME}://bus.bmarian.online/stop/$stopId" else "${WearLink.APP_SCHEME}://bus.bmarian.online/").toUri())
+            .setData(if (stopId != null) Links.app("/stop/$stopId", prefs[CITY] ?: Cities.DEFAULT) else "${Links.SCHEME}://${Links.HOST}/".toUri())
         Column(
             GlanceModifier.fillMaxSize()
                 .background(GlanceTheme.colors.widgetBackground)
@@ -140,6 +141,7 @@ class StopWidget : GlanceAppWidget() {
     companion object {
         val STOP_ID = intPreferencesKey("stopId")
         val STOP_NAME = stringPreferencesKey("stopName")
+        val CITY = stringPreferencesKey("city")
         val ROWS = stringPreferencesKey("rows")
         val UPDATED = longPreferencesKey("updated")
         val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")

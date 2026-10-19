@@ -1,6 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,22 +46,32 @@ data class RouteChange(
     val changes: List<RouteChangeItem> = emptyList(),
 )
 
-/** Port of stores/routeUpdates.ts. */
-class RouteUpdates(context: Context) {
-    private val prefs = context.getSharedPreferences("routeUpdates", Context.MODE_PRIVATE)
+@Serializable
+data class NewsItem(val title: String = "", val url: String = "")
 
-    private val _followed = MutableStateFlow(readFollowed())
+/** A line change or an operator's news, newest first from /updates; [at] in epoch ms. */
+@Serializable
+data class Update(val kind: String, val at: Long = 0, val news: NewsItem? = null, val change: RouteChange? = null)
+
+/** Port of stores/routeUpdates.ts: followed lines and what was seen are kept per city. */
+class RouteUpdates(private val context: Context) {
+    private var city = Cities.current.value
+    private var prefs = cityPrefs(context, "routeUpdates", city)
+
+    private val _followed = MutableStateFlow(readFollowed(prefs))
     val followed: StateFlow<List<String>> = _followed
     private val _seen = MutableStateFlow(readSeen())
     val seen: StateFlow<Set<Long>> = _seen
-    private val _changes = MutableStateFlow<List<RouteChange>>(emptyList())
-    val changes: StateFlow<List<RouteChange>> = _changes
+    private val _updates = MutableStateFlow<List<Update>>(emptyList())
+    val updates: StateFlow<List<Update>> = _updates
     val loading = MutableStateFlow(false)
     val error = MutableStateFlow(false)
     private var lastFetchAt = 0L
     private val mutex = Mutex()
 
-    private fun readFollowed(): List<String> = runCatching {
+    val changes: List<RouteChange> get() = _updates.value.mapNotNull { it.change }
+
+    private fun readFollowed(prefs: SharedPreferences): List<String> = runCatching {
         (Api.json.parseToJsonElement(prefs.getString("followed", null) ?: "[]") as JsonArray)
             .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull?.takeIf(String::isNotEmpty) }
     }.getOrDefault(emptyList())
@@ -70,31 +81,50 @@ class RouteUpdates(context: Context) {
             .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> !p.isString }?.longOrNull }.toSet()
     }.getOrDefault(emptySet())
 
-    private fun writeFollowed() = prefs.edit { putString("followed", Api.json.encodeToString(_followed.value)) }
+    fun use(slug: String) {
+        if (slug == city) return
+        city = slug
+        prefs = cityPrefs(context, "routeUpdates", slug)
+        _followed.value = readFollowed(prefs)
+        _seen.value = readSeen()
+        _updates.value = emptyList()
+        error.value = false
+        lastFetchAt = 0
+    }
+
+    /** The news button: the city's news, or changes to lines followed here. */
+    fun hasFeed(followed: List<String> = _followed.value) = followed.isNotEmpty() || Cities.info(city)?.news == true
+
+    fun followedIn(city: String): List<String> = if (city == this.city) _followed.value else readFollowed(cityPrefs(context, "routeUpdates", city))
+
+    private fun writeFollowed(prefs: SharedPreferences, list: List<String>) = prefs.edit { putString("followed", Api.json.encodeToString(list)) }
 
     fun isFollowing(routeShortName: String) = routeShortName in _followed.value
 
     fun toggleFollow(routeShortName: String): Boolean {
         val following = routeShortName !in _followed.value
         _followed.value = if (following) _followed.value + routeShortName else _followed.value - routeShortName
-        writeFollowed()
+        writeFollowed(prefs, _followed.value)
         return following
     }
 
-    fun importFollowed(raw: JsonArray?) {
-        _followed.value = raw.orEmpty()
+    fun importFollowed(raw: JsonArray?, city: String) {
+        val list = raw.orEmpty()
             .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull?.takeIf(String::isNotEmpty) }
             .distinct()
-        writeFollowed()
+        if (city != this.city) return writeFollowed(cityPrefs(context, "routeUpdates", city), list)
+        _followed.value = list
+        writeFollowed(prefs, list)
     }
 
-    fun unseenIds(changes: List<RouteChange> = _changes.value, seen: Set<Long> = _seen.value): Set<Long> =
-        changes.filter { it.id !in seen }.map { it.id }.toSet()
+    fun unseenIds(updates: List<Update> = _updates.value, seen: Set<Long> = _seen.value): Set<Long> =
+        updates.mapNotNull { it.change }.filter { it.id !in seen }.map { it.id }.toSet()
 
-    suspend fun fetchChanges() = mutex.withLock {
+    suspend fun fetchUpdates() = mutex.withLock {
+        val city = this.city
         val followed = _followed.value
-        if (followed.isEmpty()) {
-            _changes.value = emptyList()
+        if (!hasFeed(followed)) {
+            _updates.value = emptyList()
             error.value = false
             return@withLock
         }
@@ -102,18 +132,20 @@ class RouteUpdates(context: Context) {
         error.value = false
         try {
             val routes = followed.sorted().joinToString(",") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") }
-            _changes.value = Api.getFresh<List<RouteChange>>("route-changes?routes=$routes")
+            val fetched = Api.getFresh<List<Update>>(if (routes.isEmpty()) "updates" else "updates?routes=$routes", city)
+            if (city != this.city) return@withLock
+            _updates.value = fetched.filter { it.news != null || it.change != null }
             lastFetchAt = System.currentTimeMillis()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            error.value = true
+            if (city == this.city) error.value = true
         } finally {
             loading.value = false
         }
     }
 
     suspend fun refreshIfStale() {
-        if (System.currentTimeMillis() - lastFetchAt > REFRESH_AFTER_MS) fetchChanges()
+        if (System.currentTimeMillis() - lastFetchAt > REFRESH_AFTER_MS) fetchUpdates()
     }
 
     fun markSeen(ids: Collection<Long>) {
@@ -123,10 +155,10 @@ class RouteUpdates(context: Context) {
         prefs.edit { putString("seen", Api.json.encodeToString(_seen.value.toList())) }
     }
 
-    fun markAllSeen() = markSeen(_changes.value.map { it.id })
+    fun markAllSeen() = markSeen(changes.map { it.id })
 
     suspend fun loadChange(id: Long): RouteChange? {
-        _changes.value.find { it.id == id }?.let { return it }
+        changes.find { it.id == id }?.let { return it }
         return runCatching { Api.getFresh<List<RouteChange>>("route-changes?id=$id").firstOrNull() }.getOrNull()
     }
 }

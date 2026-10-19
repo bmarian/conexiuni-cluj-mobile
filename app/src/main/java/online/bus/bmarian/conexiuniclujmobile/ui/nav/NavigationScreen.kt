@@ -90,6 +90,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberCredits
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -115,7 +116,6 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 import online.bus.bmarian.conexiuniclujmobile.journey.StepType
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.findClosestShapeIdx
-import online.bus.bmarian.conexiuniclujmobile.ui.CREDITS
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.Rail
@@ -150,8 +150,8 @@ class NavigationViewModel : ViewModel() {
                 .collectLatest { (journey, legIndex) ->
                     _vehicles.value = emptyList()
                     val leg = journey?.legs?.getOrNull(legIndex) ?: return@collectLatest
-                    val shapes = runCatching { Services.repository.shapes(leg.tripIds) }.getOrDefault(emptyMap())
-                    LiveStream.live(emptyList(), leg.tripIds).collect { live ->
+                    val shapes = runCatching { Services.repository.shapes(leg.tripIds, journey.city) }.getOrDefault(emptyMap())
+                    LiveStream.live(emptyList(), leg.tripIds, journey.city).collect { live ->
                         _vehicles.value = withContext(Dispatchers.Default) { busesFor(leg, shapes, live.vehiclesByTrip) }
                     }
                 }
@@ -383,7 +383,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             }
         }
         Text(
-            CREDITS,
+            rememberCredits(),
             Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = panelDp + 2.dp),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,

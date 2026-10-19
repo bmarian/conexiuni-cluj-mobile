@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
 import online.bus.bmarian.conexiuniclujmobile.data.Route
@@ -96,8 +97,10 @@ fun HomeScreen() {
     val favoritePlans by Services.favorites.plans.collectAsStateWithLifecycle()
     val recentPlans by Services.favorites.recentPlans.collectAsStateWithLifecycle()
     val online by Services.online.collectAsStateWithLifecycle()
-    val follows by FollowManager.follows.collectAsStateWithLifecycle()
-    val reminders by Reminders.all.collectAsStateWithLifecycle()
+    // Another city's keep running, out of sight here.
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val follows = FollowManager.follows.collectAsStateWithLifecycle().value.filter { it.followed.city == city }
+    val reminders = Reminders.all.collectAsStateWithLifecycle().value.filter { it.followed.city == city }
     val clock by Services.clock.collectAsStateWithLifecycle()
     var reminding by remember { mutableStateOf<Followed?>(null) }
     val locale = LocalConfiguration.current.locales[0]

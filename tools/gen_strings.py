@@ -11,7 +11,7 @@ SKIP = re.compile(
     r"newsHasUpdates|android|busAlerts|experimental|limitReached|"
     r"notificationsBlocked|remind|leave|journey|nav[A-Z]|follow(Arriving|Now|In|AtClock|Done|NoBus|Waiting)|following|"
     r"stopFollowing|notifyMe|wakeMe|directions|loadFailed|retry|save$|close$|shareFinding|shareNotFound|etaMinutes|"
-    r"departuresClickHint|departuresHoldHint|stopsClickHint|stopsHoldHint)"
+    r"departuresClickHint|departuresHoldHint|stopsClickHint|stopsHoldHint|hostMove|region)"
 )
 
 
@@ -25,7 +25,6 @@ APP = {
         "w_all_stops": "All stops",
         "w_all_routes_at_stop": "Lines at this stop",
         "w_favorite_routes": "Favorite lines",
-        "w_no_favorites": "No favorites yet. Tap the heart on a line or stop to save it.",
         "w_search_placeholder": "Search lines, stops, places…",
         "w_search_results_routes": "Lines",
         "w_not_found_desc": "This line or stop doesn\\'t exist anymore.",
@@ -49,7 +48,6 @@ APP = {
         "w_vehicle_extras_desc": "Show wheelchair and bike access on buses.",
         "w_news_loading": "Loading…",
         "w_news_error": "Couldn\\'t load",
-        "w_news_follow_hint": "Follow a line from its menu to see its changes here.",
         "w_unfollow_line_toast_body": "Its changes won\\'t show on the News page.",
         "w_route_change_summary_timetable_one": "The %1$s timetable changed.",
         "w_route_change_summary_timetable_many": "The %1$s timetables changed.",
@@ -60,7 +58,6 @@ APP = {
         "w_route_change_summary_stops_removed": "Stops were removed.",
         "w_route_change_summary_stops_both": "Stops were added and removed.",
         "w_language_desc": "Stop and line names stay in Romanian.",
-        "w_news_desc": "Show CTP news and changes to lines you follow.",
         "w_auto_center_on_me": "Center on me",
         "w_auto_center_on_me_desc": "Center the map on you when it opens.",
         "w_auto_fit_map_desc": "Show the whole line when you open it.",
@@ -78,7 +75,6 @@ APP = {
         "w_all_routes": "Toate liniile",
         "w_all_routes_at_stop": "Linii în această stație",
         "w_favorite_routes": "Linii preferate",
-        "w_no_favorites": "Nu ai preferate încă. Apasă inima la o linie sau stație ca s-o salvezi.",
         "w_search_results_routes": "Linii",
         "w_not_found_desc": "Linia sau stația nu mai există.",
         "w_plan_title": "Planifică o călătorie",
@@ -101,7 +97,6 @@ APP = {
         "w_vehicle_extras": "Detalii autobuz",
         "w_vehicle_extras_desc": "Arată accesul pentru scaune cu rotile și biciclete.",
         "w_news_loading": "Se încarcă…",
-        "w_news_follow_hint": "Urmărește o linie din meniul ei ca să-i vezi schimbările aici.",
         "w_route_change_summary_timetable_one": "Orarul %1$s s-a schimbat.",
         "w_route_change_summary_timetable_many": "Orarele %1$s s-au schimbat.",
         "w_route_change_summary_timetable_any": "Orarul s-a schimbat.",
@@ -111,7 +106,6 @@ APP = {
         "w_route_change_summary_stops_removed": "Au fost scoase stații.",
         "w_route_change_summary_stops_both": "Au fost adăugate și scoase stații.",
         "w_language_desc": "Numele stațiilor și liniilor rămân în română.",
-        "w_news_desc": "Arată știrile CTP și schimbările liniilor urmărite.",
         "w_auto_center_on_me": "Centrează pe mine",
         "w_auto_center_on_me_desc": "Centrează harta pe tine când se deschide.",
         "w_auto_fit_map_desc": "Arată toată linia când o deschizi.",

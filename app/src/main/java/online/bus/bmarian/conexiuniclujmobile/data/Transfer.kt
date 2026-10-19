@@ -64,22 +64,48 @@ object Transfer {
 
     data class Summary(val stops: Int, val lines: Int, val places: Int, val followed: Int)
 
+    /** Exports without cities, from older builds, are Cluj's. */
+    private fun exportedCities(export: JsonObject): Map<String, JsonObject> {
+        val cities = export["cities"] as? JsonObject
+            ?: return mapOf(Cities.DEFAULT to JsonObject(listOfNotNull(export["favorites"]?.let { "favorites" to it }, export["followedLines"]?.let { "followedLines" to it }).toMap()))
+        return cities.filter { (slug, entry) -> Cities.known(slug) && entry is JsonObject }.mapValues { it.value as JsonObject }
+    }
+
+    private fun followedCount(entry: JsonObject) = (entry["followedLines"] as? JsonArray)?.count { (it as? JsonPrimitive)?.isString == true } ?: 0
+
     fun describe(data: JsonElement): Summary? {
         val export = data as? JsonObject ?: return null
-        val favorites = export["favorites"] as? JsonObject
-        if (favorites == null && export["settings"] !is JsonObject) return null
+        if (export["favorites"] !is JsonObject && export["settings"] !is JsonObject) return null
+        val entries = exportedCities(export).values
+        fun favorites(entry: JsonObject) = entry["favorites"] as? JsonObject
         return Summary(
-            stops = Favorites.parseStopIds(favorites?.get("stops")).size,
-            lines = Favorites.parseFavoriteRoutes(favorites?.get("routes")).size,
-            places = Favorites.parsePlans(favorites?.get("plans")).size,
-            followed = (export["followedLines"] as? JsonArray)?.count { (it as? JsonPrimitive)?.isString == true } ?: 0,
+            stops = entries.sumOf { Favorites.parseStopIds(favorites(it)?.get("stops")).size },
+            lines = entries.sumOf { Favorites.parseFavoriteRoutes(favorites(it)?.get("routes")).size },
+            places = entries.sumOf { Favorites.parsePlans(favorites(it)?.get("plans")).size },
+            followed = entries.sumOf(::followedCount),
         )
+    }
+
+    private fun savedCities(): Set<String> =
+        (Cities.list.value.map { it.slug } + Cities.DEFAULT).filter {
+            !Services.favorites.saved(it).isEmpty || Services.routeUpdates.followedIn(it).isNotEmpty()
+        }.toSet()
+
+    private fun favoritesJson(city: String): JsonObject {
+        val saved = Services.favorites.saved(city)
+        val json = Api.json
+        return buildJsonObject {
+            put("routes", json.encodeToJsonElement(saved.routes))
+            put("stops", json.encodeToJsonElement(saved.stops))
+            put("plans", json.encodeToJsonElement(saved.plans))
+            put("recentPlans", json.encodeToJsonElement(saved.recentPlans))
+        }
     }
 
     fun buildExport(): JsonObject {
         val s = Services.settings
-        val f = Services.favorites
         val json = Api.json
+        val regionCities = Cities.list.value.map { it.slug } + RegionSettings.ALL.flatMap { it.cities }
         return buildJsonObject {
             put("version", 1)
             put("settings", buildJsonObject {
@@ -90,19 +116,26 @@ object Transfer {
                 put("legacyBlueUnlocked", s.legacyBlueUnlocked.value)
                 put("legacyBlueActive", s.legacyBlueActive.value)
                 put("paperActive", s.paperActive.value)
-                put("showNews", s.showNews.value)
                 put("autoCenterOnMe", s.autoCenterOnMe.value)
                 put("autoFitMap", s.autoFitMap.value)
-                put("showGreenFriday", s.showGreenFriday.value)
-                put("regions", buildJsonObject { put(Backend.CITY, buildJsonObject { put("showGreenFriday", s.showGreenFriday.value) }) })
+                put("regions", buildJsonObject {
+                    for (city in regionCities.distinct()) {
+                        val settings = RegionSettings.forCity(city).takeIf { it.isNotEmpty() } ?: continue
+                        put(city, buildJsonObject { settings.forEach { put(it.key, s.regionSetting(city, it.key)) } })
+                    }
+                })
             })
-            put("favorites", buildJsonObject {
-                put("routes", json.encodeToJsonElement(f.routes.value))
-                put("stops", json.encodeToJsonElement(f.stops.value))
-                put("plans", json.encodeToJsonElement(f.plans.value))
-                put("recentPlans", json.encodeToJsonElement(f.recentPlans.value))
+            // Older builds read these and know only Cluj.
+            put("favorites", favoritesJson(Cities.DEFAULT))
+            put("followedLines", json.encodeToJsonElement(Services.routeUpdates.followedIn(Cities.DEFAULT)))
+            put("cities", buildJsonObject {
+                for (city in savedCities()) {
+                    put(city, buildJsonObject {
+                        put("favorites", favoritesJson(city))
+                        put("followedLines", json.encodeToJsonElement(Services.routeUpdates.followedIn(city)))
+                    })
+                }
             })
-            put("followedLines", json.encodeToJsonElement(Services.routeUpdates.followed.value))
         }
     }
 
@@ -119,13 +152,23 @@ object Transfer {
         if (s.flag("legacyBlueUnlocked") == true) settings.unlockLegacyBlue()
         settings.setLegacyBlueActive(s.flag("legacyBlueActive") == true)
         settings.setPaperActive(s.flag("paperActive") == true)
-        s.flag("showNews")?.let(settings::setShowNews)
         s.flag("autoCenterOnMe")?.let(settings::setAutoCenterOnMe)
         s.flag("autoFitMap")?.let(settings::setAutoFitMap)
-        val region = (s["regions"] as? JsonObject)?.get(Backend.CITY) as? JsonObject
-        (region?.flag("showGreenFriday") ?: s.flag("showGreenFriday"))?.let(settings::setShowGreenFriday)
-        Services.favorites.importAll(export["favorites"] as? JsonObject ?: JsonObject(emptyMap()))
-        (export["followedLines"] as? JsonArray)?.let(Services.routeUpdates::importFollowed)
+        // Exports from before cities hold Cluj's settings at the top level.
+        val regions = s["regions"] as? JsonObject ?: JsonObject(mapOf(Cities.DEFAULT to s))
+        for ((city, values) in regions) {
+            if (values !is JsonObject) continue
+            for (setting in RegionSettings.forCity(city)) values.flag(setting.key)?.let { settings.setRegionSetting(city, setting.key, it) }
+        }
+        val byCity = exportedCities(export)
+        // With cities, the export is the whole set: a city it leaves out is emptied.
+        val targets = if (export["cities"] is JsonObject) byCity.keys + savedCities() else byCity.keys
+        for (city in targets) {
+            val entry = byCity[city] ?: JsonObject(emptyMap())
+            Services.favorites.importAll(entry["favorites"] as? JsonObject ?: JsonObject(emptyMap()), city)
+            if (city in byCity && entry["followedLines"] !is JsonArray) continue
+            Services.routeUpdates.importFollowed(entry["followedLines"] as? JsonArray, city)
+        }
     }
 
     /** Base64 of raw-deflated JSON, as the website writes it. */
@@ -166,7 +209,7 @@ object Transfer {
 
     suspend fun send(code: String, data: JsonElement, key: String?): SendResult = try {
         val body = seal(data, key).toString().toRequestBody("application/json".toMediaType())
-        val request = Request.Builder().url(Api.url("transfer/${Api.encode(code)}")).put(body).build()
+        val request = Request.Builder().url(Api.sharedUrl("transfer/${Api.encode(code)}")).put(body).build()
         Api.fetch(request) { response ->
             when {
                 response.isSuccessful -> SendResult.Sent

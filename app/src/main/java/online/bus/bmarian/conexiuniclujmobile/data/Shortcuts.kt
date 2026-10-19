@@ -5,20 +5,18 @@ import android.content.Intent
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
-import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 
 object Shortcuts {
     private const val MAX_STOPS = 2
 
     private fun stopIntent(context: Context, stopId: Int) = Intent(context, MainActivity::class.java)
         .setAction(Intent.ACTION_VIEW)
-        .setData("${WearLink.APP_SCHEME}://bus.bmarian.online/stop/$stopId".toUri())
+        .setData(Links.app("/stop/$stopId"))
 
     private fun stopShortcut(context: Context, stopId: Int, name: String) =
-        ShortcutInfoCompat.Builder(context, "stop-$stopId")
+        ShortcutInfoCompat.Builder(context, "stop-${Cities.current.value}-$stopId")
             .setShortLabel(name.take(24))
             .setLongLabel(name)
             .setIcon(IconCompat.createWithResource(context, R.drawable.ic_shortcut_stop))

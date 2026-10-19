@@ -43,14 +43,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
-import online.bus.bmarian.conexiuniclujmobile.data.NewsApi
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.NewsItem
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
-import online.bus.bmarian.conexiuniclujmobile.data.parseNewsDate
 import online.bus.bmarian.conexiuniclujmobile.logic.changeDirection
 import online.bus.bmarian.conexiuniclujmobile.logic.changeKindLabels
 import online.bus.bmarian.conexiuniclujmobile.logic.changeTitle
@@ -64,43 +61,24 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-object NewsFeed {
-    val items = MutableStateFlow<List<NewsItem>>(emptyList())
-    val loading = MutableStateFlow(true)
-    val error = MutableStateFlow(false)
-    private var loaded = false
-
-    suspend fun load() {
-        if (loaded) return
-        try {
-            items.value = NewsApi.fetch()
-            error.value = false
-            loaded = true
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            error.value = true
-        } finally {
-            loading.value = false
-        }
-    }
-}
-
 @Composable
 fun rememberNewsDot(): Boolean {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val changes by Services.routeUpdates.changes.collectAsStateWithLifecycle()
+    val updates by Services.routeUpdates.updates.collectAsStateWithLifecycle()
     val seen by Services.routeUpdates.seen.collectAsStateWithLifecycle()
     val followed by Services.routeUpdates.followed.collectAsStateWithLifecycle()
-    LaunchedEffect(followed) { Services.routeUpdates.fetchChanges() }
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val cities by Cities.list.collectAsStateWithLifecycle()
+    LaunchedEffect(followed, city, cities) { Services.routeUpdates.fetchUpdates() }
     LaunchedEffect(Unit) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { Services.routeUpdates.refreshIfStale() }
     }
-    return Services.routeUpdates.unseenIds(changes, seen).isNotEmpty()
+    return Services.routeUpdates.unseenIds(updates, seen).isNotEmpty()
 }
 
-private sealed class NewsEntry(val at: Long, val date: String, val key: String) {
-    class Change(val change: RouteChange, date: String) : NewsEntry(change.detectedAt, date, "change-${change.id}")
-    class Ctp(val item: NewsItem, date: String, at: Long) : NewsEntry(at, date, "news-${item.url}")
+private sealed class NewsEntry(val date: String, val key: String) {
+    class Change(val change: RouteChange, date: String) : NewsEntry(date, "change-${change.id}")
+    class News(val item: NewsItem, date: String) : NewsEntry(date, "news-${item.url}")
 }
 
 private fun dayLabel(day: LocalDate, today: LocalDate, locale: String, context: Context): String = when (day) {
@@ -113,36 +91,27 @@ private fun dayLabel(day: LocalDate, today: LocalDate, locale: String, context: 
 fun NewsPage() {
     val context = LocalContext.current
     val nav = LocalNavigator.current
-    val changes by Services.routeUpdates.changes.collectAsStateWithLifecycle()
-    val followed by Services.routeUpdates.followed.collectAsStateWithLifecycle()
-    val loadingChanges by Services.routeUpdates.loading.collectAsStateWithLifecycle()
-    val changesError by Services.routeUpdates.error.collectAsStateWithLifecycle()
+    val updates by Services.routeUpdates.updates.collectAsStateWithLifecycle()
+    val loading by Services.routeUpdates.loading.collectAsStateWithLifecycle()
+    val error by Services.routeUpdates.error.collectAsStateWithLifecycle()
     val locale by Services.settings.locale.collectAsStateWithLifecycle()
-    val news by NewsFeed.items.collectAsStateWithLifecycle()
-    val loading by NewsFeed.loading.collectAsStateWithLifecycle()
-    val error by NewsFeed.error.collectAsStateWithLifecycle()
     var freshIds by remember { mutableStateOf(emptySet<Long>()) }
     val hasUpdates = rememberNewsDot()
     val today = LocalDate.now()
 
-    LaunchedEffect(Unit) { NewsFeed.load() }
-    LaunchedEffect(changes) {
+    LaunchedEffect(updates) {
         if (!hasUpdates) return@LaunchedEffect
         freshIds = freshIds + Services.routeUpdates.unseenIds()
         Services.routeUpdates.markAllSeen()
     }
 
-    val entries = remember(changes, news, today, locale) {
+    // Newest first, as the server sends them.
+    val entries = remember(updates, today, locale) {
         val zone = ZoneId.systemDefault()
-        val ctp = news.map { item ->
-            val day = parseNewsDate(item.date)
-            val date = day?.let { dayLabel(it, today, locale, context) } ?: item.date
-            NewsEntry.Ctp(item, date, day?.atStartOfDay(zone)?.toInstant()?.toEpochMilli() ?: 0L)
+        updates.mapNotNull { update ->
+            val date = dayLabel(Instant.ofEpochMilli(update.at).atZone(zone).toLocalDate(), today, locale, context)
+            update.change?.let { NewsEntry.Change(it, date) } ?: update.news?.let { NewsEntry.News(it, date) }
         }
-        val ours = changes.map {
-            NewsEntry.Change(it, dayLabel(Instant.ofEpochMilli(it.detectedAt).atZone(zone).toLocalDate(), today, locale, context))
-        }
-        (ours + ctp).sortedByDescending { it.at }
     }
 
     fun openChange(change: RouteChange) {
@@ -158,16 +127,15 @@ fun NewsPage() {
                 entries.isNotEmpty() -> items(entries, key = { it.key }) { entry ->
                     when (entry) {
                         is NewsEntry.Change -> ChangeRow(entry.change, entry.date, entry.change.id in freshIds) { openChange(entry.change) }
-                        is NewsEntry.Ctp -> CtpRow(entry.item, entry.date) {
+                        is NewsEntry.News -> NewsRow(entry.item, entry.date) {
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, entry.item.url.toUri())) }
                         }
                     }
                 }
-                loading || loadingChanges -> item { NewsHint(stringResource(R.string.w_news_loading)) }
-                error || changesError -> item { NewsHint(stringResource(R.string.w_news_error), MaterialTheme.colorScheme.error) }
+                loading -> item { NewsHint(stringResource(R.string.w_news_loading)) }
+                error -> item { NewsHint(stringResource(R.string.w_news_error), MaterialTheme.colorScheme.error) }
                 else -> item { NewsHint(stringResource(R.string.w_news_empty)) }
             }
-            if (followed.isEmpty()) item { NewsHint(stringResource(R.string.w_news_follow_hint)) }
         }
     }
 }
@@ -187,7 +155,7 @@ private fun ChangeRow(change: RouteChange, date: String, isNew: Boolean, onClick
 }
 
 @Composable
-private fun CtpRow(item: NewsItem, date: String, onClick: () -> Unit) {
+private fun NewsRow(item: NewsItem, date: String, onClick: () -> Unit) {
     FeedRow(
         title = item.title,
         meta = "$date · ${item.url.toUri().host.orEmpty().removePrefix("www.")}",
