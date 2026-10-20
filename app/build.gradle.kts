@@ -24,8 +24,8 @@ android {
         minSdk = 26
         targetSdk = 37
         // Phone 1xxxx, watch 2xxxx, then the release number, the same on both.
-        versionCode = 10_021
-        versionName = "1.17.0"
+        versionCode = 10_022
+        versionName = "1.17.1"
 
         buildConfigField("String", "API_BASE", "\"https://ceautobuziau.ro/api/\"")
         buildConfigField("String", "SITE_ORIGIN", "\"https://ceautobuziau.ro\"")
@@ -55,6 +55,14 @@ android {
                 enable = true
             }
             proguardFiles("proguard-rules.pro")
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
+        }
+    }
+    packaging {
+        jniLibs {
+            pickFirsts += "**/libmaplibre.so"
         }
     }
     compileOptions {
@@ -67,10 +75,20 @@ android {
     }
 }
 
-// The baseline profile plugin leaves R8 on for this variant.
+val mapLibreSymbols = tasks.register<MapLibreSymbols>("mapLibreSymbols") {
+    version = libs.versions.maplibre
+    abis = android.defaultConfig.ndk.abiFilters
+    ndkDirectory = androidComponents.sdkComponents.ndkDirectory
+    cacheDirectory = File(gradle.gradleUserHomeDir, "maplibre-symbols")
+}
+
 androidComponents {
+    // The baseline profile plugin leaves R8 on for this variant.
     finalizeDsl { android ->
         android.buildTypes.findByName("nonMinifiedRelease")?.optimization?.enable = false
+    }
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(mapLibreSymbols, MapLibreSymbols::outputDirectory)
     }
 }
 
