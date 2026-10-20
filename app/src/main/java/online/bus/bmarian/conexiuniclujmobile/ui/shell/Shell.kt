@@ -55,14 +55,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Toast
+import online.bus.bmarian.conexiuniclujmobile.logic.clujDate
 
 @Composable
 fun OfflinePill(online: Boolean, modifier: Modifier = Modifier) {
@@ -118,13 +117,14 @@ private class ToastVisuals(val toast: Toast) : SnackbarVisuals {
     override val duration = if (toast.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short
 }
 
-/** Dismissal keyed by UTC date, as on the website. */
+/** Dismissal keyed by the city's date, as on the website. */
 @Composable
 fun GreenFridayBanner() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { context.getSharedPreferences("greenFriday", android.content.Context.MODE_PRIVATE) }
-    val isFriday = remember { LocalDate.now().dayOfWeek == DayOfWeek.FRIDAY }
-    val todayKey = remember { Instant.now().toString().take(10) }
+    val today = remember { clujDate(System.currentTimeMillis()) }
+    val isFriday = today.dayOfWeek == DayOfWeek.FRIDAY
+    val todayKey = today.toString()
     var dismissed by remember { mutableStateOf(prefs.getString("dismissed", null) == todayKey) }
     if (!isFriday || dismissed) return
     Row(

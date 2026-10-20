@@ -61,29 +61,29 @@ fun pickSlot(times: List<Int>, time: Int?): Int? {
 }
 
 /** The first departure after [afterMs] as epoch ms. Starts a day back: late buses run past midnight. */
-fun nextOccurrence(slots: Map<String, Int>, days: List<Int>, date: LocalDate?, afterMs: Long, zone: ZoneId): Long? {
-    val today = java.time.Instant.ofEpochMilli(afterMs).atZone(zone).toLocalDate()
+fun nextOccurrence(slots: Map<String, Int>, days: List<Int>, date: LocalDate?, afterMs: Long): Long? {
+    val today = clujDate(afterMs)
     for (i in -1L..8L) {
         val day = today.plusDays(i)
         if (date != null && day != date) continue
         if (date == null && day.dayOfWeek.value !in days) continue
         val minute = slots[dayTypeOf(day)] ?: continue
-        val at = day.atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
+        val at = cityAt(day, minute)
         if (at > afterMs) return at
     }
     return null
 }
 
 /** The first of the timetable [times] after [afterMs]: its service day and its minute in that day. */
-fun nextDeparture(times: Map<String, List<Int>>, afterMs: Long, zone: ZoneId): Pair<LocalDate, Int>? {
-    val today = Instant.ofEpochMilli(afterMs).atZone(zone).toLocalDate()
+fun nextDeparture(times: Map<String, List<Int>>, afterMs: Long): Pair<LocalDate, Int>? {
+    val today = clujDate(afterMs)
     var first: Pair<LocalDate, Int>? = null
     var firstAt = Long.MAX_VALUE
     // Starts a day back: last night's late buses run past midnight.
     for (i in -1L..8L) {
         val day = today.plusDays(i)
         for (minute in times[dayTypeOf(day)].orEmpty()) {
-            val at = day.atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
+            val at = cityAt(day, minute)
             if (at > afterMs && at < firstAt) {
                 first = day to minute
                 firstAt = at

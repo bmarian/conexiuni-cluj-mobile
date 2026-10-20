@@ -20,6 +20,7 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
+import online.bus.bmarian.conexiuniclujmobile.follow.clockAt
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.routeDestination
@@ -57,7 +58,7 @@ class StopWidgetWorker(context: Context, params: WorkerParameters) : CoroutineWo
                 color = departure.color,
                 destination = routeDestination(departure.longName),
                 times = departure.nextTimes.mapIndexed { i, arrival ->
-                    val time = StopWidget.CLOCK.format(now.plusMinutes(arrival.minutes.toLong()))
+                    val time = clockAt(nowMs, arrival.minutes)
                     if (i == 0 && departure.isStatic) "~$time" else time
                 },
                 live = !departure.isStatic,

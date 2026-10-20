@@ -56,6 +56,8 @@ import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
+import online.bus.bmarian.conexiuniclujmobile.logic.bikeAccess
+import online.bus.bmarian.conexiuniclujmobile.logic.wheelchairAccess
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
 import org.maplibre.android.camera.CameraPosition
@@ -511,14 +513,16 @@ private fun VehicleBubble(session: MapSession, id: String, dark: Boolean, extras
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(vehicle.shortName, color = Color(0xFFF1F5F9), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                if (extras) {
+                val wheelchair = wheelchairAccess(vehicle.vehicle)
+                val bikes = bikeAccess(vehicle.vehicle)
+                if (extras && (wheelchair != null || bikes != null)) {
                     val gray = Color(0xFF94A3B8)
                     Text("·", color = gray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Canvas(Modifier.size(12.dp)) {
-                        accessibilityIcon(Offset.Zero, size.width, wheelchair = true, ok = vehicle.vehicle.wheelchairAccessible == "WHEELCHAIR_ACCESSIBLE", color = gray)
+                    wheelchair?.let { ok ->
+                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = true, ok = ok, color = gray) }
                     }
-                    Canvas(Modifier.size(12.dp)) {
-                        accessibilityIcon(Offset.Zero, size.width, wheelchair = false, ok = vehicle.vehicle.bikeAccessible == "BIKE_ACCESSIBLE", color = gray)
+                    bikes?.let { ok ->
+                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = false, ok = ok, color = gray) }
                     }
                 }
             }

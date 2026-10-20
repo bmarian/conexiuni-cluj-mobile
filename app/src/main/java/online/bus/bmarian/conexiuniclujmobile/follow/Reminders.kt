@@ -25,7 +25,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
-import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.ScheduleDays
 import online.bus.bmarian.conexiuniclujmobile.logic.nextDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.nextOccurrence
@@ -72,7 +71,7 @@ data class Reminder(
     val once get() = date != null
 
     fun next(afterMs: Long = System.currentTimeMillis()): Long? =
-        nextOccurrence(slots, days, date?.let(LocalDate::parse), maxOf(afterMs - MISSED_MS, handled), CLUJ_ZONE)
+        nextOccurrence(slots, days, date?.let(LocalDate::parse), maxOf(afterMs - MISSED_MS, handled))
 
     /** A reminder for this bus alone. */
     fun isFor(stopId: Int, routeId: Int, tripId: String, city: String = Cities.current.value) =
@@ -105,7 +104,7 @@ fun resolveSlots(times: Map<String, List<Int>>, time: Int?): Map<String, Int> =
 
 /** The next bus, one up to [graceMin] late still counted as the stop lists it: its service day and its minute in that day. */
 fun nextBus(times: Map<String, List<Int>>, graceMin: Double, nowMs: Long = System.currentTimeMillis()): Pair<LocalDate, Int>? =
-    nextDeparture(times, nowMs - minOf((graceMin * 60_000).toLong(), MISSED_MS), CLUJ_ZONE)
+    nextDeparture(times, nowMs - minOf((graceMin * 60_000).toLong(), MISSED_MS))
 
 /** A one-off reminder for the next bus of [followed] at [info]; null when the timetable has none. */
 suspend fun nextBusReminder(info: StopInfo, followed: Followed): Reminder? {
