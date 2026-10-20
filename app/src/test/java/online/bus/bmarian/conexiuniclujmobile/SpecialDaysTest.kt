@@ -126,6 +126,6 @@ class SpecialDaysTest {
         val every = (1..7).toList()
         val after = LocalDateTime.parse("2026-11-30T08:00").atZone(CLUJ_ZONE).toInstant().toEpochMilli()
         val next = LocalDateTime.parse("2026-12-02T07:00").atZone(CLUJ_ZONE).toInstant().toEpochMilli()
-        assertEquals(next, nextOccurrence(slots, every, null, after, CLUJ_ZONE))
+        assertEquals(next, nextOccurrence(slots, every, null, after))
     }
 }

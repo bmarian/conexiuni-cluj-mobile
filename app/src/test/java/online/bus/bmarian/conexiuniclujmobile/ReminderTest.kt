@@ -77,43 +77,43 @@ class ReminderTest {
         val slots = mapOf("weekday" to 23 * 60 + 42, "saturday" to 23 * 60)
         val every = (1..7).toList()
         // 2026-10-09 is a Friday.
-        assertEquals(ms("2026-10-09T23:42"), nextOccurrence(slots, every, null, ms("2026-10-09T20:00"), CLUJ_ZONE))
-        assertEquals(ms("2026-10-10T23:00"), nextOccurrence(slots, every, null, ms("2026-10-09T23:50"), CLUJ_ZONE))
+        assertEquals(ms("2026-10-09T23:42"), nextOccurrence(slots, every, null, ms("2026-10-09T20:00")))
+        assertEquals(ms("2026-10-10T23:00"), nextOccurrence(slots, every, null, ms("2026-10-09T23:50")))
         // No Sunday bus: on to Monday.
-        assertEquals(ms("2026-10-12T23:42"), nextOccurrence(slots, every, null, ms("2026-10-10T23:30"), CLUJ_ZONE))
-        assertEquals(ms("2026-10-12T23:42"), nextOccurrence(slots, listOf(1), null, ms("2026-10-09T20:00"), CLUJ_ZONE))
+        assertEquals(ms("2026-10-12T23:42"), nextOccurrence(slots, every, null, ms("2026-10-10T23:30")))
+        assertEquals(ms("2026-10-12T23:42"), nextOccurrence(slots, listOf(1), null, ms("2026-10-09T20:00")))
     }
 
     @Test
     fun aLateBusRunsOnItsServiceDayAndAOneOffOnlyOnce() {
         val slots = mapOf("weekday" to 24 * 60 + 5)
         // Friday's last bus leaves on Saturday at 00:05, and is still Friday's.
-        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, listOf(5), null, ms("2026-10-09T23:00"), CLUJ_ZONE))
-        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, listOf(5), null, ms("2026-10-10T00:01"), CLUJ_ZONE))
+        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, listOf(5), null, ms("2026-10-09T23:00")))
+        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, listOf(5), null, ms("2026-10-10T00:01")))
         val friday = LocalDate.parse("2026-10-09")
-        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, emptyList(), friday, ms("2026-10-09T08:00"), CLUJ_ZONE))
-        assertNull(nextOccurrence(slots, emptyList(), friday, ms("2026-10-10T00:06"), CLUJ_ZONE))
+        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, emptyList(), friday, ms("2026-10-09T08:00")))
+        assertNull(nextOccurrence(slots, emptyList(), friday, ms("2026-10-10T00:06")))
     }
 
     @Test
     fun theNextBusCountsLastNightsLateOneAndSkipsDaysWithout() {
         val times = mapOf("weekday" to listOf(5 * 60 + 40, 23 * 60, 24 * 60 + 5), "saturday" to listOf(6 * 60 + 10, 22 * 60 + 40))
         val friday = LocalDate.parse("2026-10-09")
-        assertEquals(friday to 23 * 60, nextDeparture(times, ms("2026-10-09T20:00"), CLUJ_ZONE))
+        assertEquals(friday to 23 * 60, nextDeparture(times, ms("2026-10-09T20:00")))
         // Past midnight, Friday's last bus is still to come and still Friday's.
-        assertEquals(friday to 24 * 60 + 5, nextDeparture(times, ms("2026-10-10T00:01"), CLUJ_ZONE))
-        assertEquals(LocalDate.parse("2026-10-10") to 6 * 60 + 10, nextDeparture(times, ms("2026-10-10T00:06"), CLUJ_ZONE))
+        assertEquals(friday to 24 * 60 + 5, nextDeparture(times, ms("2026-10-10T00:01")))
+        assertEquals(LocalDate.parse("2026-10-10") to 6 * 60 + 10, nextDeparture(times, ms("2026-10-10T00:06")))
         // No Sunday bus: Monday's first.
-        assertEquals(LocalDate.parse("2026-10-12") to 5 * 60 + 40, nextDeparture(times, ms("2026-10-10T23:00"), CLUJ_ZONE))
-        assertNull(nextDeparture(emptyMap(), ms("2026-10-10T23:00"), CLUJ_ZONE))
+        assertEquals(LocalDate.parse("2026-10-12") to 5 * 60 + 40, nextDeparture(times, ms("2026-10-10T23:00")))
+        assertNull(nextDeparture(emptyMap(), ms("2026-10-10T23:00")))
     }
 
     @Test
     fun aOneOffOnTheNextBusRunsOnItsServiceDay() {
         val slots = mapOf("weekday" to 24 * 60 + 5)
-        val (day, minute) = nextDeparture(mapOf("weekday" to listOf(24 * 60 + 5)), ms("2026-10-10T00:01"), CLUJ_ZONE)!!
+        val (day, minute) = nextDeparture(mapOf("weekday" to listOf(24 * 60 + 5)), ms("2026-10-10T00:01"))!!
         assertEquals(slots.values.single(), minute)
-        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, emptyList(), day, ms("2026-10-10T00:01"), CLUJ_ZONE))
+        assertEquals(ms("2026-10-10T00:05"), nextOccurrence(slots, emptyList(), day, ms("2026-10-10T00:01")))
     }
 
     @Test
