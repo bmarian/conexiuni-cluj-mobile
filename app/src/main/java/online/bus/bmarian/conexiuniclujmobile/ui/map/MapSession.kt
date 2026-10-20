@@ -15,13 +15,17 @@ import com.google.gson.JsonArray
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
+import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
+import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -38,11 +42,13 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression.eq
 import org.maplibre.android.style.expressions.Expression.get
 import org.maplibre.android.style.expressions.Expression.literal
-import org.maplibre.android.style.expressions.Expression.neq
 import org.maplibre.android.style.expressions.Expression.toColor
+import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.Layer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory.fillColor
+import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
@@ -67,6 +73,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
 
 private const val SRC_LINES = "ct-lines"
 private const val SRC_WALKS = "ct-walks"
@@ -78,6 +85,7 @@ private const val SRC_BADGES = "ct-badges"
 private const val SRC_ARROWS = "ct-arrows"
 private const val SRC_VEHICLES = "ct-vehicles"
 private const val SRC_PINS = "ct-pins"
+private const val SRC_AREA = "ct-area"
 
 private const val LAYER_STOPS = "ct-stops"
 private const val LAYER_HIGHLIGHTS = "ct-highlights"
@@ -116,7 +124,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     val frame = mutableIntStateOf(0)
 
     private var stops: List<Stop> = emptyList()
+    private var stopsById: Map<Int, Stop> = emptyMap()
     private var looks: NetworkIndex? = null
+    private var favorites: Set<Int> = emptySet()
+    private var clusters: StopClusters? = null
+    private var clustersWithout: Set<Int>? = null
+    private val groupLabels = HashMap<StopGroup, GroupLabel>()
+    private var shownKeys: Set<String>? = null
+    private var shownGroups: Map<String, StopGroup> = emptyMap()
+    private val groupImages = HashSet<String>()
+    private var hasVehicles = false
     private var selected: Stop? = null
     private var highlights: List<Pair<Stop, StopHighlight>> = emptyList()
     private var scene = MapScene.Empty
@@ -142,13 +159,17 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     init {
         map.addOnCameraMoveListener {
             frame.intValue++
+            refreshStops()
             val now = map.cameraPosition.bearing
             if (abs(now - bearing) > 0.5) {
                 bearing = now
                 pushVehicles()
             }
         }
-        map.addOnCameraIdleListener { MapCamera.save(context, map.cameraPosition) }
+        map.addOnCameraIdleListener {
+            MapCamera.save(context, map.cameraPosition)
+            refreshStops()
+        }
     }
 
     fun setDark(dark: Boolean) {
@@ -167,16 +188,25 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun setStops(list: List<Stop>, index: NetworkIndex?) {
         if (list === stops && index === looks) return
         stops = list
+        stopsById = list.associateBy { it.stopId }
         looks = index
-        applyStops()
+        clusters = null
+        refreshStops(force = true)
         applySelected()
+    }
+
+    fun setFavorites(ids: Set<Int>) {
+        if (ids == favorites) return
+        favorites = ids
+        clusters = null
+        refreshStops(force = true)
     }
 
     fun setSelectedStop(stop: Stop?) {
         if (stop?.stopId == selected?.stopId) return
         selected = stop
         applySelected()
-        applyStopFilter()
+        refreshStops()
         drop?.cancel()
         if (stop != null) {
             drop = ValueAnimator.ofFloat(-18f, 0f).apply {
@@ -194,17 +224,20 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun setHighlights(list: List<Pair<Stop, StopHighlight>>) {
         highlights = list
         applyHighlights()
+        refreshStops()
     }
 
     fun setScene(value: MapScene) {
         scene = value
         applyScene()
+        refreshStops()
     }
 
     fun setWalks(list: List<List<LatLon>>) {
         if (list == walks) return
         walks = list
         applyWalks()
+        refreshStops()
     }
 
     fun setPins(list: List<PinMark>) {
@@ -212,7 +245,12 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         applyPins()
     }
 
-    fun setVehicles(list: List<MapVehicle>) = glide.update(list)
+    fun setVehicles(list: List<MapVehicle>) {
+        glide.update(list)
+        if (list.isNotEmpty() == hasVehicles) return
+        hasVehicles = list.isNotEmpty()
+        refreshStops()
+    }
 
     fun selectVehicle(id: String?) {
         if (id == selectedVehicleId) return
@@ -286,6 +324,42 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .minByOrNull { it.second }?.first
     }
 
+    fun groupAt(point: PointF, reach: Float): StopGroup? =
+        map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_STOPS)
+            .firstNotNullOfOrNull { f -> if (f.hasProperty("group")) shownGroups[f.getStringProperty("group")] else null }
+
+    fun leaderOf(group: StopGroup): LatLon? = clusters?.at(group)
+
+    fun groupCard(group: StopGroup): List<Pair<String, StationLook?>> =
+        groupStations(group).map { (id, _) -> stopsById[id]?.name.orEmpty() to looks?.look(id) }
+
+    /** Zooms in until the group breaks up, no further than where its stations all stand alone. */
+    fun expand(group: StopGroup, padding: MapPadding) {
+        val index = clusters ?: return
+        val members = index.members(group)
+        val e = index.expansion(group, map.cameraPosition.zoom)
+        val north = members.maxOf { it.lat }
+        val south = members.minOf { it.lat }
+        val east = members.maxOf { it.lon }
+        val west = members.minOf { it.lon }
+        val fitted = map.getCameraForLatLngBounds(LatLngBounds.from(north, east, south, west), padding.ints())?.zoom ?: e.apart
+        val center = LatLon(latOf((mercatorY(north) + mercatorY(south)) / 2), lonOf((mercatorX(west) + mercatorX(east)) / 2))
+        flyTo(center, min(e.apart, max(e.split, fitted)), padding)
+    }
+
+    /** The ground a group stands for, widened by half a station icon so its stops sit inside it. */
+    fun setArea(group: StopGroup?) {
+        val src = source(SRC_AREA) ?: return
+        val index = clusters
+        if (group == null || index == null) {
+            src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            return
+        }
+        val radius = STATION_BOX.width / 2 * lonPerDp(map.cameraPosition.zoom)
+        val ring = roundedHull(index.members(group).map { it.lon to it.lat }, radius)
+        src.setGeoJson(Feature.fromGeometry(Polygon.fromLngLats(listOf(ring.map { (lon, lat) -> Point.fromLngLat(lon, lat) }))))
+    }
+
     fun fit(points: List<LatLon>, padding: MapPadding, maxZoom: Double = FIT_MAX_ZOOM) {
         if (points.isEmpty()) return
         val minLat = points.minOf { it.lat }
@@ -356,7 +430,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun addLayers(style: Style, dark: Boolean) {
-        listOf(SRC_LINES, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS)
+        listOf(SRC_LINES, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA)
             .forEach { style.addSource(GeoJsonSource(it)) }
         addBaseImages(style, dark)
 
@@ -396,12 +470,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             ),
         )
 
+        val areaInk = if (dark) MapColors.Paper.toArgb() else MapColors.InkDark.toArgb()
+        under(FillLayer("ct-area-fill", SRC_AREA).withProperties(fillColor(areaInk), fillOpacity(0.18f)))
+        under(LineLayer("ct-area-line", SRC_AREA).withProperties(lineColor(areaInk), lineWidth(2f), lineOpacity(0.85f)))
+
         val puck = style.layers.firstOrNull(::isPuckLayer)?.id
         fun over(layer: SymbolLayer) {
             layer.setProperties(iconAllowOverlap(true), iconIgnorePlacement(true))
             if (puck != null) style.addLayerBelow(layer, puck) else style.addLayer(layer)
         }
-        over(SymbolLayer(LAYER_STOPS, SRC_STOPS).withProperties(iconImage(get("img"))).also { it.minZoom = STOP_ZOOM })
+        over(SymbolLayer(LAYER_STOPS, SRC_STOPS).withProperties(iconImage(get("img")), iconOffset(get("off")), symbolSortKey(get("z"))))
         over(SymbolLayer(LAYER_HIGHLIGHTS, SRC_HIGHLIGHTS).withProperties(iconImage(get("img")), symbolSortKey(get("z"))))
         over(SymbolLayer("ct-ends", SRC_ENDS).withProperties(iconImage(get("img"))))
         over(SymbolLayer("ct-badges", SRC_BADGES).withProperties(iconImage(get("img"))))
@@ -460,8 +538,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private fun point(at: LatLon) = Point.fromLngLat(at.lon, at.lat)
 
     private fun applyAll() {
-        applyStops()
-        applyStopFilter()
+        groupImages.clear()
+        refreshStops(force = true)
         applySelected()
         applyHighlights()
         applyScene()
@@ -478,22 +556,115 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         return name
     }
 
-    private fun applyStops() {
-        val src = source(SRC_STOPS) ?: return
-        src.setGeoJson(
-            FeatureCollection.fromFeatures(
-                stops.map { s ->
-                    Feature.fromGeometry(point(LatLon(s.lat, s.lon))).apply {
-                        addNumberProperty("id", s.stopId)
-                        addStringProperty("img", stationImage(s.stopId, false))
-                    }
-                },
-            ),
-        )
+    private class GroupLabel(val name: String, val more: Int)
+
+    private fun stopClusters(): StopClusters? {
+        val without = buildSet {
+            selected?.let { add(it.stopId) }
+            highlights.forEach { add(it.first.stopId) }
+        }
+        clusters?.takeIf { without == clustersWithout }?.let { return it }
+        if (stops.isEmpty()) return null
+        clustersWithout = without
+        groupLabels.clear()
+        val points = stops.filter { it.stopId !in without }.map { s ->
+            val types = looks?.look(s.stopId)?.routes?.map { it.type }.orEmpty()
+            StopPoint(s.stopId, s.lat, s.lon, s.station, modeMask(types).takeIf { it != 0 } ?: modeMask(listOf(3)), stationRank(types), s.stopId in favorites)
+        }
+        lateinit var built: StopClusters
+        built = StopClusters(points, { group ->
+            if (group.stations.size == 1) STATION_BOX
+            else groupLabel(built, group).let { images.groupBox(iconCount(group), it.name, it.more) }
+        }, MAX_ZOOM, CLUSTER_ZOOM_STEP)
+        clusters = built
+        return built
     }
 
-    private fun applyStopFilter() {
-        style?.getLayerAs<SymbolLayer>(LAYER_STOPS)?.setFilter(neq(get("id"), literal(selected?.stopId ?: -1)))
+    private fun groupLabel(index: StopClusters, group: StopGroup): GroupLabel = groupLabels.getOrPut(group) {
+        val leader = index.points[group.leader]
+        val others = LinkedHashMap<Int, String>()
+        for (i in group.points) {
+            val p = index.points[i]
+            if (p.station != leader.station && p.station !in others) others[p.station] = stopsById[p.id]?.name.orEmpty()
+        }
+        val named = groupName(stopsById[leader.id]?.name.orEmpty(), others.values.toList())
+        GroupLabel(named.name, others.size - named.covered)
+    }
+
+    private fun iconCount(group: StopGroup) =
+        if (group.stations.size <= CLUSTER_STATIONS_MAX) group.stations.size else modesIn(group.modes).size + if (group.favorite) 1 else 0
+
+    /** One stop per station with whether any of its platforms is a favourite, the group's leader first. */
+    private fun groupStations(group: StopGroup): List<Pair<Int, Boolean>> {
+        val index = clusters ?: return emptyList()
+        val byStation = LinkedHashMap<Int, Triple<Int, Int, Boolean>>()
+        for (i in listOf(group.leader) + group.points) {
+            val p = index.points[i]
+            val seen = byStation[p.station]
+            byStation[p.station] = if (seen == null) Triple(p.id, p.rank, p.favorite) else seen.copy(third = seen.third || p.favorite)
+        }
+        val all = byStation.values.toList()
+        return (listOf(all.first()) + all.drop(1).sortedByDescending { it.second }).map { it.first to it.third }
+    }
+
+    private fun groupIcons(group: StopGroup): List<GroupIcon> =
+        if (group.stations.size <= CLUSTER_STATIONS_MAX) {
+            groupStations(group).map { (id, favorite) ->
+                if (favorite) GroupIcon.Heart else looks?.look(id)?.let { GroupIcon.Station(it.mode, it.color) } ?: GroupIcon.Station(Mode.BUS, "")
+            }
+        } else {
+            listOfNotNull(GroupIcon.Heart.takeIf { group.favorite }) + modesIn(group.modes).map { GroupIcon.Station(it, looks?.modeColor(it).orEmpty()) }
+        }
+
+    // Only the stops around the view are on the map, so a pan only redraws when the groups in reach change.
+    private fun refreshStops(force: Boolean = false) {
+        val src = source(SRC_STOPS) ?: return
+        val dark = dark ?: return
+        val index = stopClusters()
+        val bounds = map.projection.visibleRegion.latLngBounds
+        val padLat = (bounds.latitudeNorth - bounds.latitudeSouth) / 2
+        val padLon = (bounds.longitudeEast - bounds.longitudeWest) / 2
+        // While the map shows a stop's, line's or trip's own content, other stops only appear from street zoom.
+        val content = scene.lines.isNotEmpty() || hasVehicles || walks.isNotEmpty() || highlights.isNotEmpty() || selected != null
+        val zoom = map.cameraPosition.zoom
+        val visible = if (index == null || (content && zoom < STOP_ZOOM)) emptyList() else index.at(zoom).filter { group ->
+            val p = index.points[group.leader]
+            p.lat in bounds.latitudeSouth - padLat..bounds.latitudeNorth + padLat && p.lon in bounds.longitudeWest - padLon..bounds.longitudeEast + padLon
+        }
+        val keys = visible.mapTo(HashSet()) { it.key }
+        if (!force && keys == shownKeys) return
+        shownKeys = keys
+        shownGroups = visible.filter { it.stations.size > 1 }.associateBy { it.key }
+        val used = HashSet<String>()
+        src.setGeoJson(FeatureCollection.fromFeatures(index?.let { i -> visible.map { stopFeature(i, it, dark, used) } }.orEmpty()))
+        for (name in groupImages - used) {
+            style?.removeImage(name)
+            addedImages.remove(name)
+        }
+        groupImages.clear()
+        groupImages += used
+    }
+
+    private fun stopFeature(index: StopClusters, group: StopGroup, dark: Boolean, used: MutableSet<String>): Feature {
+        val leader = index.points[group.leader]
+        return Feature.fromGeometry(point(LatLon(leader.lat, leader.lon))).apply {
+            if (group.stations.size == 1) {
+                addNumberProperty("id", leader.id)
+                addStringProperty("img", if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false))
+                addNumberProperty("z", 0)
+                addProperty("off", JsonArray().apply { add(0); add(0) })
+                return@apply
+            }
+            val label = groupLabel(index, group)
+            val icons = groupIcons(group)
+            val name = "grp-$dark-${icons.joinToString(",")}-${label.name}-${label.more}"
+            image(name) { images.group(icons, label.name, label.more, dark) }
+            used += name
+            addStringProperty("group", group.key)
+            addStringProperty("img", name)
+            addNumberProperty("z", 1)
+            addProperty("off", JsonArray().apply { add(0); add(images.groupOffset(icons.size, label.name, label.more)) })
+        }
     }
 
     private fun applySelected() {

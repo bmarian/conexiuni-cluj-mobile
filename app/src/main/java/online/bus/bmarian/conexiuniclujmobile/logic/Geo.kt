@@ -39,3 +39,33 @@ fun bearingDegrees(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Doub
 
 fun formatMeters(meters: Double): String =
     if (meters < 1000) "${Math.round(meters)} m" else String.format(java.util.Locale.ROOT, "%.1f km", meters / 1000)
+
+/** Port of convexHull in utils/geo.ts, points as (lon, lat). */
+fun convexHull(points: List<Pair<Double, Double>>): List<Pair<Double, Double>> {
+    val sorted = points.sortedWith(compareBy({ it.first }, { it.second }))
+    if (sorted.size < 3) return sorted
+    fun cross(o: Pair<Double, Double>, a: Pair<Double, Double>, b: Pair<Double, Double>) =
+        (a.first - o.first) * (b.second - o.second) - (a.second - o.second) * (b.first - o.first)
+    fun half(list: List<Pair<Double, Double>>): List<Pair<Double, Double>> {
+        val out = ArrayList<Pair<Double, Double>>()
+        for (p in list) {
+            while (out.size >= 2 && cross(out[out.size - 2], out[out.size - 1], p) <= 0) out.removeAt(out.size - 1)
+            out += p
+        }
+        return out.dropLast(1)
+    }
+    return half(sorted) + half(sorted.reversed())
+}
+
+/** The hull widened all round by [radius] degrees of longitude, drawn round on a Mercator map, as a closed ring. */
+fun roundedHull(points: List<Pair<Double, Double>>, radius: Double, steps: Int = 16): List<Pair<Double, Double>> {
+    val around = convexHull(points).flatMap { (lon, lat) ->
+        val k = cos(Math.toRadians(lat))
+        (0 until steps).map { i ->
+            val a = 2 * Math.PI * i / steps
+            (lon + radius * cos(a)) to (lat + radius * k * sin(a))
+        }
+    }
+    val ring = convexHull(around)
+    return ring + ring.first()
+}
