@@ -75,7 +75,10 @@ data class JourneySync(
     val lat: Double? = null,
     val lon: Double? = null,
     val bearing: Float? = null,
-)
+) {
+    /** Waiting at the stop: the bus's countdown is the whole story, so it's shown instead of [detail]. */
+    val countsDown get() = stepType == StepType.WAIT && arrivalAt != null
+}
 
 object StepType {
     const val WALK = "walk"
