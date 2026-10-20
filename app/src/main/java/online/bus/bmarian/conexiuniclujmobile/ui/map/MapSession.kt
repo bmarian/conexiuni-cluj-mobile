@@ -8,6 +8,7 @@ import android.graphics.RectF
 import android.location.Location
 import android.view.Choreographer
 import android.view.animation.OvershootInterpolator
+import androidx.compose.animation.core.EaseIn
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.animation.doOnEnd
@@ -86,9 +87,11 @@ private const val SRC_ARROWS = "ct-arrows"
 private const val SRC_VEHICLES = "ct-vehicles"
 private const val SRC_PINS = "ct-pins"
 private const val SRC_AREA = "ct-area"
+private const val SRC_SPIDER = "ct-spider"
 
 private const val LAYER_STOPS = "ct-stops"
 private const val LAYER_HIGHLIGHTS = "ct-highlights"
+private const val LAYER_SPIDER = "ct-spider"
 private const val LAYER_SELECTED = "ct-selected"
 private const val LAYER_VEHICLES = "ct-vehicles"
 private const val LAYER_PINS = "ct-pins"
@@ -113,7 +116,9 @@ enum class PinKind { Origin, Destination }
 
 class PinMark(val kind: PinKind, val at: LatLon, val label: String, val lifted: Boolean)
 
-class ShownVehicle(val vehicle: MapVehicle, val at: LatLon, val heading: Double)
+class ShownVehicle(val vehicle: MapVehicle, val at: LatLon, val heading: Double, val opacity: Float = 1f, val scale: Float = 1f, val leaving: Boolean = false)
+
+class SpiderHit(val stopId: Int, val at: LatLon, val shift: PointF)
 
 internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private val images = MapImages(context)
@@ -132,7 +137,15 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private val groupLabels = HashMap<StopGroup, GroupLabel>()
     private var shownKeys: Set<String>? = null
     private var shownGroups: Map<String, StopGroup> = emptyMap()
+    private var shownFeatures: Map<String, List<Feature>> = emptyMap()
     private val groupImages = HashSet<String>()
+    private val fades = MarkerFades()
+    private var spider: MapSpider? = null
+    private val folding = ArrayList<MapSpider>()
+    private var stopsDirty = false
+    private var spiderDirty = false
+    private var lastFrame = 0L
+    private val motion = FrameLoop(::frame)
     private var hasVehicles = false
     private var selected: Stop? = null
     private var highlights: List<Pair<Stop, StopHighlight>> = emptyList()
@@ -179,6 +192,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         map.setStyle(Style.Builder().fromJson(MapStyles.json(context, dark))) { loaded ->
             style = loaded
             addedImages.clear()
+            fades.clearLeaving()
+            spider = null
+            folding.clear()
             puckStyled = false
             addLayers(loaded, dark)
             applyAll()
@@ -309,12 +325,22 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     fun vehicleAt(point: PointF, reach: Float): String? =
         map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_VEHICLES)
-            .firstOrNull()?.getStringProperty("id")
+            .firstOrNull { !it.hasProperty("gone") }?.getStringProperty("id")
+
+    fun spiderAt(point: PointF, reach: Float): SpiderHit? {
+        val open = spider ?: return null
+        val id = map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_SPIDER)
+            .firstNotNullOfOrNull { f -> if (f.hasProperty("closing")) null else f.getNumberProperty("id")?.toInt() } ?: return null
+        val leg = open.item(id)?.leg ?: return null
+        val px = context.resources.displayMetrics.density
+        return SpiderHit(id, open.at, PointF(leg.x * px, leg.y * px))
+    }
 
     fun stopAt(point: PointF, reach: Float): Int? {
         val box = RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach)
         return map.queryRenderedFeatures(box, LAYER_SELECTED, LAYER_HIGHLIGHTS, LAYER_STOPS)
             .mapNotNull { f ->
+                if (f.hasProperty("gone")) return@mapNotNull null
                 val id = f.getNumberProperty("id")?.toInt() ?: return@mapNotNull null
                 val p = f.geometry() as? Point ?: return@mapNotNull null
                 val s = screen(LatLon(p.latitude(), p.longitude()))
@@ -326,18 +352,25 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     fun groupAt(point: PointF, reach: Float): StopGroup? =
         map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_STOPS)
-            .firstNotNullOfOrNull { f -> if (f.hasProperty("group")) shownGroups[f.getStringProperty("group")] else null }
+            .firstNotNullOfOrNull { f ->
+                val key = if (f.hasProperty("group") && !f.hasProperty("gone")) f.getStringProperty("group") else null
+                key?.takeUnless(fades::hidden)?.let(shownGroups::get)
+            }
 
     fun leaderOf(group: StopGroup): LatLon? = clusters?.at(group)
 
     fun groupCard(group: StopGroup): List<Pair<String, StationLook?>> =
         groupStations(group).map { (id, _) -> stopsById[id]?.name.orEmpty() to looks?.look(id) }
 
-    /** Zooms in until the group breaks up, no further than where its stations all stand alone. */
+    /** Zooms in until the group breaks up, no further than where its stations all stand alone, or spreads out stations that never part. */
     fun expand(group: StopGroup, padding: MapPadding) {
         val index = clusters ?: return
+        fades.pulse(group.key, System.nanoTime())
+        stopsDirty = true
+        motion.start()
+        val e = index.expansion(group, map.cameraPosition.zoom) ?: return spiderfy(index, group)
+        unspiderfy()
         val members = index.members(group)
-        val e = index.expansion(group, map.cameraPosition.zoom)
         val north = members.maxOf { it.lat }
         val south = members.minOf { it.lat }
         val east = members.maxOf { it.lon }
@@ -345,6 +378,53 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val fitted = map.getCameraForLatLngBounds(LatLngBounds.from(north, east, south, west), padding.ints())?.zoom ?: e.apart
         val center = LatLon(latOf((mercatorY(north) + mercatorY(south)) / 2), lonOf((mercatorX(west) + mercatorX(east)) / 2))
         flyTo(center, min(e.apart, max(e.split, fitted)), padding)
+    }
+
+    private fun spiderfy(index: StopClusters, group: StopGroup) {
+        val dark = dark ?: return
+        unspiderfy()
+        val now = System.nanoTime()
+        val stations = groupStations(group)
+        val legs = spiderLegs(stations.size)
+        val legsImg = "spider-$dark-${stations.size}"
+        image(legsImg) { images.spider(legs, dark) }
+        val items = stations.mapIndexed { i, (id, favorite) ->
+            val name = stopsById[id]?.name.orEmpty()
+            val icon = if (favorite) GroupIcon.Heart else stationIcon(id)
+            val img = "spi-$dark-${legs[i].left}-$icon-$name"
+            image(img) { images.spiderItem(icon, name, legs[i].left, dark) }
+            SpiderItem(id, img, legs[i], images.spiderItemShift(name))
+        }
+        val opened = if (motionOn()) now else now - (SPIDER_OPEN_MS + SPIDER_STEP_MS * items.size) * 1_000_000
+        spider = MapSpider(group.key, index.at(group), legsImg, items, opened)
+        fades.hide(group.key, true, now)
+        stopsDirty = true
+        spiderDirty = true
+        motion.start()
+    }
+
+    fun unspiderfy() {
+        val open = spider ?: return
+        spider = null
+        val now = System.nanoTime()
+        fades.hide(open.key, false, now)
+        if (motionOn()) {
+            open.close(now)
+            folding += open
+        } else {
+            dropSpiderImages(open)
+        }
+        stopsDirty = true
+        spiderDirty = true
+        motion.start()
+    }
+
+    private fun dropSpiderImages(gone: MapSpider) {
+        val kept = spider?.images.orEmpty().toSet() + folding.filter { it !== gone }.flatMap { it.images }
+        for (name in gone.images.toSet() - kept) {
+            style?.removeImage(name)
+            addedImages.remove(name)
+        }
     }
 
     /** The ground a group stands for, widened by half a station icon so its stops sit inside it. */
@@ -385,12 +465,17 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     fun flyTo(target: LatLon, zoom: Double, padding: MapPadding) {
+        val to = LatLng(target.lat, target.lon)
         val camera = CameraPosition.Builder()
-            .target(LatLng(target.lat, target.lon))
+            .target(to)
             .zoom(zoom)
             .padding(padding.left.toDouble(), padding.top.toDouble(), padding.right.toDouble(), padding.bottom.toDouble())
             .build()
-        map.animateCamera(CameraUpdateFactory.newCameraPosition(camera), 1000)
+        val here = map.cameraPosition
+        val from = here.target?.let(map.projection::toScreenLocation)
+        val there = map.projection.toScreenLocation(to)
+        val distance = if (from == null) 0.0 else hypot(there.x - from.x, there.y - from.y) / context.resources.displayMetrics.density.toDouble()
+        map.animateCamera(CameraUpdateFactory.newCameraPosition(camera), flightMs(distance, zoom - here.zoom))
     }
 
     fun cancelCamera() = map.cancelTransitions()
@@ -430,7 +515,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun addLayers(style: Style, dark: Boolean) {
-        listOf(SRC_LINES, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA)
+        listOf(SRC_LINES, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER)
             .forEach { style.addSource(GeoJsonSource(it)) }
         addBaseImages(style, dark)
 
@@ -479,8 +564,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             layer.setProperties(iconAllowOverlap(true), iconIgnorePlacement(true))
             if (puck != null) style.addLayerBelow(layer, puck) else style.addLayer(layer)
         }
-        over(SymbolLayer(LAYER_STOPS, SRC_STOPS).withProperties(iconImage(get("img")), iconOffset(get("off")), symbolSortKey(get("z"))))
+        fun animated(id: String, source: String) = SymbolLayer(id, source).withProperties(
+            iconImage(get("img")),
+            iconOffset(get("off")),
+            iconOpacity(get("opacity")),
+            iconSize(get("size")),
+            symbolSortKey(get("z")),
+        )
+        over(animated(LAYER_STOPS, SRC_STOPS))
         over(SymbolLayer(LAYER_HIGHLIGHTS, SRC_HIGHLIGHTS).withProperties(iconImage(get("img")), symbolSortKey(get("z"))))
+        over(animated(LAYER_SPIDER, SRC_SPIDER))
         over(SymbolLayer("ct-ends", SRC_ENDS).withProperties(iconImage(get("img"))))
         over(SymbolLayer("ct-badges", SRC_BADGES).withProperties(iconImage(get("img"))))
         over(
@@ -565,10 +658,12 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
         clusters?.takeIf { without == clustersWithout }?.let { return it }
         if (stops.isEmpty()) return null
+        unspiderfy()
         clustersWithout = without
         groupLabels.clear()
-        val points = stops.filter { it.stopId !in without }.map { s ->
-            val types = looks?.look(s.stopId)?.routes?.map { it.type }.orEmpty()
+        val net = looks
+        val points = stops.filter { it.stopId !in without && (net == null || net.look(it.stopId) != null) }.map { s ->
+            val types = net?.look(s.stopId)?.routes?.map { it.type }.orEmpty()
             StopPoint(s.stopId, s.lat, s.lon, s.station, modeMask(types).takeIf { it != 0 } ?: modeMask(listOf(3)), stationRank(types), s.stopId in favorites)
         }
         lateinit var built: StopClusters
@@ -607,11 +702,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         return (listOf(all.first()) + all.drop(1).sortedByDescending { it.second }).map { it.first to it.third }
     }
 
+    private fun stationIcon(id: Int): GroupIcon = looks?.look(id)?.let { GroupIcon.Station(it.mode, it.color) } ?: GroupIcon.Station(Mode.BUS, "")
+
     private fun groupIcons(group: StopGroup): List<GroupIcon> =
         if (group.stations.size <= CLUSTER_STATIONS_MAX) {
-            groupStations(group).map { (id, favorite) ->
-                if (favorite) GroupIcon.Heart else looks?.look(id)?.let { GroupIcon.Station(it.mode, it.color) } ?: GroupIcon.Station(Mode.BUS, "")
-            }
+            groupStations(group).map { (id, favorite) -> if (favorite) GroupIcon.Heart else stationIcon(id) }
         } else {
             listOfNotNull(GroupIcon.Heart.takeIf { group.favorite }) + modesIn(group.modes).map { GroupIcon.Station(it, looks?.modeColor(it).orEmpty()) }
         }
@@ -635,36 +730,86 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         if (!force && keys == shownKeys) return
         shownKeys = keys
         shownGroups = visible.filter { it.stations.size > 1 }.associateBy { it.key }
+        spider?.takeIf { it.key !in keys }?.let { unspiderfy() }
+        val now = System.nanoTime()
         val used = HashSet<String>()
-        src.setGeoJson(FeatureCollection.fromFeatures(index?.let { i -> visible.map { stopFeature(i, it, dark, used) } }.orEmpty()))
-        for (name in groupImages - used) {
+        val built = LinkedHashMap<String, List<Feature>>()
+        if (index != null) for (group in visible) built[group.key] = stopFeatures(index, group, dark, used)
+        for ((key, features) in shownFeatures) if (key !in built) fades.leave(key, features, now)
+        for (key in built.keys) if (key !in shownFeatures) fades.enter(key, now)
+        fades.forget(built.keys)
+        shownFeatures = built
+        val kept = used + fades.leavingImages().filter { it in groupImages }
+        for (name in groupImages - kept) {
             style?.removeImage(name)
             addedImages.remove(name)
         }
         groupImages.clear()
-        groupImages += used
+        groupImages += kept
+        stopsDirty = true
+        motion.start()
     }
 
-    private fun stopFeature(index: StopClusters, group: StopGroup, dark: Boolean, used: MutableSet<String>): Feature {
+    private fun stopFeatures(index: StopClusters, group: StopGroup, dark: Boolean, used: MutableSet<String>): List<Feature> {
         val leader = index.points[group.leader]
-        return Feature.fromGeometry(point(LatLon(leader.lat, leader.lon))).apply {
-            if (group.stations.size == 1) {
-                addNumberProperty("id", leader.id)
-                addStringProperty("img", if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false))
-                addNumberProperty("z", 0)
-                addProperty("off", JsonArray().apply { add(0); add(0) })
-                return@apply
-            }
-            val label = groupLabel(index, group)
-            val icons = groupIcons(group)
-            val name = "grp-$dark-${icons.joinToString(",")}-${label.name}-${label.more}"
-            image(name) { images.group(icons, label.name, label.more, dark) }
-            used += name
-            addStringProperty("group", group.key)
-            addStringProperty("img", name)
-            addNumberProperty("z", 1)
-            addProperty("off", JsonArray().apply { add(0); add(images.groupOffset(icons.size, label.name, label.more)) })
+        fun feature(img: String, offsetY: Float, block: Feature.() -> Unit = {}) = Feature.fromGeometry(point(LatLon(leader.lat, leader.lon))).apply {
+            addStringProperty("img", img)
+            addNumberProperty("z", if (group.stations.size == 1) 0 else 1)
+            addProperty("off", JsonArray().apply { add(0); add(offsetY) })
+            addNumberProperty("opacity", 1)
+            addNumberProperty("size", 1)
+            block()
         }
+        if (group.stations.size == 1) {
+            return listOf(feature(if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false), 0f) { addNumberProperty("id", leader.id) })
+        }
+        val label = groupLabel(index, group)
+        val icons = groupIcons(group)
+        val pill = "grp-$dark-${icons.joinToString(",")}"
+        val text = "grl-$dark-${label.name}-${label.more}"
+        image(pill) { images.groupPill(icons, dark) }
+        image(text) { images.groupLabel(label.name, label.more, dark) }
+        used += pill
+        used += text
+        return listOf(
+            feature(pill, 0f) { addStringProperty("group", group.key) },
+            feature(text, images.labelOffset(icons.size, label.name, label.more)) {
+                addStringProperty("group", group.key)
+                addBooleanProperty("label", true)
+            },
+        )
+    }
+
+    private fun frame(now: Long): Boolean {
+        val previous = lastFrame
+        lastFrame = now
+        val stopsMoving = fades.moving(previous)
+        if (stopsDirty || stopsMoving) pushStops(now)
+        stopsDirty = false
+        val spiderMoving = spider?.moving(previous) == true
+        val folded = folding.filter { !it.moving(previous) }
+        folding.removeAll(folded)
+        folded.forEach(::dropSpiderImages)
+        if (spiderDirty || spiderMoving || folding.isNotEmpty() || folded.isNotEmpty()) pushSpider(now)
+        spiderDirty = false
+        return stopsMoving || spiderMoving || folding.isNotEmpty()
+    }
+
+    private fun pushStops(now: Long) {
+        val src = source(SRC_STOPS) ?: return
+        val live = shownFeatures.flatMap { (key, features) ->
+            val look = fades.look(key, now)
+            features.map { f ->
+                copy(f).apply {
+                    addNumberProperty("opacity", look.opacity)
+                    addNumberProperty("size", if (f.hasProperty("label")) look.bodyScale else look.scale)
+                }
+            }
+        }
+        src.setGeoJson(FeatureCollection.fromFeatures(fades.leaving(now) + live))    }
+
+    private fun pushSpider(now: Long) {
+        source(SRC_SPIDER)?.setGeoJson(FeatureCollection.fromFeatures(folding.flatMap { it.features(now) } + spider?.features(now).orEmpty()))
     }
 
     private fun applySelected() {
@@ -792,8 +937,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addStringProperty("img", img)
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
-            addNumberProperty("opacity", if (faded) FADED_VEHICLE_OPACITY else 1f)
-            addNumberProperty("size", if (faded) FADED_VEHICLE_SIZE else 1f)
+            addNumberProperty("opacity", (if (faded) FADED_VEHICLE_OPACITY else 1f) * shown.opacity)
+            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale)
+            if (shown.leaving) addBooleanProperty("gone", true)
             addProperty("off", JsonArray().apply { add(off.first); add(off.second) })
         }
     }
@@ -920,6 +1066,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     fun destroy() {
         glide.stop()
+        motion.stop()
         drop?.cancel()
     }
 }
@@ -933,21 +1080,27 @@ private object MapStyles {
 }
 
 private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.FrameCallback {
-    private class Track(var vehicle: MapVehicle, var from: LatLon, var to: LatLon, var fromHeading: Double, var toHeading: Double, var at: LatLon, var heading: Double)
+    private class Track(var vehicle: MapVehicle, var from: LatLon, var to: LatLon, var fromHeading: Double, var toHeading: Double, var at: LatLon, var heading: Double) {
+        var born: Long? = null
+        var gone: Long? = null
+    }
 
     private val tracks = LinkedHashMap<String, Track>()
     private var startNanos = 0L
+    private var lastFrame = 0L
     private var running = false
 
     fun update(list: List<MapVehicle>) {
+        val now = System.nanoTime()
+        val animate = motionOn()
         val ids = HashSet<String>()
         for (v in list) {
             if (v.vehicle.latitude <= 0 || v.vehicle.longitude <= 0) continue
             ids += v.id
             val target = LatLon(v.vehicle.latitude, v.vehicle.longitude)
             val track = tracks[v.id]
-            if (track == null) {
-                tracks[v.id] = Track(v, target, target, v.heading, v.heading, target, v.heading)
+            if (track == null || track.gone != null) {
+                tracks[v.id] = Track(v, target, target, v.heading, v.heading, target, v.heading).apply { if (animate) born = now }
                 continue
             }
             track.vehicle = v
@@ -957,24 +1110,33 @@ private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.Fram
             track.fromHeading = if (far) v.heading else track.heading
             track.toHeading = v.heading
         }
-        tracks.keys.retainAll(ids)
-        startNanos = System.nanoTime()
+        if (animate) {
+            for ((id, track) in tracks) if (id !in ids && track.gone == null) track.gone = now
+        } else {
+            tracks.keys.retainAll(ids)
+        }
+        startNanos = now
         onFrame()
-        if (!running && tracks.values.any { it.from != it.to || it.fromHeading != it.toHeading }) {
+        if (!running && tracks.values.any { it.from != it.to || it.fromHeading != it.toHeading || it.born != null || it.gone != null }) {
             running = true
             Choreographer.getInstance().postFrameCallback(this)
         }
     }
 
     override fun doFrame(frameTimeNanos: Long) {
-        val t = ((System.nanoTime() - startNanos) / 1_000_000.0 / GLIDE_MS).coerceIn(0.0, 1.0)
+        val now = System.nanoTime()
+        val previous = lastFrame
+        lastFrame = now
+        val t = ((now - startNanos) / 1_000_000.0 / GLIDE_MS).coerceIn(0.0, 1.0)
         val e = if (t < 0.5) 4 * t * t * t else 1 - Math.pow(-2 * t + 2, 3.0) / 2
+        tracks.values.removeAll { track -> track.gone?.let { progress(it, previous, LEAVE_MS) >= 1f } == true }
         for (track in tracks.values) {
             track.at = LatLon(track.from.lat + (track.to.lat - track.from.lat) * e, track.from.lon + (track.to.lon - track.from.lon) * e)
             track.heading = headingBetween(track.fromHeading, track.toHeading, e)
+            if (track.born?.let { progress(it, previous, ENTER_MS) >= 1f } == true) track.born = null
         }
         onFrame()
-        if (t < 1.0) {
+        if (t < 1.0 || tracks.values.any { it.born != null || it.gone != null }) {
             Choreographer.getInstance().postFrameCallback(this)
         } else {
             running = false
@@ -985,9 +1147,18 @@ private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.Fram
         }
     }
 
-    fun all(): List<ShownVehicle> = tracks.values.map { ShownVehicle(it.vehicle, it.at, it.heading) }
+    private fun shown(track: Track, now: Long): ShownVehicle {
+        val enter = track.born?.let { Snappy.transform(progress(it, now, ENTER_MS)) } ?: 1f
+        val leave = track.gone?.let { 1 - EaseIn.transform(progress(it, now, LEAVE_MS)) } ?: 1f
+        return ShownVehicle(track.vehicle, track.at, track.heading, enter * leave, ENTER_SCALE + (1 - ENTER_SCALE) * enter, track.gone != null)
+    }
 
-    fun shown(id: String): ShownVehicle? = tracks[id]?.let { ShownVehicle(it.vehicle, it.at, it.heading) }
+    fun all(): List<ShownVehicle> {
+        val now = System.nanoTime()
+        return tracks.values.map { shown(it, now) }
+    }
+
+    fun shown(id: String): ShownVehicle? = tracks[id]?.takeIf { it.gone == null }?.let { shown(it, System.nanoTime()) }
 
     fun stop() {
         Choreographer.getInstance().removeFrameCallback(this)
