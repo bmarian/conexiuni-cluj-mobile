@@ -13,12 +13,19 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.animation.doOnEnd
 import com.google.gson.JsonArray
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
@@ -132,9 +139,12 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var stopsById: Map<Int, Stop> = emptyMap()
     private var looks: NetworkIndex? = null
     private var favorites: Set<Int> = emptySet()
-    private var clusters: StopClusters? = null
-    private var clustersWithout: Set<Int>? = null
-    private val groupLabels = HashMap<StopGroup, GroupLabel>()
+    // By the stops left out of them; the plain map's stays for coming back to it.
+    private val clusterCache = HashMap<Set<Int>, Clusters>()
+    private var drawn: Clusters? = null
+    private var building: Pair<Clusters, Job>? = null
+    private val scope = MainScope()
+    private val clustering = Dispatchers.Default.limitedParallelism(1)
     private var shownKeys: Set<String>? = null
     private var shownGroups: Map<String, StopGroup> = emptyMap()
     private var shownFeatures: Map<String, List<Feature>> = emptyMap()
@@ -206,7 +216,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         stops = list
         stopsById = list.associateBy { it.stopId }
         looks = index
-        clusters = null
+        clusterCache.clear()
         refreshStops(force = true)
         applySelected()
     }
@@ -214,7 +224,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun setFavorites(ids: Set<Int>) {
         if (ids == favorites) return
         favorites = ids
-        clusters = null
+        clusterCache.clear()
         refreshStops(force = true)
     }
 
@@ -357,14 +367,14 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 key?.takeUnless(fades::hidden)?.let(shownGroups::get)
             }
 
-    fun leaderOf(group: StopGroup): LatLon? = clusters?.at(group)
+    fun leaderOf(group: StopGroup): LatLon? = drawn?.index?.at(group)
 
     fun groupCard(group: StopGroup): List<Pair<String, StationLook?>> =
         groupStations(group).map { (id, _) -> stopsById[id]?.name.orEmpty() to looks?.look(id) }
 
     /** Zooms in until the group breaks up, no further than where its stations all stand alone, or spreads out stations that never part. */
     fun expand(group: StopGroup, padding: MapPadding) {
-        val index = clusters ?: return
+        val index = drawn?.index ?: return
         fades.pulse(group.key, System.nanoTime())
         stopsDirty = true
         motion.start()
@@ -430,7 +440,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     /** The ground a group stands for, widened by half a station icon so its stops sit inside it. */
     fun setArea(group: StopGroup?) {
         val src = source(SRC_AREA) ?: return
-        val index = clusters
+        val index = drawn?.index
         if (group == null || index == null) {
             src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
             return
@@ -651,38 +661,70 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     private class GroupLabel(val name: String, val more: Int)
 
-    private fun stopClusters(): StopClusters? {
+    /** Created and built on the clustering thread, a step at a time. */
+    private class Clusters(val stopsById: Map<Int, Stop>, private val create: (Clusters) -> StopClusters) {
+        @Volatile
+        var index: StopClusters? = null
+            private set
+        val labels = ConcurrentHashMap<String, GroupLabel>()
+
+        fun ready(zoom: Double) = index?.ready(zoom) == true
+
+        fun advance() {
+            val built = index
+            if (built == null) index = create(this) else built.advance()
+        }
+    }
+
+    private fun stopClusters(): Clusters? {
         val without = buildSet {
             selected?.let { add(it.stopId) }
             highlights.forEach { add(it.first.stopId) }
         }
-        clusters?.takeIf { without == clustersWithout }?.let { return it }
+        clusterCache[without]?.let { return it }
         if (stops.isEmpty()) return null
-        unspiderfy()
-        clustersWithout = without
-        groupLabels.clear()
+        clusterCache.keys.retainAll { it.isEmpty() }
+        val list = stops
         val net = looks
-        val points = stops.filter { it.stopId !in without && (net == null || net.look(it.stopId) != null) }.map { s ->
-            val types = net?.look(s.stopId)?.routes?.map { it.type }.orEmpty()
-            StopPoint(s.stopId, s.lat, s.lon, s.station, modeMask(types).takeIf { it != 0 } ?: modeMask(listOf(3)), stationRank(types), s.stopId in favorites)
+        val starred = favorites
+        val clusters = Clusters(stopsById) { built ->
+            val points = list.filter { it.stopId !in without && (net == null || net.look(it.stopId) != null) }.map { s ->
+                val types = net?.look(s.stopId)?.routes?.map { it.type }.orEmpty()
+                StopPoint(s.stopId, s.lat, s.lon, s.station, modeMask(types).takeIf { it != 0 } ?: modeMask(listOf(3)), stationRank(types), s.stopId in starred)
+            }
+            lateinit var index: StopClusters
+            index = StopClusters(points, { group ->
+                if (group.stations.size == 1) STATION_BOX
+                else groupLabel(built, index, group).let { images.groupBox(iconCount(group), it.name, it.more) }
+            }, MAX_ZOOM, CLUSTER_ZOOM_STEP)
+            index
         }
-        lateinit var built: StopClusters
-        built = StopClusters(points, { group ->
-            if (group.stations.size == 1) STATION_BOX
-            else groupLabel(built, group).let { images.groupBox(iconCount(group), it.name, it.more) }
-        }, MAX_ZOOM, CLUSTER_ZOOM_STEP)
-        clusters = built
-        return built
+        clusterCache[without] = clusters
+        return clusters
     }
 
-    private fun groupLabel(index: StopClusters, group: StopGroup): GroupLabel = groupLabels.getOrPut(group) {
+    // Levels are built off the main thread, so a zoom never waits for them.
+    private fun build(clusters: Clusters) {
+        if (building?.first === clusters) return
+        building?.second?.cancel()
+        building = clusters to scope.launch {
+            while (!clusters.ready(if (showsContent()) STOP_ZOOM else MIN_ZOOM)) {
+                val waiting = !clusters.ready(map.cameraPosition.zoom)
+                withContext(clustering) { clusters.advance() }
+                if (waiting && clusters.ready(map.cameraPosition.zoom)) refreshStops()
+            }
+            if (building?.first === clusters) building = null
+        }
+    }
+
+    private fun groupLabel(clusters: Clusters, index: StopClusters, group: StopGroup): GroupLabel = clusters.labels.getOrPut(group.key) {
         val leader = index.points[group.leader]
         val others = LinkedHashMap<Int, String>()
         for (i in group.points) {
             val p = index.points[i]
-            if (p.station != leader.station && p.station !in others) others[p.station] = stopsById[p.id]?.name.orEmpty()
+            if (p.station != leader.station && p.station !in others) others[p.station] = clusters.stopsById[p.id]?.name.orEmpty()
         }
-        val named = groupName(stopsById[leader.id]?.name.orEmpty(), others.values.toList())
+        val named = groupName(clusters.stopsById[leader.id]?.name.orEmpty(), others.values.toList())
         GroupLabel(named.name, others.size - named.covered)
     }
 
@@ -691,7 +733,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     /** One stop per station with whether any of its platforms is a favourite, the group's leader first. */
     private fun groupStations(group: StopGroup): List<Pair<Int, Boolean>> {
-        val index = clusters ?: return emptyList()
+        val index = drawn?.index ?: return emptyList()
         val byStation = LinkedHashMap<Int, Triple<Int, Int, Boolean>>()
         for (i in listOf(group.leader) + group.points) {
             val p = index.points[i]
@@ -711,30 +753,45 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             listOfNotNull(GroupIcon.Heart.takeIf { group.favorite }) + modesIn(group.modes).map { GroupIcon.Station(it, looks?.modeColor(it).orEmpty()) }
         }
 
+    // While the map shows a stop's, line's or trip's own content, other stops only appear from street zoom.
+    private fun showsContent() = scene.lines.isNotEmpty() || hasVehicles || walks.isNotEmpty() || highlights.isNotEmpty() || selected != null
+
     // Only the stops around the view are on the map, so a pan only redraws when the groups in reach change.
+    // Until the latest groups are built for this zoom, the ones on the map stay.
     private fun refreshStops(force: Boolean = false) {
         val src = source(SRC_STOPS) ?: return
         val dark = dark ?: return
-        val index = stopClusters()
+        val zoom = map.cameraPosition.zoom
+        var clusters: Clusters? = null
+        var redraw = force
+        if (!showsContent() || zoom >= STOP_ZOOM) {
+            stopClusters()?.let { latest ->
+                build(latest)
+                clusters = if (latest.ready(zoom)) latest else drawn?.takeIf { it.ready(zoom) } ?: return
+            }
+        }
+        if (clusters != null && clusters !== drawn) {
+            unspiderfy()
+            drawn = clusters
+            redraw = true
+        }
         val bounds = map.projection.visibleRegion.latLngBounds
         val padLat = (bounds.latitudeNorth - bounds.latitudeSouth) / 2
         val padLon = (bounds.longitudeEast - bounds.longitudeWest) / 2
-        // While the map shows a stop's, line's or trip's own content, other stops only appear from street zoom.
-        val content = scene.lines.isNotEmpty() || hasVehicles || walks.isNotEmpty() || highlights.isNotEmpty() || selected != null
-        val zoom = map.cameraPosition.zoom
-        val visible = if (index == null || (content && zoom < STOP_ZOOM)) emptyList() else index.at(zoom).filter { group ->
+        val index = clusters?.index
+        val visible = if (index == null) emptyList() else index.at(zoom).filter { group ->
             val p = index.points[group.leader]
             p.lat in bounds.latitudeSouth - padLat..bounds.latitudeNorth + padLat && p.lon in bounds.longitudeWest - padLon..bounds.longitudeEast + padLon
         }
         val keys = visible.mapTo(HashSet()) { it.key }
-        if (!force && keys == shownKeys) return
+        if (!redraw && keys == shownKeys) return
         shownKeys = keys
         shownGroups = visible.filter { it.stations.size > 1 }.associateBy { it.key }
         spider?.takeIf { it.key !in keys }?.let { unspiderfy() }
         val now = System.nanoTime()
         val used = HashSet<String>()
         val built = LinkedHashMap<String, List<Feature>>()
-        if (index != null) for (group in visible) built[group.key] = stopFeatures(index, group, dark, used)
+        clusters?.let { c -> for (group in visible) built[group.key] = stopFeatures(c, group, dark, used) }
         for ((key, features) in shownFeatures) if (key !in built) fades.leave(key, features, now)
         for (key in built.keys) if (key !in shownFeatures) fades.enter(key, now)
         fades.forget(built.keys)
@@ -750,7 +807,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         motion.start()
     }
 
-    private fun stopFeatures(index: StopClusters, group: StopGroup, dark: Boolean, used: MutableSet<String>): List<Feature> {
+    private fun stopFeatures(clusters: Clusters, group: StopGroup, dark: Boolean, used: MutableSet<String>): List<Feature> {
+        val index = clusters.index ?: return emptyList()
         val leader = index.points[group.leader]
         fun feature(img: String, offsetY: Float, block: Feature.() -> Unit = {}) = Feature.fromGeometry(point(LatLon(leader.lat, leader.lon))).apply {
             addStringProperty("img", img)
@@ -763,7 +821,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         if (group.stations.size == 1) {
             return listOf(feature(if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false), 0f) { addNumberProperty("id", leader.id) })
         }
-        val label = groupLabel(index, group)
+        val label = groupLabel(clusters, index, group)
         val icons = groupIcons(group)
         val pill = "grp-$dark-${icons.joinToString(",")}"
         val text = "grl-$dark-${label.name}-${label.more}"
@@ -1065,6 +1123,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     fun destroy() {
+        scope.cancel()
         glide.stop()
         motion.stop()
         drop?.cancel()
