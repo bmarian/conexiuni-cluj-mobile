@@ -78,8 +78,9 @@ data class MapInsets(val top: Float = 0f, val bottom: Float = 0f, val right: Flo
 
 private sealed interface Tooltip {
     val at: LatLon
+    val shift: Offset get() = Offset.Zero
 
-    class StopName(override val at: LatLon, val name: String, val look: StationLook?) : Tooltip
+    class StopName(override val at: LatLon, val name: String, val look: StationLook?, override val shift: Offset = Offset.Zero) : Tooltip
     class Group(override val at: LatLon, val stations: List<Pair<String, StationLook?>>, val group: StopGroup) : Tooltip
     class Pin(override val at: LatLon, val label: String) : Tooltip
 }
@@ -182,6 +183,13 @@ fun TransitMap(
                     selectedVehicleId = if (selectedVehicleId == vehicle) null else vehicle
                     return@addOnMapClickListener true
                 }
+                val spidered = created.spiderAt(point, with(density) { 8.dp.toPx() })
+                if (spidered != null) {
+                    tooltip = null
+                    created.unspiderfy()
+                    currentOnStopTap(spidered.stopId)
+                    return@addOnMapClickListener true
+                }
                 val stop = created.stopAt(point, with(density) { 16.dp.toPx() })?.let { currentStopsById[it] }
                 if (stop != null) {
                     tooltip = null
@@ -197,10 +205,19 @@ fun TransitMap(
                 }
                 selectedVehicleId = null
                 tooltip = null
+                created.unspiderfy()
                 false
             }
             map.addOnMapLongClickListener { latLng ->
                 val point = map.projection.toScreenLocation(latLng)
+                val spidered = created.spiderAt(point, with(density) { 8.dp.toPx() })
+                val spideredStop = spidered?.let { currentStopsById[it.stopId] }
+                if (spidered != null && spideredStop != null) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    val look = Services.repository.network.index.value?.look(spideredStop.stopId)
+                    tooltip = Tooltip.StopName(spidered.at, spideredStop.name, look, Offset(spidered.shift.x, spidered.shift.y))
+                    return@addOnMapLongClickListener true
+                }
                 val stop = created.stopAt(point, with(density) { 20.dp.toPx() })?.let { currentStopsById[it] }
                 if (stop != null) {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -462,6 +479,7 @@ private fun Anchored(
     at: () -> LatLon?,
     lift: Float,
     alignStart: Float? = null,
+    shift: Offset = Offset.Zero,
     pointer: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
@@ -473,7 +491,7 @@ private fun Anchored(
         layout(body.width, body.height + tip.height) {
             session.frame.intValue
             val target = at() ?: return@layout
-            val p = session.screen(target)
+            val p = session.screen(target).apply { offset(shift.x, shift.y) }
             val x = if (alignStart != null) p.x + alignStart
             else (p.x - body.width / 2f).coerceIn(margin, maxOf(margin, constraints.maxWidth - body.width - margin))
             val y = if (alignStart != null) p.y - body.height / 2f else p.y - lift - tip.height - body.height
@@ -495,7 +513,7 @@ private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
             drawPath(Path().apply { moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2, size.height); close() }, bg)
         }
     }
-    Anchored(session, { tip.at }, lift, pointer = arrow) {
+    Anchored(session, { tip.at }, lift, shift = tip.shift, pointer = arrow) {
         Column(
             Modifier.shadow(4.dp, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp)).background(bg)
                 .widthIn(max = 320.dp).padding(horizontal = 10.dp, vertical = 5.dp),

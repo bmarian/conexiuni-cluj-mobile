@@ -99,8 +99,8 @@ class StopClusters(
 
     fun members(group: StopGroup): List<LatLon> = group.points.map { LatLon(points[it].lat, points[it].lon) }
 
-    /** The zooms at which the group first breaks up, and at which each of its stations stands alone. */
-    fun expansion(group: StopGroup, zoom: Double): Expansion {
+    /** The zooms at which the group first breaks up, and at which each of its stations stands alone; null when no zoom breaks it up. */
+    fun expansion(group: StopGroup, zoom: Double): Expansion? {
         var split: Double? = null
         for (level in levelOf(zoom) - 1 downTo 0) {
             val owner = ownerAt(level)
@@ -109,7 +109,7 @@ class StopClusters(
             if (split == null && group.points.any { owner[it] != first }) split = zoomOf(level)
             if (group.points.all { groups[owner[it]].stations.size == 1 }) return Expansion(split ?: zoomOf(level), zoomOf(level))
         }
-        return Expansion(split ?: maxZoom, maxZoom)
+        return split?.let { Expansion(it, maxZoom) }
     }
 
     private fun levelOf(zoom: Double) = max(0, ceil((maxZoom - zoom) / step - 1e-9).toInt())

@@ -16,6 +16,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.modesIn
 import online.bus.bmarian.conexiuniclujmobile.ui.map.stationRank
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.ceil
@@ -65,10 +66,19 @@ class StopClustersTest {
     fun expandsToWhereTheGroupBreaksUp() {
         val clusters = StopClusters(listOf(point(1, 0.0), point(2, 0.0002)), box, 19.0, 0.25)
         val group = clusters.at(14.0).single()
-        val e = clusters.expansion(group, 14.0)
+        val e = clusters.expansion(group, 14.0)!!
         assertTrue(e.split > 14.0)
         assertTrue(e.apart >= e.split)
         assertTrue(clusters.at(e.apart).all { it.stations.size == 1 })
+    }
+
+    @Test
+    fun hasNoExpansionForStationsThatShareASpot() {
+        val clusters = StopClusters(listOf(point(1, 0.0), point(2, 0.000005)), box, 19.0, 0.25)
+        val group = clusters.at(14.0).single()
+        assertEquals(2, group.stations.size)
+        assertNull(clusters.expansion(group, 14.0))
+        assertNull(clusters.expansion(clusters.at(19.0).single(), 19.0))
     }
 
     @Test

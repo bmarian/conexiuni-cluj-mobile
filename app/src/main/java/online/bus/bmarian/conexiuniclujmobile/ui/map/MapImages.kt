@@ -41,6 +41,9 @@ private const val PILL_GAP_DP = 2f
 private const val PILL_ROW = 3
 private const val LABEL_GAP_DP = 2f
 private const val LABEL_PAD_DP = 2f
+private const val STATION_SLOT_DP = 28f
+private const val SPIDER_GAP_DP = 4f
+private const val SPIDER_PAD_DP = 16
 const val CLUSTER_STATIONS_MAX = 3
 const val CLUSTER_NAMES_MAX = 8
 
@@ -103,50 +106,88 @@ internal class MapImages(context: Context) {
     /** Port of clusterIconBox in utils/mapIcons.ts: the pill on its centre, the label under it. */
     fun groupBox(icons: Int, name: String, more: Int): ClusterBox {
         val (w, h) = pillSize(icons)
-        val text = if (more > 0) "$name +$more" else name
-        val (labelWidth, labelHeight) = labelSizes.getOrPut(text) {
-            measurer.measure(text, labelStyle).size.let { it.width / density.density + 2 * LABEL_PAD_DP to it.height / density.density }
-        }
+        val (labelWidth, labelHeight) = labelSize(name, more)
         val width = max(w, labelWidth)
         return ClusterBox(width, h + LABEL_GAP_DP + labelHeight, width / 2, h / 2)
     }
 
-    fun groupOffset(icons: Int, name: String, more: Int): Float {
-        val box = groupBox(icons, name, more)
-        return box.height / 2 - box.anchorY
+    private fun labelSize(name: String, more: Int): Pair<Float, Float> {
+        val text = if (more > 0) "$name +$more" else name
+        return labelSizes.getOrPut(text) {
+            measurer.measure(text, labelStyle).size.let { it.width / density.density + 2 * LABEL_PAD_DP to it.height / density.density }
+        }
     }
 
-    fun group(icons: List<GroupIcon>, name: String, more: Int, dark: Boolean): Bitmap {
-        val box = groupBox(icons.size, name, more)
+    /** From the pill's centre to the label's. */
+    fun labelOffset(icons: Int, name: String, more: Int): Float = pillSize(icons).second / 2 + LABEL_GAP_DP + labelSize(name, more).second / 2
+
+    private fun DrawScope.groupIcon(icon: GroupIcon, at: Offset) {
+        val cell = CELL_DP.dp.toPx()
+        when (icon) {
+            is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode)
+            GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true)
+        }
+    }
+
+    private fun DrawScope.groupText(name: String, more: Int, dark: Boolean, topLeft: Offset) {
+        // Span colours win over drawText's colour, so the halo is drawn from the plain text.
+        val halo = measurer.measure(if (more > 0) "$name +$more" else name, labelStyle)
+        drawText(halo, color = if (dark) Color(0xFF0F172A) else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
+        drawText(measurer.measure(label(name, more, dark), labelStyle), topLeft = topLeft)
+    }
+
+    /** Centred on the pill, with room for its shadow on both sides. */
+    fun groupPill(icons: List<GroupIcon>, dark: Boolean): Bitmap {
         val (pw, ph) = pillSize(icons.size)
-        return draw(box.width, box.height) {
-            val left = (box.width - pw) / 2 * density
+        return draw(pw, ph + 2) {
+            val top = 1.dp.toPx()
             val radius = CornerRadius((CELL_DP / 2 + PILL_PAD_DP).dp.toPx())
             val pill = Size(pw.dp.toPx(), ph.dp.toPx())
-            drawRoundRect(Color.Black.copy(alpha = 0.14f), Offset(left, 1.dp.toPx()), pill, radius)
-            drawRoundRect(if (dark) Color(0xFF1E293B) else Color.White, Offset(left, 0f), pill, radius)
-            if (dark) drawRoundRect(Color.White.copy(alpha = 0.18f), Offset(left, 0f), pill, radius, style = Stroke(1.dp.toPx()))
+            drawRoundRect(Color.Black.copy(alpha = 0.14f), Offset(0f, top + 1.dp.toPx()), pill, radius)
+            drawRoundRect(if (dark) Color(0xFF1E293B) else Color.White, Offset(0f, top), pill, radius)
+            if (dark) drawRoundRect(Color.White.copy(alpha = 0.18f), Offset(0f, top), pill, radius, style = Stroke(1.dp.toPx()))
             val cell = CELL_DP.dp.toPx()
             val gap = PILL_GAP_DP.dp.toPx()
             icons.forEachIndexed { i, icon ->
                 val row = i / PILL_ROW
                 val inRow = min(PILL_ROW, icons.size - row * PILL_ROW)
                 val rowWidth = inRow * cell + (inRow - 1) * gap
-                val at = Offset(
-                    box.width.dp.toPx() / 2 - rowWidth / 2 + (i % PILL_ROW) * (cell + gap) + cell / 2,
-                    PILL_PAD_DP.dp.toPx() + row * (cell + gap) + cell / 2,
-                )
-                when (icon) {
-                    is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode)
-                    GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true)
-                }
+                groupIcon(icon, Offset(size.width / 2 - rowWidth / 2 + (i % PILL_ROW) * (cell + gap) + cell / 2, top + PILL_PAD_DP.dp.toPx() + row * (cell + gap) + cell / 2))
             }
-            val layout = measurer.measure(label(name, more, dark), labelStyle)
-            val topLeft = Offset((size.width - layout.size.width) / 2, ph.dp.toPx() + LABEL_GAP_DP.dp.toPx())
-            // Span colours win over drawText's colour, so the halo is drawn from the plain text.
-            val halo = measurer.measure(if (more > 0) "$name +$more" else name, labelStyle)
-            drawText(halo, color = if (dark) Color(0xFF0F172A) else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
-            drawText(layout, topLeft = topLeft)
+        }
+    }
+
+    fun groupLabel(name: String, more: Int, dark: Boolean): Bitmap {
+        val (w, h) = labelSize(name, more)
+        return draw(w, h) { groupText(name, more, dark, Offset(LABEL_PAD_DP.dp.toPx(), 0f)) }
+    }
+
+    fun spiderItem(icon: GroupIcon, name: String, left: Boolean, dark: Boolean): Bitmap {
+        val (w, h) = spiderItemSize(name)
+        return draw(w, h) {
+            val cell = STATION_SLOT_DP.dp.toPx()
+            val iconX = if (left) size.width - cell / 2 else cell / 2
+            groupIcon(icon, Offset(iconX, size.height / 2))
+            val textX = if (left) 0f else cell + SPIDER_GAP_DP.dp.toPx()
+            groupText(name, 0, dark, Offset(textX + LABEL_PAD_DP.dp.toPx(), (size.height - labelSize(name, 0).second.dp.toPx()) / 2))
+        }
+    }
+
+    private fun spiderItemSize(name: String): Pair<Float, Float> {
+        val (lw, lh) = labelSize(name, 0)
+        return STATION_SLOT_DP + SPIDER_GAP_DP + lw to max(STATION_SLOT_DP, lh)
+    }
+
+    /** From the item's centre to its station's, for an item on the right. */
+    fun spiderItemShift(name: String): Float = spiderItemSize(name).first / 2 - STATION_SLOT_DP / 2
+
+    fun spider(legs: List<SpiderLeg>, dark: Boolean): Bitmap {
+        val r = spiderRadius(legs) + SPIDER_PAD_DP
+        val ink = if (dark) MapColors.Paper else MapColors.InkDark
+        return draw(2f * r, 2f * r) {
+            val hub = center
+            legs.forEach { drawLine(ink.copy(alpha = 0.7f), hub, hub + Offset(it.x.dp.toPx(), it.y.dp.toPx()), 1.5.dp.toPx()) }
+            drawCircle(ink, 4.dp.toPx(), hub)
         }
     }
 
