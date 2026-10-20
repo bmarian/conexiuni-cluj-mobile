@@ -59,6 +59,10 @@ internal class MapImages(context: Context) {
     private val density = Density(context)
     private val measurer = TextMeasurer(createFontFamilyResolver(context), density, LayoutDirection.Ltr)
 
+    // groupBox runs on the clustering thread, so it measures with its own.
+    private val boxMeasurer = TextMeasurer(createFontFamilyResolver(context), density, LayoutDirection.Ltr)
+    private val boxLabelSizes = HashMap<String, Pair<Float, Float>>()
+
     private fun draw(widthDp: Float, heightDp: Float, block: DrawScope.() -> Unit): Bitmap {
         val w = ceil(widthDp * density.density).toInt().coerceAtLeast(1)
         val h = ceil(heightDp * density.density).toInt().coerceAtLeast(1)
@@ -106,15 +110,20 @@ internal class MapImages(context: Context) {
     /** Port of clusterIconBox in utils/mapIcons.ts: the pill on its centre, the label under it. */
     fun groupBox(icons: Int, name: String, more: Int): ClusterBox {
         val (w, h) = pillSize(icons)
-        val (labelWidth, labelHeight) = labelSize(name, more)
+        val (labelWidth, labelHeight) = labelSize(name, more, boxMeasurer, boxLabelSizes)
         val width = max(w, labelWidth)
         return ClusterBox(width, h + LABEL_GAP_DP + labelHeight, width / 2, h / 2)
     }
 
-    private fun labelSize(name: String, more: Int): Pair<Float, Float> {
+    private fun labelSize(
+        name: String,
+        more: Int,
+        by: TextMeasurer = measurer,
+        sizes: HashMap<String, Pair<Float, Float>> = labelSizes,
+    ): Pair<Float, Float> {
         val text = if (more > 0) "$name +$more" else name
-        return labelSizes.getOrPut(text) {
-            measurer.measure(text, labelStyle).size.let { it.width / density.density + 2 * LABEL_PAD_DP to it.height / density.density }
+        return sizes.getOrPut(text) {
+            by.measure(text, labelStyle).size.let { it.width / density.density + 2 * LABEL_PAD_DP to it.height / density.density }
         }
     }
 

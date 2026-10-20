@@ -112,6 +112,21 @@ class StopClustersTest {
     }
 
     @Test
+    fun buildsTheSameLevelsAStepAtATime() {
+        var seed = 3L
+        fun random(): Double {
+            seed = (seed * 16807) % 2147483647
+            return seed / 2147483647.0
+        }
+        val points = (0 until 300).map { i -> point(i, random() * 0.05, lat = 44.43 + random() * 0.03) }
+        val stepped = StopClusters(points, box, 19.0, 0.25)
+        while (!stepped.ready(12.0)) stepped.advance()
+        assertFalse(stepped.ready(11.75))
+        val direct = StopClusters(points, box, 19.0, 0.25)
+        for (zoom in listOf(18.0, 15.0, 12.0)) assertEquals(direct.at(zoom).map { it.key }.sorted(), stepped.at(zoom).map { it.key }.sorted())
+    }
+
+    @Test
     fun ranksBiggerModesFirstThenMoreLines() {
         assertTrue(stationRank(listOf(1)) > stationRank(listOf(3, 3, 3, 3)))
         assertTrue(stationRank(listOf(3, 3)) > stationRank(listOf(3)))
