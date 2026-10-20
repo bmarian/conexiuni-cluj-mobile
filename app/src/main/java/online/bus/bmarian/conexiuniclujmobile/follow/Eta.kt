@@ -11,8 +11,9 @@ private val CLOCK = DateTimeFormatter.ofPattern("HH:mm")
 
 internal fun isClockTime(minutes: Int) = minutes >= 60
 
-internal fun clockAt(nowMs: Long, minutes: Int): String =
-    CLOCK.format(Instant.ofEpochMilli(nowMs + minutes * 60_000L).atZone(CLUJ_ZONE))
+fun clockOf(ms: Long): String = CLOCK.format(Instant.ofEpochMilli(ms).atZone(CLUJ_ZONE))
+
+internal fun clockAt(nowMs: Long, minutes: Int): String = clockOf(nowMs + minutes * 60_000L)
 
 internal fun arrivingText(context: Context, minutes: Int, nowMs: Long): String = when {
     minutes <= 0 -> context.getString(R.string.follow_now)

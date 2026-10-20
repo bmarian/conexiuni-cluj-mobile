@@ -39,11 +39,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowState
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.follow.clockOf
 import online.bus.bmarian.conexiuniclujmobile.follow.leaveText
+import online.bus.bmarian.conexiuniclujmobile.follow.minutesUntil
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
@@ -78,10 +81,11 @@ suspend fun openOnWatch(context: Context, path: String) {
 fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val followed = state.followed
     val now = rememberNow()
+    val clock by Services.clock.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val press = remember { MutableInteractionSource() }
     // A reminder still waiting for the user to set off.
-    val leave = state.leaveAt?.let { at -> state.minutes?.let { leaveText(context, followed.shortName, it, at, state.walkMinutes, System.currentTimeMillis()).first } }
+    val leave = state.leaveAt?.let { at -> state.minutes?.let { leaveText(context, followed.shortName, it, at, state.walkMinutes, clock).first } }
     Card(
         onClick = onOpen,
         modifier = modifier.fillMaxWidth().squish(press),
@@ -113,7 +117,7 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
                         "→ ${followed.destination}",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -121,12 +125,12 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
                     followed.stopName,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.minutes?.let { TimePill(minutesLabel(it, now), live = state.live) }
+                state.minutesAt(clock)?.let { TimePill(minutesLabel(it, now), live = state.live) }
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onStop) { Text(stringResource(R.string.stop_following)) }
             }
         }
@@ -136,6 +140,7 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
 @Composable
 fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modifier: Modifier = Modifier, onOpen: (() -> Unit)? = null) {
     val now = rememberNow()
+    val clock by Services.clock.collectAsStateWithLifecycle()
     val press = remember { MutableInteractionSource() }
     Card(
         onClick = { onOpen?.invoke() },
@@ -150,7 +155,7 @@ fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modif
                     stringResource(R.string.journey_to, state.title),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -158,14 +163,18 @@ fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modif
                 state.line?.let { LineBadge(it, state.color ?: "#64748b", height = 28.dp, minWidth = 36.dp, corner = 8.dp) }
                 Column(Modifier.weight(1f)) {
                     Text(state.step, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                    state.detail?.let {
+                    state.detail?.takeIf { !state.countsDown }?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
                     }
+                    state.etaAt?.let {
+                        Text(
+                            stringResource(R.string.nav_arrive_at, clockOf(it)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                        )
+                    }
                 }
-                state.arrivalAt?.let { at ->
-                    val minutes = ((at - System.currentTimeMillis()) / 60_000).toInt().coerceAtLeast(0)
-                    TimePill(minutesLabel(minutes, now), live = true)
-                }
+                if (state.countsDown) TimePill(minutesLabel(minutesUntil(state.arrivalAt!!, clock), now), live = true)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onEnd) { Text(stringResource(R.string.journey_end)) }

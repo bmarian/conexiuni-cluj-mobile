@@ -244,19 +244,24 @@ fun StopScreen(stopId: Int) {
     val scope = rememberCoroutineScope()
     val withNotifications = rememberWithNotifications()
 
+    fun followNow(followed: Followed) {
+        FollowManager.start(context, followed)
+        Services.settings.showToast(resources.getString(R.string.following), "${followed.shortName} → ${followed.destination}")
+    }
+
     // At the stop, or too late to walk there, it's told when the bus comes; otherwise reminded when to leave for it.
     fun remind(followed: Followed, departure: StopDeparture) = withNotifications {
         haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
         val stop = vm.platform(platformOf(departure)) ?: info
         val walk = Services.location.value?.let { fix -> stop?.let { walkMinutes(fix.lat, fix.lon, it.lat, it.lon) } }
         if (stop == null || justNotify(walk, departure.minutesLeft)) {
-            FollowManager.start(context, followed)
+            followNow(followed)
         } else {
             // Outlives the screen, so leaving it doesn't drop the reminder.
             Services.scope.launch {
                 val reminder = nextBusReminder(stop, followed)
                 if (reminder == null) {
-                    FollowManager.start(context, followed)
+                    followNow(followed)
                 } else {
                     Reminders.put(context, reminder)
                     val title = resources.getString(R.string.remind_saved)
@@ -356,8 +361,10 @@ fun StopScreen(stopId: Int) {
                             platform, name.orEmpty(), departure.routeId, departure.tripId,
                             departure.shortName, departure.color, routeDestination(departure.longName), Cities.current.value,
                         )
-                        val following = follows.firstOrNull { it.matches(platform, departure.routeId, departure.tripId) }
-                        val forBus = reminders.filter { it.isFor(platform, departure.routeId, departure.tripId) }
+                        // A follow from the watch may name the station's other platform.
+                        val platforms = infos.map { it.stopId }.ifEmpty { listOf(platform) }
+                        val following = follows.firstOrNull { it.matches(platforms, departure.routeId, departure.tripId) }
+                        val forBus = reminders.filter { it.isFor(platforms, departure.routeId, departure.tripId) }
                         // The clock's own: a one-off for this bus, until it starts following.
                         val clocked = forBus.filter { it.once }
                         Box(Modifier.animateItem().cascade(index, stopId)) {
@@ -512,7 +519,7 @@ fun DepartureCard(
                         "→ ${routeDestination(departure.longName)}",
                         modifier = Modifier.weight(1f, fill = false),
                         style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (reminded) {

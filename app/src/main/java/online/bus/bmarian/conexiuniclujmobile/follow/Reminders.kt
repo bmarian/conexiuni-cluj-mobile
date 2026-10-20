@@ -76,6 +76,10 @@ data class Reminder(
     /** A reminder for this bus alone. */
     fun isFor(stopId: Int, routeId: Int, tripId: String, city: String = Cities.current.value) =
         journey == null && followed.city == city && followed.stopId == stopId && followed.routeId == routeId && followed.tripId == tripId
+
+    /** At any of a station's platforms. */
+    fun isFor(stopIds: Collection<Int>, routeId: Int, tripId: String, city: String = Cities.current.value) =
+        journey == null && followed.city == city && followed.stopId in stopIds && followed.routeId == routeId && followed.tripId == tripId
 }
 
 /** How long before the bus to set off: the walk and a few minutes, or a fixed lead when there's no fix. */
