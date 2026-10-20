@@ -93,6 +93,10 @@ class NetworkIndex(val bundle: NetworkBundle) {
 
     private val platformsByStation: Map<Int, List<Stop>> by lazy { bundle.stops.groupBy { it.station } }
 
+    private val colorOf: Map<Mode, String> by lazy { modeColors(bundle.routes) }
+
+    fun modeColor(mode: Mode): String? = colorOf[mode]
+
     private val looks: Map<Int, StationLook> by lazy {
         val linesAt = HashMap<Int, MutableList<NetworkRoute>>()
         for (route in bundle.routes.sortedWith(byModeThenNumber({ it.type }, { it.shortName }))) {
@@ -101,7 +105,6 @@ class NetworkIndex(val bundle: NetworkBundle) {
             route.trips.flatMap { trip -> trip.stopIds.asList().mapNotNull { stopById[it]?.station } }.toSet()
                 .forEach { linesAt.getOrPut(it) { mutableListOf() } += route }
         }
-        val colorOf = modeColors(bundle.routes)
         linesAt.mapValues { (_, lines) ->
             val mode = mainMode(lines.map { it.type })
             val colors = lines.filter { modeOf(it.type) == mode }.map { it.color }.toSet()

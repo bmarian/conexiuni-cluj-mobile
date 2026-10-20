@@ -147,4 +147,5 @@
     <string name="update_question">Vrei să actualizezi aplicația?</string>
     <string name="watch_install_question">Vrei să instalezi aplicația pe ceas?</string>
     <string name="watch_install">Instalează</string>
+    <string name="map_more_stations">și încă %d</string>
 </resources>

@@ -15,6 +15,10 @@ import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -28,7 +32,25 @@ import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
+
+private const val CELL_DP = 24f
+private const val PILL_PAD_DP = 3f
+private const val PILL_GAP_DP = 2f
+private const val PILL_ROW = 3
+private const val LABEL_GAP_DP = 2f
+private const val LABEL_PAD_DP = 2f
+const val CLUSTER_STATIONS_MAX = 3
+const val CLUSTER_NAMES_MAX = 8
+
+val STATION_BOX = ClusterBox(CELL_DP, CELL_DP, CELL_DP / 2, CELL_DP / 2)
+
+sealed interface GroupIcon {
+    data class Station(val mode: Mode, val color: String) : GroupIcon
+
+    data object Heart : GroupIcon
+}
 
 internal class MapImages(context: Context) {
     private val density = Density(context)
@@ -56,6 +78,76 @@ internal class MapImages(context: Context) {
 
     fun selectedStation(mode: Mode, color: String) = draw(36f, 36f) {
         stopMarker(center, 32.dp.toPx(), routeColor(color), 16.dp.toPx(), shadow = 1.6f, mode = mode)
+    }
+
+    private val labelStyle = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp)
+    private val labelSizes = HashMap<String, Pair<Float, Float>>()
+
+    private fun pillSize(icons: Int): Pair<Float, Float> {
+        val cols = min(icons, PILL_ROW)
+        val rows = (icons + PILL_ROW - 1) / PILL_ROW
+        return (cols * CELL_DP + (cols - 1) * PILL_GAP_DP + 2 * PILL_PAD_DP) to (rows * CELL_DP + (rows - 1) * PILL_GAP_DP + 2 * PILL_PAD_DP)
+    }
+
+    private fun label(name: String, more: Int, dark: Boolean): AnnotatedString = AnnotatedString.Builder().apply {
+        pushStyle(SpanStyle(color = if (dark) Color(0xFFF1F5F9) else Color(0xFF0F172A)))
+        append(name)
+        pop()
+        if (more > 0) {
+            pushStyle(SpanStyle(color = if (dark) Color(0xFF94A3B8) else Color(0xFF64748B)))
+            append(" +$more")
+            pop()
+        }
+    }.toAnnotatedString()
+
+    /** Port of clusterIconBox in utils/mapIcons.ts: the pill on its centre, the label under it. */
+    fun groupBox(icons: Int, name: String, more: Int): ClusterBox {
+        val (w, h) = pillSize(icons)
+        val text = if (more > 0) "$name +$more" else name
+        val (labelWidth, labelHeight) = labelSizes.getOrPut(text) {
+            measurer.measure(text, labelStyle).size.let { it.width / density.density + 2 * LABEL_PAD_DP to it.height / density.density }
+        }
+        val width = max(w, labelWidth)
+        return ClusterBox(width, h + LABEL_GAP_DP + labelHeight, width / 2, h / 2)
+    }
+
+    fun groupOffset(icons: Int, name: String, more: Int): Float {
+        val box = groupBox(icons, name, more)
+        return box.height / 2 - box.anchorY
+    }
+
+    fun group(icons: List<GroupIcon>, name: String, more: Int, dark: Boolean): Bitmap {
+        val box = groupBox(icons.size, name, more)
+        val (pw, ph) = pillSize(icons.size)
+        return draw(box.width, box.height) {
+            val left = (box.width - pw) / 2 * density
+            val radius = CornerRadius((CELL_DP / 2 + PILL_PAD_DP).dp.toPx())
+            val pill = Size(pw.dp.toPx(), ph.dp.toPx())
+            drawRoundRect(Color.Black.copy(alpha = 0.14f), Offset(left, 1.dp.toPx()), pill, radius)
+            drawRoundRect(if (dark) Color(0xFF1E293B) else Color.White, Offset(left, 0f), pill, radius)
+            if (dark) drawRoundRect(Color.White.copy(alpha = 0.18f), Offset(left, 0f), pill, radius, style = Stroke(1.dp.toPx()))
+            val cell = CELL_DP.dp.toPx()
+            val gap = PILL_GAP_DP.dp.toPx()
+            icons.forEachIndexed { i, icon ->
+                val row = i / PILL_ROW
+                val inRow = min(PILL_ROW, icons.size - row * PILL_ROW)
+                val rowWidth = inRow * cell + (inRow - 1) * gap
+                val at = Offset(
+                    box.width.dp.toPx() / 2 - rowWidth / 2 + (i % PILL_ROW) * (cell + gap) + cell / 2,
+                    PILL_PAD_DP.dp.toPx() + row * (cell + gap) + cell / 2,
+                )
+                when (icon) {
+                    is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode)
+                    GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true)
+                }
+            }
+            val layout = measurer.measure(label(name, more, dark), labelStyle)
+            val topLeft = Offset((size.width - layout.size.width) / 2, ph.dp.toPx() + LABEL_GAP_DP.dp.toPx())
+            // Span colours win over drawText's colour, so the halo is drawn from the plain text.
+            val halo = measurer.measure(if (more > 0) "$name +$more" else name, labelStyle)
+            drawText(halo, color = if (dark) Color(0xFF0F172A) else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
+            drawText(layout, topLeft = topLeft)
+        }
     }
 
     fun pin(color: Color) = draw(22f, 28f) { pinMarker(Offset(11.dp.toPx(), 28.dp.toPx()), color) }

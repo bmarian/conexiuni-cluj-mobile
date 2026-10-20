@@ -72,7 +72,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderRepeat
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
 import online.bus.bmarian.conexiuniclujmobile.ui.longPressDrag
-import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.moved
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberReorderState
 import online.bus.bmarian.conexiuniclujmobile.ui.reorderItem
@@ -117,7 +116,6 @@ fun HomeScreen() {
         map.claim(owner)
         onDispose { map.release(owner) }
     }
-    LaunchedEffect(favoriteStopIds) { map.highlightedStops = favoriteStopIds.associateWith { StopHighlight.Favorite } }
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
 
     val routesById = remember(routes) { routes.associateBy { it.routeId } }

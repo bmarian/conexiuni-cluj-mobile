@@ -43,6 +43,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -52,6 +53,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
@@ -65,6 +67,8 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
+import java.text.Collator
+import java.util.Locale
 import kotlin.math.roundToInt
 
 private const val TOOLTIP_MS = 2_500L
@@ -76,6 +80,7 @@ private sealed interface Tooltip {
     val at: LatLon
 
     class StopName(override val at: LatLon, val name: String, val look: StationLook?) : Tooltip
+    class Group(override val at: LatLon, val stations: List<Pair<String, StationLook?>>, val group: StopGroup) : Tooltip
     class Pin(override val at: LatLon, val label: String) : Tooltip
 }
 
@@ -183,6 +188,13 @@ fun TransitMap(
                     currentOnStopTap(stop.stopId)
                     return@addOnMapClickListener true
                 }
+                val group = created.groupAt(point, with(density) { 8.dp.toPx() })
+                if (group != null) {
+                    tooltip = null
+                    val i = currentInsets
+                    created.expand(group, MapPadding(i.left, i.top, i.right, i.bottom))
+                    return@addOnMapClickListener true
+                }
                 selectedVehicleId = null
                 tooltip = null
                 false
@@ -190,9 +202,15 @@ fun TransitMap(
             map.addOnMapLongClickListener { latLng ->
                 val point = map.projection.toScreenLocation(latLng)
                 val stop = created.stopAt(point, with(density) { 20.dp.toPx() })?.let { currentStopsById[it] }
-                    ?: return@addOnMapLongClickListener false
+                if (stop != null) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    tooltip = Tooltip.StopName(LatLon(stop.lat, stop.lon), stop.name, Services.repository.network.index.value?.look(stop.stopId))
+                    return@addOnMapLongClickListener true
+                }
+                val group = created.groupAt(point, with(density) { 8.dp.toPx() }) ?: return@addOnMapLongClickListener false
+                val at = created.leaderOf(group) ?: return@addOnMapLongClickListener false
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                tooltip = Tooltip.StopName(LatLon(stop.lat, stop.lon), stop.name, Services.repository.network.index.value?.look(stop.stopId))
+                tooltip = Tooltip.Group(at, created.groupCard(group), group)
                 true
             }
             session = created
@@ -281,6 +299,9 @@ fun TransitMap(
     }
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     LaunchedEffect(session, stops, index) { session?.setStops(stops, index) }
+    val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
+    LaunchedEffect(session, favoriteStops) { session?.setFavorites(favoriteStops.toSet()) }
+    LaunchedEffect(session, tooltip) { session?.setArea((tooltip as? Tooltip.Group)?.group) }
     val nav = controller.navigation
     val shownHighlights = nav?.highlights ?: controller.highlightedStops
     val shownWalks = nav?.walks ?: controller.walkingPolylines
@@ -479,12 +500,24 @@ private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
             Modifier.shadow(4.dp, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp)).background(bg)
                 .widthIn(max = 320.dp).padding(horizontal = 10.dp, vertical = 5.dp),
         ) {
-            when (tip) {
-                is Tooltip.StopName -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (tip.look != null) StationIcon(tip.look, size = 24.dp)
+            val station = @Composable { name: String, look: StationLook? ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (look != null) StationIcon(look, size = 24.dp)
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(tip.name, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        StationLines(tip.look, Modifier.widthIn(max = 224.dp))
+                        Text(name, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        StationLines(look, Modifier.widthIn(max = 224.dp))
+                    }
+                }
+            }
+            when (tip) {
+                is Tooltip.StopName -> station(tip.name, tip.look)
+                is Tooltip.Group -> if (tip.stations.size <= CLUSTER_STATIONS_MAX) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { tip.stations.forEach { (name, look) -> station(name, look) } }
+                } else {
+                    val names = tip.stations.map { it.first }.distinct().sortedWith(Collator.getInstance(Locale.getDefault()))
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        names.take(CLUSTER_NAMES_MAX).forEach { Text(it, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
+                        if (names.size > CLUSTER_NAMES_MAX) Text(stringResource(R.string.map_more_stations, names.size - CLUSTER_NAMES_MAX), color = sub, fontSize = 12.sp)
                     }
                 }
                 is Tooltip.Pin -> {

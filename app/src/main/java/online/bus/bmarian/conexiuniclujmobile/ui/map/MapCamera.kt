@@ -12,7 +12,8 @@ import kotlin.math.sinh
 import kotlin.math.tan
 
 const val DEFAULT_ZOOM = 15.0
-const val STOP_ZOOM = 15f
+const val STOP_ZOOM = 15.0
+const val CLUSTER_ZOOM_STEP = 0.25
 const val MIN_ZOOM = 8.0
 const val MAX_ZOOM = 19.0
 const val FIT_MAX_ZOOM = 15.0
