@@ -26,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -54,6 +55,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
@@ -104,6 +106,7 @@ fun TransitMap(
     autoCenter: Boolean,
     showVehicleExtras: Boolean,
     onStopTap: (Int) -> Unit,
+    onStationsTap: (List<Int>) -> Unit,
     onNeedLocation: () -> Unit,
     modifier: Modifier = Modifier,
     compassTop: Float = 0f,
@@ -113,6 +116,7 @@ fun TransitMap(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val currentInsets by rememberUpdatedState(insets)
     val currentOnStopTap by rememberUpdatedState(onStopTap)
+    val currentOnStationsTap by rememberUpdatedState(onStationsTap)
     val currentMe by rememberUpdatedState(me)
     val stopsById = remember(stops) { stops.associateBy { it.stopId } }
     val currentStopsById by rememberUpdatedState(stopsById)
@@ -199,6 +203,7 @@ fun TransitMap(
                 val group = created.groupAt(point, with(density) { 8.dp.toPx() })
                 if (group != null) {
                     tooltip = null
+                    if (group.stations.size <= CLUSTER_STATIONS_MAX) currentOnStationsTap(created.groupStops(group))
                     val i = currentInsets
                     created.expand(group, MapPadding(i.left, i.top, i.right, i.bottom))
                     return@addOnMapClickListener true
@@ -318,6 +323,8 @@ fun TransitMap(
     LaunchedEffect(session, stops, index) { session?.setStops(stops, index) }
     val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
     LaunchedEffect(session, favoriteStops) { session?.setFavorites(favoriteStops.toSet()) }
+    val areas by produceState(emptyList<Area>(), city) { value = runCatching { Api.get<List<Area>>("areas", city) }.getOrDefault(emptyList()) }
+    LaunchedEffect(session, areas) { session?.setAreas(areas) }
     LaunchedEffect(session, tooltip) { session?.setArea((tooltip as? Tooltip.Group)?.group) }
     val nav = controller.navigation
     val shownHighlights = nav?.highlights ?: controller.highlightedStops

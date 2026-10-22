@@ -42,12 +42,13 @@ private const val PILL_ROW = 3
 private const val LABEL_GAP_DP = 2f
 private const val LABEL_PAD_DP = 2f
 private const val STATION_SLOT_DP = 28f
-private const val SPIDER_GAP_DP = 4f
 private const val SPIDER_PAD_DP = 16
 const val CLUSTER_STATIONS_MAX = 3
 const val CLUSTER_NAMES_MAX = 8
 
 val STATION_BOX = ClusterBox(CELL_DP, CELL_DP, CELL_DP / 2, CELL_DP / 2)
+val SELECTED_BOX = ClusterBox(32f, 32f, 16f, 16f)
+val SPIDER_ITEM_BOX = ClusterBox(STATION_SLOT_DP, STATION_SLOT_DP, STATION_SLOT_DP / 2, STATION_SLOT_DP / 2)
 
 sealed interface GroupIcon {
     data class Station(val mode: Mode, val color: String) : GroupIcon
@@ -90,9 +91,14 @@ internal class MapImages(context: Context) {
     private val labelStyle = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp)
     private val labelSizes = HashMap<String, Pair<Float, Float>>()
 
+    // Port of clusterPill in utils/mapIcons.ts.
+    private fun pillGrid(icons: Int): Pair<Int, Int> {
+        val rows = if (icons > PILL_ROW) 2 else 1
+        return (icons + rows - 1) / rows to rows
+    }
+
     private fun pillSize(icons: Int): Pair<Float, Float> {
-        val cols = min(icons, PILL_ROW)
-        val rows = (icons + PILL_ROW - 1) / PILL_ROW
+        val (cols, rows) = pillGrid(icons)
         return (cols * CELL_DP + (cols - 1) * PILL_GAP_DP + 2 * PILL_PAD_DP) to (rows * CELL_DP + (rows - 1) * PILL_GAP_DP + 2 * PILL_PAD_DP)
     }
 
@@ -157,11 +163,12 @@ internal class MapImages(context: Context) {
             if (dark) drawRoundRect(Color.White.copy(alpha = 0.18f), Offset(0f, top), pill, radius, style = Stroke(1.dp.toPx()))
             val cell = CELL_DP.dp.toPx()
             val gap = PILL_GAP_DP.dp.toPx()
+            val cols = pillGrid(icons.size).first
             icons.forEachIndexed { i, icon ->
-                val row = i / PILL_ROW
-                val inRow = min(PILL_ROW, icons.size - row * PILL_ROW)
+                val row = i / cols
+                val inRow = min(cols, icons.size - row * cols)
                 val rowWidth = inRow * cell + (inRow - 1) * gap
-                groupIcon(icon, Offset(size.width / 2 - rowWidth / 2 + (i % PILL_ROW) * (cell + gap) + cell / 2, top + PILL_PAD_DP.dp.toPx() + row * (cell + gap) + cell / 2))
+                groupIcon(icon, Offset(size.width / 2 - rowWidth / 2 + (i % cols) * (cell + gap) + cell / 2, top + PILL_PAD_DP.dp.toPx() + row * (cell + gap) + cell / 2))
             }
         }
     }
@@ -177,15 +184,17 @@ internal class MapImages(context: Context) {
             val cell = STATION_SLOT_DP.dp.toPx()
             val iconX = if (left) size.width - cell / 2 else cell / 2
             groupIcon(icon, Offset(iconX, size.height / 2))
-            val textX = if (left) 0f else cell + SPIDER_GAP_DP.dp.toPx()
+            val textX = if (left) 0f else cell + SPIDER_LABEL_GAP_DP.dp.toPx()
             groupText(name, 0, dark, Offset(textX + LABEL_PAD_DP.dp.toPx(), (size.height - labelSize(name, 0).second.dp.toPx()) / 2))
         }
     }
 
     private fun spiderItemSize(name: String): Pair<Float, Float> {
         val (lw, lh) = labelSize(name, 0)
-        return STATION_SLOT_DP + SPIDER_GAP_DP + lw to max(STATION_SLOT_DP, lh)
+        return STATION_SLOT_DP + SPIDER_LABEL_GAP_DP + lw to max(STATION_SLOT_DP, lh)
     }
+
+    fun spiderLabel(name: String): Pair<Float, Float> = labelSize(name, 0)
 
     /** From the item's centre to its station's, for an item on the right. */
     fun spiderItemShift(name: String): Float = spiderItemSize(name).first / 2 - STATION_SLOT_DP / 2

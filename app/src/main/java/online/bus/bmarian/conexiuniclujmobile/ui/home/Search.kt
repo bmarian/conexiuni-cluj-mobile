@@ -221,16 +221,23 @@ fun LazyListScope.searchResults(
 }
 
 @Composable
-fun StationRow(stop: Stop, look: StationLook?, distance: String?, iconSize: Dp = 36.dp, onClick: () -> Unit) {
+fun StationRow(
+    stop: Stop,
+    look: StationLook?,
+    distance: String?,
+    iconSize: Dp = 36.dp,
+    lines: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = if (lines == null) Alignment.CenterVertically else Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         StationIcon(look, size = iconSize)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stop.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            StationLines(look)
+            if (lines != null) lines() else StationLines(look)
         }
         distance?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)

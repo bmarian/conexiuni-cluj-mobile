@@ -4,6 +4,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
 import java.text.Collator
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -16,7 +17,15 @@ import kotlin.math.sqrt
 
 class StopPoint(val id: Int, val lat: Double, val lon: Double, val station: Int, val modes: Int, val rank: Int, val favorite: Boolean)
 
-class StopGroup(val key: String, val leader: Int, val points: List<Int>, val stations: Set<Int>, val modes: Int, val favorite: Boolean)
+class StopGroup(
+    val key: String,
+    val leader: Int,
+    val points: List<Int>,
+    val stations: Set<Int>,
+    val modes: Int,
+    val favorite: Boolean,
+    val area: Int? = null,
+)
 
 /** In dp, the anchor measured from the top left. */
 class ClusterBox(val width: Float, val height: Float, val anchorX: Float, val anchorY: Float)
@@ -26,7 +35,7 @@ data class GroupName(val name: String, val covered: Int)
 data class Expansion(val split: Double, val apart: Double)
 
 // MapLibre's world is 512 dp wide at zoom 0.
-private const val TILE_DP = 512.0
+internal const val TILE_DP = 512.0
 
 fun lonPerDp(zoom: Double) = 360.0 / (TILE_DP * 2.0.pow(zoom))
 
@@ -65,9 +74,12 @@ fun groupName(leader: String, others: List<String>): GroupName {
     return best
 }
 
-private class Rect(val left: Double, val top: Double, val right: Double, val bottom: Double) {
+internal class Rect(val left: Double, val top: Double, val right: Double, val bottom: Double) {
     fun overlaps(o: Rect) = left < o.right && o.left < right && top < o.bottom && o.top < bottom
 }
+
+internal fun boxAt(x: Double, y: Double, box: ClusterBox) =
+    Rect(x - box.anchorX, y - box.anchorY, x - box.anchorX + box.width, y - box.anchorY + box.height)
 
 private fun cellKey(cx: Int, cy: Int) = cx.toLong() * 0x4000000L + cy
 
@@ -81,7 +93,7 @@ class StopClusters(
     @Volatile
     private var levels: List<List<StopGroup>> = emptyList()
     private var pending: List<StopGroup>? = null
-    private val boxes = HashMap<String, ClusterBox>()
+    private val boxes = ConcurrentHashMap<String, ClusterBox>()
     private val owners = HashMap<Int, IntArray>()
     private val xs = DoubleArray(points.size) { mercatorX(points[it].lon) }
     private val ys = DoubleArray(points.size) { mercatorY(points[it].lat) }
@@ -99,6 +111,8 @@ class StopClusters(
     }
 
     fun ready(zoom: Double) = levels.size > levelOf(zoom)
+
+    val depth: Int get() = levels.size
 
     /** One sweep of the next level and the regrouping it calls for; built levels stay readable from any thread meanwhile. */
     @Synchronized
@@ -128,20 +142,17 @@ class StopClusters(
         return split?.let { Expansion(it, maxZoom) }
     }
 
-    private fun levelOf(zoom: Double) = max(0, ceil((maxZoom - zoom) / step - 1e-9).toInt())
+    fun levelOf(zoom: Double) = max(0, ceil((maxZoom - zoom) / step - 1e-9).toInt())
 
-    private fun zoomOf(level: Int) = maxZoom - level * step
+    fun zoomOf(level: Int) = maxZoom - level * step
 
     private fun ownerAt(built: List<List<StopGroup>>, level: Int): IntArray = owners.getOrPut(level) {
         IntArray(points.size).also { out -> built[level].forEachIndexed { g, group -> group.points.forEach { out[it] = g } } }
     }
 
-    private fun rect(group: StopGroup, dp: Double): Rect {
-        val box = boxes.getOrPut(group.key) { boxOf(group) }
-        val left = xs[group.leader] * dp - box.anchorX
-        val top = ys[group.leader] * dp - box.anchorY
-        return Rect(left, top, left + box.width, top + box.height)
-    }
+    fun box(group: StopGroup): ClusterBox = boxes.getOrPut(group.key) { boxOf(group) }
+
+    private fun rect(group: StopGroup, dp: Double): Rect = boxAt(xs[group.leader] * dp, ys[group.leader] * dp, box(group))
 
     /** The leaders whose markers fit, highest ranked first. */
     private fun sweep(groups: List<StopGroup>, dp: Double): List<Int> {
@@ -208,16 +219,18 @@ class StopClusters(
         return best
     }
 
-    private fun group(leader: Int, members: List<Int>): StopGroup {
-        val stations = HashSet<Int>()
-        var modes = 0
-        var favorite = false
-        for (i in members) {
-            val p = points[i]
-            stations += p.station
-            modes = modes or p.modes
-            favorite = favorite || p.favorite
-        }
-        return StopGroup("$leader:${members.size}:${members.fold(0) { h, i -> h * 31 + i }}", leader, members, stations, modes, favorite)
+    private fun group(leader: Int, members: List<Int>): StopGroup = groupOf(points, leader, members, "$leader")
+}
+
+fun groupOf(all: List<StopPoint>, leader: Int, members: List<Int>, key: String, area: Int? = null): StopGroup {
+    val stations = HashSet<Int>()
+    var modes = 0
+    var favorite = false
+    for (i in members) {
+        val p = all[i]
+        stations += p.station
+        modes = modes or p.modes
+        favorite = favorite || p.favorite
     }
+    return StopGroup("$key:${members.size}:${members.fold(0) { h, i -> h * 31 + i }}", leader, members, stations, modes, favorite, area)
 }
