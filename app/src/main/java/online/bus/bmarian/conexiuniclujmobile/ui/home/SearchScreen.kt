@@ -11,14 +11,17 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -27,6 +30,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -60,6 +64,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalResources
@@ -92,19 +97,44 @@ fun planQueryFor(plan: FavoritePlan): PlanQuery {
     )
 }
 
+// Material's docked search (SearchBar.kt): at most 2/3 of the screen, at least 240dp.
+private const val DOCKED_HEIGHT_RATIO = 2f / 3f
+private val DOCKED_MIN_HEIGHT = 240.dp
+
+/** Full screen on a phone; on wide windows a card docked over the search bar. */
 @Composable
-fun SearchOverlay(visible: Boolean, state: SearchState, onClose: (clear: Boolean) -> Unit) {
+fun SearchOverlay(visible: Boolean, state: SearchState, docked: Boolean, modifier: Modifier = Modifier, onClose: (clear: Boolean) -> Unit) {
+    // A tap beside the docked card closes it and keeps what was typed.
+    if (docked && visible) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { onClose(false) } })
     AnimatedVisibility(
         visible = visible,
+        modifier = modifier,
         enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { -it / 16 },
         exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { -it / 16 },
     ) {
-        SearchContent(state, onClose)
+        SearchContent(state, docked, onClose)
     }
 }
 
 @Composable
-private fun SearchContent(state: SearchState, onClose: (clear: Boolean) -> Unit) {
+private fun SearchSurface(docked: Boolean, content: @Composable () -> Unit) {
+    if (!docked) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface, content = content)
+        return
+    }
+    BoxWithConstraints(Modifier.statusBarsPadding().padding(start = 16.dp, top = 8.dp, end = 16.dp)) {
+        Surface(
+            Modifier.fillMaxWidth().heightIn(max = maxOf(DOCKED_MIN_HEIGHT, maxHeight * DOCKED_HEIGHT_RATIO)),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 6.dp,
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: Boolean) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val nav = LocalNavigator.current
@@ -144,8 +174,8 @@ private fun SearchContent(state: SearchState, onClose: (clear: Boolean) -> Unit)
     }
     fun openRoute(route: Route) = go { nav.route(route.routeId, "auto") }
 
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
+    SearchSurface(docked) {
+        Column(if (docked) Modifier.fillMaxWidth() else Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { onClose(true) }) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.w_back))
@@ -171,7 +201,7 @@ private fun SearchContent(state: SearchState, onClose: (clear: Boolean) -> Unit)
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            LazyColumn(Modifier.weight(1f).navigationBarsPadding()) {
+            LazyColumn(if (docked) Modifier.weight(1f, fill = false) else Modifier.weight(1f).navigationBarsPadding()) {
                 if (state.active) {
                     searchResults(
                         state = state,

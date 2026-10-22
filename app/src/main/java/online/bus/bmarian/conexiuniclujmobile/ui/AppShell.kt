@@ -389,7 +389,12 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 Modifier.align(Alignment.TopCenter).statusBarsPadding()
                     .padding(top = with(density) { chromePx.toDp() } + 12.dp),
             )
-            SearchOverlay(searchOpen, search) { clear ->
+            SearchOverlay(
+                searchOpen,
+                search,
+                docked = side,
+                modifier = if (side) Modifier.align(Alignment.TopStart).besidePanel(sidePanel, maxWidth = 520.dp) else Modifier,
+            ) { clear ->
                 searchOpen = false
                 if (clear) search.query = ""
             }

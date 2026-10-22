@@ -28,6 +28,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Close
@@ -385,7 +387,11 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 enabled = vm::hasDirection,
             ) { d ->
-                Text(vm.terminal(d), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (d == "0") Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(16.dp))
+                    Text(vm.terminal(d), Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (d == "1") Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(16.dp))
+                }
             }
         }
         if (stops.isEmpty()) {
