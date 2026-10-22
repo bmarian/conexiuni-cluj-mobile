@@ -58,6 +58,9 @@ interface Navigator {
     fun back()
     fun home()
     fun stop(stopId: Int)
+    /** Stops picked one after another on the map replace each other on the stack. */
+    fun mapStop(stopId: Int)
+    fun mapStops(stopIds: List<Int>)
     fun route(routeId: Int, direction: String, fromStopId: Int? = null, change: Long? = null)
     fun plan(query: PlanQuery)
     fun settings()

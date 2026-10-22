@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
@@ -98,8 +99,10 @@ fun StationIcon(look: StationLook?, modifier: Modifier = Modifier, size: Dp = 36
 }
 
 @Composable
-fun StationLines(look: StationLook?, modifier: Modifier = Modifier) {
-    val routes = look?.routes.orEmpty()
+fun StationLines(look: StationLook?, modifier: Modifier = Modifier) = LineBadges(look?.routes.orEmpty(), modifier)
+
+@Composable
+fun LineBadges(routes: List<NetworkRoute>, modifier: Modifier = Modifier) {
     if (routes.isEmpty()) return
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (route in routes) {

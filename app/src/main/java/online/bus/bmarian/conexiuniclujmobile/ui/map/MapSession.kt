@@ -15,6 +15,7 @@ import androidx.core.animation.doOnEnd
 import com.google.gson.JsonArray
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
@@ -111,6 +112,11 @@ private const val FADED_VEHICLE_OPACITY = 0.5f
 private const val FADED_VEHICLE_SIZE = 0.7f
 
 private const val GLIDE_MAX_METERS = 600.0
+
+// The selected stop leads its own group; highlighted stops stay out of the groups.
+private data class ClusterKey(val anchor: Int?, val skip: Set<Int>)
+
+private val PLAIN = ClusterKey(null, emptySet())
 private const val CITY_FLIGHT_MS = 2_500
 private const val GLIDE_MS = 1400L
 
@@ -139,8 +145,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var stopsById: Map<Int, Stop> = emptyMap()
     private var looks: NetworkIndex? = null
     private var favorites: Set<Int> = emptySet()
-    // By the stops left out of them; the plain map's stays for coming back to it.
-    private val clusterCache = HashMap<Set<Int>, Clusters>()
+    private var areas: List<Area> = emptyList()
+    // The plain map's stays for coming back to it.
+    private val clusterCache = HashMap<ClusterKey, Clusters>()
     private var drawn: Clusters? = null
     private var building: Pair<Clusters, Job>? = null
     private val scope = MainScope()
@@ -151,6 +158,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private val groupImages = HashSet<String>()
     private val fades = MarkerFades()
     private var spider: MapSpider? = null
+    private var around: MapSpider? = null
+    private var aroundFor: Pair<List<StopGroup>, StopGroup>? = null
+    private var aroundGroup: String? = null
     private val folding = ArrayList<MapSpider>()
     private var stopsDirty = false
     private var spiderDirty = false
@@ -204,6 +214,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addedImages.clear()
             fades.clearLeaving()
             spider = null
+            around = null
+            aroundFor = null
             folding.clear()
             puckStyled = false
             addLayers(loaded, dark)
@@ -228,9 +240,17 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         refreshStops(force = true)
     }
 
+    fun setAreas(list: List<Area>) {
+        if (list === areas) return
+        areas = list
+        clusterCache.clear()
+        refreshStops(force = true)
+    }
+
     fun setSelectedStop(stop: Stop?) {
         if (stop?.stopId == selected?.stopId) return
         selected = stop
+        aroundGroup = null
         applySelected()
         refreshStops()
         drop?.cancel()
@@ -338,9 +358,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .firstOrNull { !it.hasProperty("gone") }?.getStringProperty("id")
 
     fun spiderAt(point: PointF, reach: Float): SpiderHit? {
-        val open = spider ?: return null
+        if (spider == null && around == null) return null
         val id = map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_SPIDER)
             .firstNotNullOfOrNull { f -> if (f.hasProperty("closing")) null else f.getNumberProperty("id")?.toInt() } ?: return null
+        val open = listOfNotNull(spider, around).firstOrNull { it.item(id) != null } ?: return null
         val leg = open.item(id)?.leg ?: return null
         val px = context.resources.displayMetrics.density
         return SpiderHit(id, open.at, PointF(leg.x * px, leg.y * px))
@@ -372,31 +393,50 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun groupCard(group: StopGroup): List<Pair<String, StationLook?>> =
         groupStations(group).map { (id, _) -> stopsById[id]?.name.orEmpty() to looks?.look(id) }
 
+    fun groupStops(group: StopGroup): List<Int> = groupStations(group).map { it.first }
+
     /** Zooms in until the group breaks up, no further than where its stations all stand alone, or spreads out stations that never part. */
     fun expand(group: StopGroup, padding: MapPadding) {
         val index = drawn?.index ?: return
         fades.pulse(group.key, System.nanoTime())
         stopsDirty = true
         motion.start()
-        val e = index.expansion(group, map.cameraPosition.zoom) ?: return spiderfy(index, group)
-        unspiderfy()
         val members = index.members(group)
         val north = members.maxOf { it.lat }
         val south = members.minOf { it.lat }
         val east = members.maxOf { it.lon }
         val west = members.minOf { it.lon }
-        val fitted = map.getCameraForLatLngBounds(LatLngBounds.from(north, east, south, west), padding.ints())?.zoom ?: e.apart
         val center = LatLon(latOf((mercatorY(north) + mercatorY(south)) / 2), lonOf((mercatorX(west) + mercatorX(east)) / 2))
+        val bounds = LatLngBounds.from(north, east, south, west)
+        if (group.area != null) {
+            unspiderfy()
+            val fitted = map.getCameraForLatLngBounds(bounds, padding.ints())?.zoom ?: map.cameraPosition.zoom
+            return flyTo(center, max(fitted, index.lowestStationZoom() ?: fitted), padding)
+        }
+        val e = index.expansion(group, map.cameraPosition.zoom) ?: return spiderfy(index, group)
+        unspiderfy()
+        val fitted = map.getCameraForLatLngBounds(bounds, padding.ints())?.zoom ?: e.apart
         flyTo(center, min(e.apart, max(e.split, fitted)), padding)
     }
 
-    private fun spiderfy(index: StopClusters, group: StopGroup) {
-        val dark = dark ?: return
-        unspiderfy()
-        val now = System.nanoTime()
+    private fun spiderfy(index: MapClusters, group: StopGroup) {
         val stations = groupStations(group)
-        val legs = spiderLegs(stations.size)
-        val legsImg = "spider-$dark-${stations.size}"
+        val spots = stations.mapNotNull { stopsById[it.first] }
+        val centre = LatLon(spots.sumOf { it.lat } / spots.size, spots.sumOf { it.lon } / spots.size)
+        val legs = spiderLegsToward(stations.map { (id, _) -> stopsById[id]?.let { angle(centre, LatLon(it.lat, it.lon)) } ?: 0.0 })
+        unspiderfy()
+        spider = spiderOf(group.key, index.at(group), stations, legs, motionOn()) ?: return
+        fades.hide(group.key, true, System.nanoTime())
+        stopsDirty = true
+        spiderDirty = true
+        motion.start()
+    }
+
+    private fun angle(from: LatLon, to: LatLon) = atan2(mercatorY(to.lat) - mercatorY(from.lat), mercatorX(to.lon) - mercatorX(from.lon))
+
+    private fun spiderOf(key: String, at: LatLon, stations: List<Pair<Int, Boolean>>, legs: List<SpiderLeg>, animate: Boolean): MapSpider? {
+        val dark = dark ?: return null
+        val legsImg = "spider-$dark-" + legs.joinToString(",") { "${it.x}:${it.y}" }
         image(legsImg) { images.spider(legs, dark) }
         val items = stations.mapIndexed { i, (id, favorite) ->
             val name = stopsById[id]?.name.orEmpty()
@@ -405,10 +445,29 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             image(img) { images.spiderItem(icon, name, legs[i].left, dark) }
             SpiderItem(id, img, legs[i], images.spiderItemShift(name))
         }
-        val opened = if (motionOn()) now else now - (SPIDER_OPEN_MS + SPIDER_STEP_MS * items.size) * 1_000_000
-        spider = MapSpider(group.key, index.at(group), legsImg, items, opened)
-        fades.hide(group.key, true, now)
-        stopsDirty = true
+        val now = System.nanoTime()
+        return MapSpider(key, at, legsImg, items, if (animate) now else now - (SPIDER_OPEN_MS + SPIDER_STEP_MS * items.size) * 1_000_000)
+    }
+
+    // The stations the selected stop's marker covers fan out around it, clear of the other markers.
+    private fun aroundSpider(index: MapClusters, group: StopGroup, zoom: Double): MapSpider? {
+        val stations = groupStations(group).drop(1)
+        if (stations.isEmpty()) return null
+        val (obstacles, offset) = index.surroundings(group, zoom)
+        val places = stations.map { (id, _) ->
+            val stop = stopsById.getValue(id)
+            val (label, height) = images.spiderLabel(stop.name)
+            val (x, y) = offset(LatLon(stop.lat, stop.lon))
+            SpiderPlace(x, y, SPIDER_ITEM_BOX, label.toDouble(), height.toDouble())
+        }
+        return spiderOf(group.key, index.at(group), stations, spiderLegsClear(places, obstacles), motionOn() && aroundGroup != group.key)
+    }
+
+    private fun showAround(next: MapSpider?) {
+        val gone = around
+        around = next
+        aroundGroup = next?.key
+        if (gone != null) dropSpiderImages(gone)
         spiderDirty = true
         motion.start()
     }
@@ -430,7 +489,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun dropSpiderImages(gone: MapSpider) {
-        val kept = spider?.images.orEmpty().toSet() + folding.filter { it !== gone }.flatMap { it.images }
+        val kept = listOfNotNull(spider, around).filter { it !== gone }.flatMap { it.images }.toSet() + folding.filter { it !== gone }.flatMap { it.images }
         for (name in gone.images.toSet() - kept) {
             style?.removeImage(name)
             addedImages.remove(name)
@@ -662,9 +721,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private class GroupLabel(val name: String, val more: Int)
 
     /** Created and built on the clustering thread, a step at a time. */
-    private class Clusters(val stopsById: Map<Int, Stop>, private val create: (Clusters) -> StopClusters) {
+    private class Clusters(val stopsById: Map<Int, Stop>, private val create: (Clusters) -> MapClusters) {
         @Volatile
-        var index: StopClusters? = null
+        var index: MapClusters? = null
             private set
         val labels = ConcurrentHashMap<String, GroupLabel>()
 
@@ -677,29 +736,35 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun stopClusters(): Clusters? {
-        val without = buildSet {
-            selected?.let { add(it.stopId) }
-            highlights.forEach { add(it.first.stopId) }
-        }
-        clusterCache[without]?.let { return it }
+        val anchor = selected?.stopId
+        val key = ClusterKey(anchor, highlights.mapTo(HashSet()) { it.first.stopId } - setOfNotNull(anchor))
+        clusterCache[key]?.let { return it }
         if (stops.isEmpty()) return null
-        clusterCache.keys.retainAll { it.isEmpty() }
+        clusterCache.keys.retainAll { it == PLAIN }
         val list = stops
         val net = looks
         val starred = favorites
+        val known = areas.takeIf { key == PLAIN }.orEmpty()
         val clusters = Clusters(stopsById) { built ->
-            val points = list.filter { it.stopId !in without && (net == null || net.look(it.stopId) != null) }.map { s ->
+            val points = list.filter { it.stopId !in key.skip && (net == null || net.look(it.stopId) != null) }.map { s ->
                 val types = net?.look(s.stopId)?.routes?.map { it.type }.orEmpty()
-                StopPoint(s.stopId, s.lat, s.lon, s.station, modeMask(types).takeIf { it != 0 } ?: modeMask(listOf(3)), stationRank(types), s.stopId in starred)
+                val rank = if (s.stopId == anchor) Int.MAX_VALUE else stationRank(types)
+                StopPoint(s.stopId, s.lat, s.lon, s.station, modeMask(types).takeIf { it != 0 } ?: modeMask(listOf(3)), rank, s.stopId in starred)
             }
-            lateinit var index: StopClusters
-            index = StopClusters(points, { group ->
-                if (group.stations.size == 1) STATION_BOX
-                else groupLabel(built, index, group).let { images.groupBox(iconCount(group), it.name, it.more) }
-            }, MAX_ZOOM, CLUSTER_ZOOM_STEP)
+            lateinit var index: MapClusters
+            val boxOf = { group: StopGroup ->
+                when {
+                    anchor != null && points[group.leader].id == anchor -> SELECTED_BOX
+                    group.stations.size == 1 && group.area == null -> STATION_BOX
+                    else -> groupLabel(built, index, group).let { images.groupBox(iconCount(group), it.name, it.more) }
+                }
+            }
+            val stations = StopClusters(points, boxOf, MAX_ZOOM, CLUSTER_ZOOM_STEP)
+            val towns = if (known.isEmpty()) null else AreaClusters(stations, known, boxOf)
+            index = MapClusters(stations, towns, CLUSTER_STATIONS_MAX)
             index
         }
-        clusterCache[without] = clusters
+        clusterCache[key] = clusters
         return clusters
     }
 
@@ -717,7 +782,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
     }
 
-    private fun groupLabel(clusters: Clusters, index: StopClusters, group: StopGroup): GroupLabel = clusters.labels.getOrPut(group.key) {
+    private fun groupLabel(clusters: Clusters, index: MapClusters, group: StopGroup): GroupLabel = clusters.labels.getOrPut(group.key) {
+        index.areaName(group)?.let { return@getOrPut GroupLabel(it, 0) }
         val leader = index.points[group.leader]
         val others = LinkedHashMap<Int, String>()
         for (i in group.points) {
@@ -779,14 +845,26 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val padLat = (bounds.latitudeNorth - bounds.latitudeSouth) / 2
         val padLon = (bounds.longitudeEast - bounds.longitudeWest) / 2
         val index = clusters?.index
-        val visible = if (index == null) emptyList() else index.at(zoom).filter { group ->
-            val p = index.points[group.leader]
+        val inReach = if (index == null) emptyList() else index.at(zoom).filter { group ->
+            val p = index.at(group)
             p.lat in bounds.latitudeSouth - padLat..bounds.latitudeNorth + padLat && p.lon in bounds.longitudeWest - padLon..bounds.longitudeEast + padLon
+        }
+        val anchored = if (index == null) null else inReach.firstOrNull { index.points[it.leader].id == selected?.stopId }
+        val visible = inReach.filter { it !== anchored }
+        if (index != null && anchored != null && anchored.stations.size > 1) {
+            val level = index.at(zoom)
+            if (aroundFor?.first !== level || aroundFor?.second !== anchored) {
+                aroundFor = level to anchored
+                showAround(aroundSpider(index, anchored, zoom))
+            }
+        } else if (around != null) {
+            aroundFor = null
+            showAround(null)
         }
         val keys = visible.mapTo(HashSet()) { it.key }
         if (!redraw && keys == shownKeys) return
         shownKeys = keys
-        shownGroups = visible.filter { it.stations.size > 1 }.associateBy { it.key }
+        shownGroups = visible.filter { it.stations.size > 1 || it.area != null }.associateBy { it.key }
         spider?.takeIf { it.key !in keys }?.let { unspiderfy() }
         val now = System.nanoTime()
         val used = HashSet<String>()
@@ -810,15 +888,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private fun stopFeatures(clusters: Clusters, group: StopGroup, dark: Boolean, used: MutableSet<String>): List<Feature> {
         val index = clusters.index ?: return emptyList()
         val leader = index.points[group.leader]
-        fun feature(img: String, offsetY: Float, block: Feature.() -> Unit = {}) = Feature.fromGeometry(point(LatLon(leader.lat, leader.lon))).apply {
+        val single = group.stations.size == 1 && group.area == null
+        fun feature(img: String, offsetY: Float, block: Feature.() -> Unit = {}) = Feature.fromGeometry(point(index.at(group))).apply {
             addStringProperty("img", img)
-            addNumberProperty("z", if (group.stations.size == 1) 0 else 1)
+            addNumberProperty("z", if (single) 0 else 1)
             addProperty("off", JsonArray().apply { add(0); add(offsetY) })
             addNumberProperty("opacity", 1)
             addNumberProperty("size", 1)
             block()
         }
-        if (group.stations.size == 1) {
+        if (single) {
             return listOf(feature(if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false), 0f) { addNumberProperty("id", leader.id) })
         }
         val label = groupLabel(clusters, index, group)
@@ -844,7 +923,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val stopsMoving = fades.moving(previous)
         if (stopsDirty || stopsMoving) pushStops(now)
         stopsDirty = false
-        val spiderMoving = spider?.moving(previous) == true
+        val spiderMoving = spider?.moving(previous) == true || around?.moving(previous) == true
         val folded = folding.filter { !it.moving(previous) }
         folding.removeAll(folded)
         folded.forEach(::dropSpiderImages)
@@ -867,7 +946,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         src.setGeoJson(FeatureCollection.fromFeatures(fades.leaving(now) + live))    }
 
     private fun pushSpider(now: Long) {
-        source(SRC_SPIDER)?.setGeoJson(FeatureCollection.fromFeatures(folding.flatMap { it.features(now) } + spider?.features(now).orEmpty()))
+        source(SRC_SPIDER)?.setGeoJson(FeatureCollection.fromFeatures(folding.flatMap { it.features(now) } + listOfNotNull(around, spider).flatMap { it.features(now) }))
     }
 
     private fun applySelected() {

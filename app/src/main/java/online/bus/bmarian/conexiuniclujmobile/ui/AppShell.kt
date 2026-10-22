@@ -118,6 +118,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.shell.OfflinePill
 import online.bus.bmarian.conexiuniclujmobile.ui.shell.ToastHost
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.StopScreen
+import online.bus.bmarian.conexiuniclujmobile.ui.stop.StopsScreen
 import org.maplibre.android.MapLibre
 import org.maplibre.android.module.http.HttpRequestUtil
 import org.maplibre.android.offline.OfflineManager
@@ -252,7 +253,8 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 autoFit = autoFit,
                 autoCenter = autoCenter,
                 showVehicleExtras = extras,
-                onStopTap = { navigator.stop(it) },
+                onStopTap = { navigator.mapStop(it) },
+                onStationsTap = { navigator.mapStops(it) },
                 onNeedLocation = {
                     if (!UserLocation.permitted(context)) permission.launch(LOCATION_PERMISSIONS)
                 },
@@ -436,6 +438,9 @@ private fun AppNavHost(navController: NavHostController) {
         composable("stop/{stopId}", arguments = listOf(navArgument("stopId") { type = NavType.IntType })) { entry ->
             Page { StopScreen(entry.arguments?.getInt("stopId") ?: 0) }
         }
+        composable("stops/{stopIds}", arguments = listOf(navArgument("stopIds") { type = NavType.StringType })) { entry ->
+            Page { StopsScreen(entry.arguments?.getString("stopIds").orEmpty().split(',').mapNotNull(String::toIntOrNull)) }
+        }
         composable(
             "route/{routeId}/{direction}?from={from}&change={change}",
             arguments = listOf(
@@ -490,10 +495,24 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
     }
 
     override fun stop(stopId: Int) {
-        if (nav.currentBackStackEntry?.destination?.route == "stop/{stopId}" &&
-            nav.currentBackStackEntry?.arguments?.getInt("stopId") == stopId
-        ) return
+        if (showing(stopId)) return
         nav.navigate("stop/$stopId")
+    }
+
+    override fun mapStop(stopId: Int) {
+        if (!showing(stopId)) fromMap("stop/$stopId")
+    }
+
+    override fun mapStops(stopIds: List<Int>) = fromMap("stops/${stopIds.joinToString(",")}")
+
+    private fun showing(stopId: Int) =
+        nav.currentBackStackEntry?.destination?.route == "stop/{stopId}" && nav.currentBackStackEntry?.arguments?.getInt("stopId") == stopId
+
+    private fun fromMap(target: String) {
+        val current = nav.currentBackStackEntry?.destination
+        nav.navigate(target) {
+            if (current != null && current.route in MAP_PICKS) popUpTo(current.id) { inclusive = true }
+        }
     }
 
     override fun route(routeId: Int, direction: String, fromStopId: Int?, change: Long?) {
@@ -527,6 +546,8 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
         nav.navigate("settings?send=$code" + (key?.let { "&k=${Uri.encode(it)}" } ?: ""))
     }
 }
+
+private val MAP_PICKS = setOf("stop/{stopId}", "stops/{stopIds}")
 
 // Pages a link can open; a first segment that is none of these is a city.
 private val SECTIONS = setOf("stop", "route", "plan", "journey", "search", "settings", "nav")
