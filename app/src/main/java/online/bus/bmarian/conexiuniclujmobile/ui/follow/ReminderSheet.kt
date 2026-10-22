@@ -142,12 +142,17 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
 
     val nowMinutes = minutesOfDay(LocalDateTime.now(CLUJ_ZONE))
     // The times shown: from the next day the reminder runs on; a one-off only offers what's still to come.
-    val dayTimes = if (repeat) {
+    val (listDay, dayTimes) = if (repeat) {
         val day = (0L..6L).map(today::plusDays).firstOrNull { it.dayOfWeek.value in days } ?: today
-        times[dayTypeOf(day)].orEmpty()
+        day to times[dayTypeOf(day)].orEmpty()
     } else {
-        times[dayTypeOf(today)].orEmpty().filter { it > nowMinutes }.ifEmpty { times[dayTypeOf(today.plusDays(1))].orEmpty() }
+        val left = times[dayTypeOf(today)].orEmpty().filter { it > nowMinutes }
+        if (left.isNotEmpty()) today to left else today.plusDays(1).let { it to times[dayTypeOf(it)].orEmpty() }
     }
+    // The next bus has its own choice above, so the grid starts at the one after.
+    val gridTimes = upcoming?.takeIf { !repeat && it.first == listDay }
+        ?.let { (_, minute) -> dayTimes.filter { it != minute || (!soonest && time == it) } }
+        ?: dayTimes
     val chosen = when {
         last -> null
         soonest && !repeat -> upcoming?.second
@@ -263,7 +268,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                     }
                 }
                 Column {
-                    for ((hour, group) in dayTimes.groupBy { it / 60 }) {
+                    for ((hour, group) in gridTimes.groupBy { it / 60 }) {
                         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 "%02d".format(hour % 24),
