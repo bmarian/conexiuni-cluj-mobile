@@ -134,6 +134,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.buzz
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocation
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberLocationAllTheTime
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.LiveBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
@@ -243,6 +245,9 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
 
             Section(stringResource(R.string.w_settings_notifications))
             Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, beta = true, onChange = ::toggleAlarms)
+            Toggle(Icons.Rounded.MyLocation, stringResource(R.string.location_reminders), stringResource(R.string.location_reminders_desc), rememberLocationAllTheTime()) { on ->
+                if (on) ReminderLocation.ask() else ReminderLocation.openAppSettings(context)
+            }
 
             Section(stringResource(R.string.w_transfer))
             Text(

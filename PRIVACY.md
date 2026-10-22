@@ -6,7 +6,9 @@ The “Ce autobuz iau?” apps for Android and Wear OS show live bus and tram de
 
 With your permission, the app uses your location on the phone: to open on the city you are in, to show the stops near you and where you are on the map, to plan trips from where you are, to tell you where to get off during a trip, and to time your walk to the stop for a reminder.
 
-Outside a trip you started, the app doesn't read your location in the background. During a trip it keeps following you with the screen off, with a notification showing, until the trip ends. A reminder times the walk from where you were the last time the app was open, if that was within the hour, and otherwise comes 20 minutes before the bus. That last position is kept only on the phone.
+During a trip you started, the app keeps following you with the screen off, with a notification showing, until the trip ends.
+
+If you allow location all the time, a reminder checks where you are a few times before the bus, even with the app closed: about an hour before, at the heads-up, and when it's time to leave. It uses that to time your walk to the stop and tell you when to go. It doesn't follow you in between, and nothing else reads your location in the background. Without that permission, a reminder times the walk from where you were the last time the app was open, if that was within the hour, and otherwise comes 20 minutes before the bus. These positions are kept only on the phone.
 
 Your location only leaves the phone when you plan a trip from where you are: the start, rounded to about 10 metres, and the destination go to [ceautobuziau.ro](https://ceautobuziau.ro), which works out the trip.
 
@@ -53,4 +55,4 @@ The app isn't directed at children and collects nothing about anyone.
 
 Changes to this policy will be published here. Questions go to the [issue tracker](https://github.com/bmarian/conexiuni-cluj-mobile/issues).
 
-Last updated: October 16, 2026.
+Last updated: October 22, 2026.

@@ -5,7 +5,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.os.Build
 import android.os.Looper
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
@@ -33,6 +35,11 @@ object UserLocation {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
 
+    fun allTheTime(context: Context) = permitted(context) && (
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+
     private fun prefs(context: Context) = context.getSharedPreferences("location", Context.MODE_PRIVATE)
 
     /** Null [city] for anywhere. */
@@ -58,14 +65,16 @@ object UserLocation {
         }
     }
 
-    /** Null unless the app is open, or away from [city]. */
+    fun open() = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+
+    /** Null while the app is closed unless location is allowed all the time, or away from [city]. */
     @SuppressLint("MissingPermission")
     suspend fun current(context: Context, city: String = Cities.current.value): Fix? {
-        val open = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
-        if (!open || !permitted(context)) return null
+        if (if (open()) !permitted(context) else !allTheTime(context)) return null
         val client = LocationServices.getFusedLocationProviderClient(context)
-        val location = runCatching { client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).await() }.getOrNull()
+        val location = runCatching { client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await() }.getOrNull()
             ?: runCatching { client.lastLocation.await() }.getOrNull()
+                ?.takeIf { SystemClock.elapsedRealtime() - it.elapsedRealtimeNanos / 1_000_000 <= RECENT_MS }
         return location?.takeIf { Cities.contains(it.latitude, it.longitude, city) }?.let { Fix(it.latitude, it.longitude, it.accuracy) }
     }
 

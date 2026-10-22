@@ -124,6 +124,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.Rail
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineRow
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocation
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
@@ -257,6 +258,7 @@ fun PlanScreen(query: PlanQuery) {
         withNotifications {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             Reminders.put(context, reminder)
+            ReminderLocation.offer(context)
             val title = resources.getString(R.string.remind_saved)
             if (Reminders.exactAllowed(context)) {
                 Services.settings.showToast(title, reminder.next()?.let { reminderWhen(resources, it, uiLocale) })
