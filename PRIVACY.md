@@ -35,6 +35,8 @@ Like any website, these services see your IP address when the app connects to th
 
 The watch app uses your location, with your permission, to list the stops near you and show where you are on the map, and, until the phone app tells it a city, to open on the city you are in. That happens on the watch, and the location is never sent anywhere.
 
+A reminder set on the watch asks the phone app how long the walk to the stop is, but only while the phone is connected right beside the watch. The phone works it out as described above and sends back just the number of minutes, never the location.
+
 Search on the watch uses its own voice and keyboard input; the app only gets the words, and looks them up in the stops and lines on the watch.
 
 The watch downloads the same things as the phone, from ceautobuziau.ro and OpenFreeMap.
