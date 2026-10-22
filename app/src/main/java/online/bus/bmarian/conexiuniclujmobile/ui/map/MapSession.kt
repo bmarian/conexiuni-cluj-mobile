@@ -396,7 +396,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun groupStops(group: StopGroup): List<Int> = groupStations(group).map { it.first }
 
     /** Zooms in until the group breaks up, no further than where its stations all stand alone, or spreads out stations that never part. */
-    fun expand(group: StopGroup, padding: MapPadding) {
+    suspend fun expand(group: StopGroup, padding: suspend () -> MapPadding) {
         val index = drawn?.index ?: return
         fades.pulse(group.key, System.nanoTime())
         stopsDirty = true
@@ -410,13 +410,15 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val bounds = LatLngBounds.from(north, east, south, west)
         if (group.area != null) {
             unspiderfy()
-            val fitted = map.getCameraForLatLngBounds(bounds, padding.ints())?.zoom ?: map.cameraPosition.zoom
-            return flyTo(center, max(fitted, index.lowestStationZoom() ?: fitted), padding)
+            val pad = padding()
+            val fitted = map.getCameraForLatLngBounds(bounds, pad.ints())?.zoom ?: map.cameraPosition.zoom
+            return flyTo(center, max(fitted, index.lowestStationZoom() ?: fitted), pad)
         }
         val e = index.expansion(group, map.cameraPosition.zoom) ?: return spiderfy(index, group)
         unspiderfy()
-        val fitted = map.getCameraForLatLngBounds(bounds, padding.ints())?.zoom ?: e.apart
-        flyTo(center, min(e.apart, max(e.split, fitted)), padding)
+        val pad = padding()
+        val fitted = map.getCameraForLatLngBounds(bounds, pad.ints())?.zoom ?: e.apart
+        flyTo(center, min(e.apart, max(e.split, fitted)), pad)
     }
 
     private fun spiderfy(index: MapClusters, group: StopGroup) {

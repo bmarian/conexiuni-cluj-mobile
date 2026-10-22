@@ -40,7 +40,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
@@ -102,6 +107,7 @@ fun TransitMap(
     me: Fix?,
     dark: Boolean,
     insets: MapInsets,
+    insetsMoving: () -> Boolean,
     autoFit: Boolean,
     autoCenter: Boolean,
     showVehicleExtras: Boolean,
@@ -114,7 +120,16 @@ fun TransitMap(
     val context = LocalContext.current
     val density = LocalDensity.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val scope = rememberCoroutineScope()
     val currentInsets by rememberUpdatedState(insets)
+    val currentInsetsMoving by rememberUpdatedState(insetsMoving)
+
+    suspend fun restingPadding(extra: Float = 0f): MapPadding {
+        snapshotFlow { currentInsetsMoving() }.first { !it }
+        val i = currentInsets
+        return MapPadding(i.left + extra, i.top + extra, i.right + extra, i.bottom + extra)
+    }
+
     val currentOnStopTap by rememberUpdatedState(onStopTap)
     val currentOnStationsTap by rememberUpdatedState(onStationsTap)
     val currentMe by rememberUpdatedState(me)
@@ -204,8 +219,7 @@ fun TransitMap(
                 if (group != null) {
                     tooltip = null
                     if (group.stations.size <= CLUSTER_STATIONS_MAX) currentOnStationsTap(created.groupStops(group))
-                    val i = currentInsets
-                    created.expand(group, MapPadding(i.left, i.top, i.right, i.bottom))
+                    scope.launch(start = CoroutineStart.UNDISPATCHED) { created.expand(group) { restingPadding() } }
                     return@addOnMapClickListener true
                 }
                 selectedVehicleId = null
@@ -296,19 +310,20 @@ fun TransitMap(
         }
     }
 
-    fun padding(extra: Float): MapPadding {
-        val i = currentInsets
-        return MapPadding(i.left + extra, i.top + extra, i.right + extra, i.bottom + extra)
-    }
-
     val fitPad = with(density) { 24.dp.toPx() }
     val buttonsPad = with(density) { 56.dp.toPx() }
-    fun fit(points: List<LatLon>) = session?.fit(points, padding(fitPad).let { it.copy(right = it.right + buttonsPad) })
+    suspend fun fit(points: List<LatLon>) {
+        val pad = restingPadding(fitPad)
+        session?.fit(points, pad.copy(right = pad.right + buttonsPad))
+    }
 
     fun content(): List<LatLon> =
         controller.shapes.flatMap { it.points } + controller.walkingPolylines.flatten() +
             listOfNotNull(controller.pinnedLocation, controller.customOrigin).map { LatLon(it.lat, it.lon) }
-    fun flyToVisible(target: LatLon, zoom: Double) = session?.flyTo(target, zoom, padding(0f))
+    suspend fun flyToVisible(target: LatLon, zoom: Double) {
+        val pad = restingPadding()
+        session?.flyTo(target, zoom, pad)
+    }
 
     LaunchedEffect(session, dark) { session?.setDark(dark) }
     val bounds = cityBounds?.let { LatLngBounds.from(it.north, it.east, it.south, it.west) }

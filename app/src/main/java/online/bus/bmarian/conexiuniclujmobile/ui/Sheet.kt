@@ -69,13 +69,22 @@ import kotlin.math.roundToInt
 
 enum class SheetSnap { Peek, Half, Full }
 
-private const val HALF_FRACTION = 0.60f
+private const val HALF_FRACTION = 0.50f
 val SHEET_HANDLE = 28.dp
 private val PEEK_CONTENT = 64.dp
 private val FlingThreshold = 400.dp
 private val ReverseSlop = 32.dp
 
 internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = 600f)
+
+// Flings and drags leave isAnimationRunning false.
+val <T> AnchoredDraggableState<T>.moving: Boolean
+    get() {
+        if (isAnimationRunning) return true
+        if (offset.isNaN()) return false
+        val closest = anchors.closestAnchor(offset) ?: return false
+        return abs(offset - anchors.positionOf(closest)) >= 0.5f
+    }
 
 @Stable
 class SheetState(initial: SheetSnap) {

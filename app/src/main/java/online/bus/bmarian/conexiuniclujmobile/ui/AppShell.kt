@@ -91,7 +91,9 @@ import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.MAP_CREDITS
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
@@ -176,13 +178,23 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
         Services.locationPermissionChanged()
     }
 
-    // The screens on the stack belong to this city.
+    // The screens on the stack and the map belong to this city.
     var stackCity by rememberSaveable { mutableStateOf(city) }
     LaunchedEffect(city) {
         if (city == stackCity) return@LaunchedEffect
-        stackCity = city
         navigator.home()
+        sheet.animateTo(SheetSnap.Half)
+        navController.visibleEntries.first { it.size == 1 }
+        stackCity = city
     }
+
+    suspend fun reveal() {
+        if (sheet.anchored.targetValue == SheetSnap.Peek) sheet.animateTo(SheetSnap.Half)
+        if (!sidePanel.isOpen) sidePanel.toggle()
+    }
+
+    // Undispatched: the drawer must be moving before the map centres on the pick.
+    fun revealForPick() = scope.launch(start = CoroutineStart.UNDISPATCHED) { reveal() }
 
     val link by links.collectAsStateWithLifecycle()
     LaunchedEffect(link, stackCity) {
@@ -244,17 +256,24 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
             TransitMap(
                 controller = map,
                 camera = holder.camera,
-                city = city,
-                cityBounds = cityInfo?.bounds,
-                stops = stops,
+                city = stackCity,
+                cityBounds = cities.firstOrNull { it.slug == stackCity }?.bounds,
+                stops = if (stackCity == city) stops else emptyList(),
                 me = me,
                 dark = dark,
                 insets = insets,
+                insetsMoving = { if (side) sidePanel.anchored.moving else sheet.anchored.moving },
                 autoFit = autoFit,
                 autoCenter = autoCenter,
                 showVehicleExtras = extras,
-                onStopTap = { navigator.mapStop(it) },
-                onStationsTap = { navigator.mapStops(it) },
+                onStopTap = {
+                    revealForPick()
+                    navigator.mapStop(it)
+                },
+                onStationsTap = {
+                    revealForPick()
+                    navigator.mapStops(it)
+                },
                 onNeedLocation = {
                     if (!UserLocation.permitted(context)) permission.launch(LOCATION_PERMISSIONS)
                 },
@@ -382,8 +401,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
 
     LaunchedEffect(route) {
         if (route == null || route == "home") return@LaunchedEffect
-        if (sheet.snap == SheetSnap.Peek) sheet.animateTo(SheetSnap.Half)
-        if (!sidePanel.isOpen) sidePanel.toggle()
+        reveal()
     }
     val lower = if (!atRoot || sheet.snap == SheetSnap.Half) null else SheetSnap.Half
     PredictiveBackHandler(enabled = lower != null) { events ->
