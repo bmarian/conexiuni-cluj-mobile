@@ -22,7 +22,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
-class Fix(val lat: Double, val lon: Double, val accuracyMeters: Float, val bearing: Float? = null, val speed: Float? = null)
+class Fix(
+    val lat: Double,
+    val lon: Double,
+    val accuracyMeters: Float,
+    val bearing: Float? = null,
+    val speed: Float? = null,
+    val atMs: Long = System.currentTimeMillis(),
+)
 
 const val LOCATION_UPDATE_MS = 10_000L
 private const val RECENT_MS = 60 * 60_000L
@@ -50,18 +57,18 @@ object UserLocation {
             Double.fromBits(prefs.getLong("lat", 0)),
             Double.fromBits(prefs.getLong("lon", 0)),
             prefs.getFloat("accuracy", 0f),
+            atMs = prefs.getLong("at", 0),
         ).takeIf { city == null || Cities.contains(it.lat, it.lon, city) }
     }
 
     fun save(context: Context, fix: Fix) {
         val prefs = prefs(context)
-        val now = System.currentTimeMillis()
-        if (now - prefs.getLong("at", 0) < SAVE_EVERY_MS) return
+        if (fix.atMs - prefs.getLong("at", 0) < SAVE_EVERY_MS) return
         prefs.edit {
             putLong("lat", fix.lat.toRawBits())
             putLong("lon", fix.lon.toRawBits())
             putFloat("accuracy", fix.accuracyMeters)
-            putLong("at", now)
+            putLong("at", fix.atMs)
         }
     }
 
@@ -75,7 +82,7 @@ object UserLocation {
         val location = runCatching { client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await() }.getOrNull()
             ?: runCatching { client.lastLocation.await() }.getOrNull()
                 ?.takeIf { SystemClock.elapsedRealtime() - it.elapsedRealtimeNanos / 1_000_000 <= RECENT_MS }
-        return location?.takeIf { Cities.contains(it.latitude, it.longitude, city) }?.let { Fix(it.latitude, it.longitude, it.accuracy) }
+        return location?.takeIf { Cities.contains(it.latitude, it.longitude, city) }?.let { Fix(it.latitude, it.longitude, it.accuracy, atMs = it.time) }
     }
 
     @SuppressLint("MissingPermission")

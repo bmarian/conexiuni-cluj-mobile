@@ -36,6 +36,12 @@ import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 
+@Serializable
+data class WalkRequest(val id: String, val city: String, val lat: Double, val lon: Double)
+
+@Serializable
+data class WalkAnswer(val id: String, val walk: Int? = null, val at: Long = 0)
+
 /** Shared with the watch app, one data item per city. */
 @Serializable
 data class SharedFavorites(
@@ -52,6 +58,8 @@ object WearLink {
     const val PATH_JOURNEY_STOP = "/journey/stop"
     const val PATH_JOURNEY_PLAN = "/journey/plan"
     const val PATH_JOURNEY_PLAN_REQUEST = "/journey/plan/request"
+    const val PATH_WALK_REQUEST = "/follow/walk/request"
+    const val PATH_WALK = "/follow/walk"
     // Cluj's; other cities' under it, as /sync/favorites/{city}. Older builds know only Cluj's.
     const val PATH_FAVORITES = "/sync/favorites"
     const val PATH_LANGUAGE = "/sync/language"
@@ -212,8 +220,17 @@ object WearLink {
             PATH_STOP -> FollowManager.onRemoteStop(context, data.decodeToString())
             PATH_JOURNEY_STOP -> JourneyManager.onRemoteStop(context, data.decodeToString())
             PATH_JOURNEY_PLAN_REQUEST -> JourneyManager.onPlanRequest(context, data.decodeToString())
+            PATH_WALK_REQUEST -> runCatching { Api.json.decodeFromString<WalkRequest>(data.decodeToString()) }
+                .getOrNull()
+                ?.let { request -> scope.launch { answerWalk(context, request) } }
             PATH_FAVORITES -> onFavorites(context, Cities.DEFAULT, data.decodeToString())
         }
+    }
+
+    /** A reminder set on the watch: the walk from where the phone is now. */
+    private suspend fun answerWalk(context: Context, request: WalkRequest) {
+        val (walk, at) = Reminders.walkTo(context, request.city, request.lat, request.lon) ?: (null to 0L)
+        send(context, PATH_WALK, Api.json.encodeToString(WalkAnswer(request.id, walk, at)).encodeToByteArray())
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences("wear_sync", Context.MODE_PRIVATE)

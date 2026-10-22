@@ -256,6 +256,10 @@ object Reminders {
         FollowNotifications.remind(context, followed, at, walk, if (walk == 0) Nudge.GetReady else Nudge.LeaveNow, journey)
     }
 
+    /** The walk to [lat]/[lon] and when the fix behind it was taken. */
+    internal suspend fun walkTo(context: Context, city: String, lat: Double, lon: Double) =
+        locate(context, city)?.let { walkMinutes(it.lat, it.lon, lat, lon) to it.atMs }
+
     private suspend fun locate(context: Context, city: String): Fix? {
         val fix = if (!UserLocation.open() && UserLocation.allTheTime(context)) LocateService.fix(context, city)
         else withTimeoutOrNull(LOCATE_MS) { UserLocation.current(context, city) }
