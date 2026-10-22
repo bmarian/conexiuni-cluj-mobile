@@ -143,6 +143,14 @@
     <string name="alarm_setting_desc">Mementourile sună până le oprești</string>
     <string name="alarm_full_screen_off">Permite notificările pe tot ecranul</string>
     <string name="alarm_label">Memento</string>
+    <string name="remind_location">Permite locația întotdeauna, ca mementourile să știe când trebuie să pleci</string>
+    <string name="location_reminders">Locația pentru mementouri</string>
+    <string name="location_reminders_body">%1$s colectează date despre locație ca să calculeze drumul pe jos până la stație și să-ți spună când să pleci după autobuz, chiar și atunci când aplicația este închisă sau nu este folosită. Locația rămâne pe telefon. Ca s-o permiți, alege „%2$s”.</string>
+    <string name="location_reminders_desc">Află când să pleci, chiar și cu aplicația închisă</string>
+    <string name="location_all_the_time">Permite întotdeauna</string>
+    <string name="location_continue">Continuă</string>
+    <string name="location_not_now">Nu acum</string>
+    <string name="locating">Calculez drumul până la stație</string>
     <string name="app_version">Versiunea %1$s</string>
     <string name="update_question">Vrei să actualizezi aplicația?</string>
     <string name="watch_install_question">Vrei să instalezi aplicația pe ceas?</string>

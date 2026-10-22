@@ -100,6 +100,7 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocationDialog
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeChrome
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeRequests
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeScreen
@@ -178,7 +179,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
         Services.locationPermissionChanged()
     }
 
-    // The screens on the stack and the map belong to this city.
     var stackCity by rememberSaveable { mutableStateOf(city) }
     LaunchedEffect(city) {
         if (city == stackCity) return@LaunchedEffect
@@ -193,7 +193,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
         if (!sidePanel.isOpen) sidePanel.toggle()
     }
 
-    // Undispatched: the drawer must be moving before the map centres on the pick.
+    // Undispatched: the sheet must be moving before the map centres.
     fun revealForPick() = scope.launch(start = CoroutineStart.UNDISPATCHED) { reveal() }
 
     val link by links.collectAsStateWithLifecycle()
@@ -401,6 +401,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
             ToastHost(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp))
             val onboarded by Services.settings.onboarded.collectAsStateWithLifecycle()
             if (!onboarded) Onboarding(onDone = Services.settings::setOnboarded)
+            ReminderLocationDialog()
         }
     }
 

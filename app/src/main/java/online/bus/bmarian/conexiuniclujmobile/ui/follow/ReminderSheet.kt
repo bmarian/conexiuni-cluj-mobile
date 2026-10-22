@@ -149,7 +149,6 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
         val left = times[dayTypeOf(today)].orEmpty().filter { it > nowMinutes }
         if (left.isNotEmpty()) today to left else today.plusDays(1).let { it to times[dayTypeOf(it)].orEmpty() }
     }
-    // The next bus has its own choice above, so the grid starts at the one after.
     val gridTimes = upcoming?.takeIf { !repeat && it.first == listDay }
         ?.let { (_, minute) -> dayTimes.filter { it != minute || (!soonest && time == it) } }
         ?: dayTimes
@@ -314,6 +313,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                     }
                 }
             }
+            if (!rememberLocationAllTheTime()) PermissionRow(stringResource(R.string.remind_location), ReminderLocation::ask)
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
@@ -355,6 +355,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                         withNotifications {
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                             Reminders.put(context, reminder)
+                            ReminderLocation.offer(context)
                             Services.settings.showToast(resources.getString(R.string.remind_saved), next?.let { reminderWhen(resources, it, locale) })
                             onDismiss()
                         }

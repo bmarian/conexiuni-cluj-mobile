@@ -128,6 +128,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
+import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocation
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
@@ -264,6 +265,7 @@ fun StopScreen(stopId: Int) {
                     followNow(followed)
                 } else {
                     Reminders.put(context, reminder)
+                    ReminderLocation.offer(context)
                     val title = resources.getString(R.string.remind_saved)
                     if (Reminders.exactAllowed(context)) {
                         Services.settings.showToast(title, reminder.next()?.let { reminderWhen(resources, it, locale) })

@@ -97,14 +97,11 @@ fun planQueryFor(plan: FavoritePlan): PlanQuery {
     )
 }
 
-// Material's docked search (SearchBar.kt): at most 2/3 of the screen, at least 240dp.
 private const val DOCKED_HEIGHT_RATIO = 2f / 3f
 private val DOCKED_MIN_HEIGHT = 240.dp
 
-/** Full screen on a phone; on wide windows a card docked over the search bar. */
 @Composable
 fun SearchOverlay(visible: Boolean, state: SearchState, docked: Boolean, modifier: Modifier = Modifier, onClose: (clear: Boolean) -> Unit) {
-    // A tap beside the docked card closes it and keeps what was typed.
     if (docked && visible) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { onClose(false) } })
     AnimatedVisibility(
         visible = visible,
