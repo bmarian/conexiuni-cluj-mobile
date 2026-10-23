@@ -59,7 +59,7 @@ class Sync(private val context: Context) {
         }
         val s = Services.settings
         scope.launch {
-            combine(s.theme, s.locale, s.autoCenterOnMe, s.autoFitMap, s.showVehicleExtras) { _, _, _, _, _ -> }
+            combine(s.theme, s.locale, s.autoCenterOnMe, s.autoFitMap) { _, _, _, _ -> }
                 .combine(s.regions) { _, regions -> s.regionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY, regions) }
                 .drop(1).debounce(AFTER_EDIT_MS).collect { if (_withSettings.value) syncNow() }
         }

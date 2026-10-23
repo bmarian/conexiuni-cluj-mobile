@@ -108,7 +108,7 @@ class Settings(private val context: Context) {
 
     val autoCenterOnMe = bool("autoCenterOnMe", true)
     val autoFitMap = bool("autoFitMap", true)
-    val showVehicleExtras = bool("showVehicleExtras", true)
+    val colorfulLines = bool("colorfulLines", false)
     val journeyVoice = bool("journeyVoice", true)
     val fullScreenAlarms = bool("fullScreenAlarms", false)
 
@@ -117,7 +117,7 @@ class Settings(private val context: Context) {
 
     fun setAutoCenterOnMe(v: Boolean) = set(autoCenterOnMe, "autoCenterOnMe", v)
     fun setAutoFitMap(v: Boolean) = set(autoFitMap, "autoFitMap", v)
-    fun setShowVehicleExtras(v: Boolean) = set(showVehicleExtras, "showVehicleExtras", v)
+    fun setColorfulLines(v: Boolean) = set(colorfulLines, "colorfulLines", v)
     fun setJourneyVoice(v: Boolean) = set(journeyVoice, "journeyVoice", v)
     fun setFullScreenAlarms(v: Boolean) = set(fullScreenAlarms, "fullScreenAlarms", v)
 

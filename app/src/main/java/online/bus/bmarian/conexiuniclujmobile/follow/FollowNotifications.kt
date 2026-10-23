@@ -17,6 +17,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Links
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ownHex
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import androidx.compose.ui.graphics.toArgb
 
@@ -25,6 +26,8 @@ private const val FIRST_SLOT = 100
 
 /** What a reminder says: when to go by, to go now, or, without a fresh fix or at the stop, to get ready. */
 enum class Nudge { LeaveBy, LeaveNow, GetReady }
+
+internal val Followed.shownColor get() = ownHex(shortName, color) ?: color
 
 object FollowNotifications {
     const val FOLLOW_CHANNEL = "follow"
@@ -73,7 +76,7 @@ object FollowNotifications {
         val followed = state.followed
         val minutes = state.minutes
         val nowMs = System.currentTimeMillis()
-        val color = routeColor(followed.color).toArgb()
+        val color = routeColor(followed.shownColor).toArgb()
         val leaveAt = state.leaveAt?.takeIf { minutes != null }
         val leaveBy = state.leaveBy
         val (title, text) = when {
@@ -84,7 +87,7 @@ object FollowNotifications {
         }
         val builder = Notification.Builder(context, if (alert) ALERT_CHANNEL else FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
-            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
+            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.shownColor))
             .setContentTitle(title)
             .setContentText(text)
             .setColor(color)
@@ -150,7 +153,7 @@ object FollowNotifications {
         Notification.ProgressStyle()
             .setStyledByProgress(true)
             .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100).setColor(color)))
-            .setProgressTrackerIcon(NotificationArt.bus(context, followed.color))
+            .setProgressTrackerIcon(NotificationArt.bus(context, followed.shownColor))
             .setProgressEndIcon(NotificationArt.stop(context))
             .setProgress(done)
 
@@ -162,10 +165,10 @@ object FollowNotifications {
             else -> return null
         }
         ensureChannels(context)
-        val color = routeColor(followed.color).toArgb()
+        val color = routeColor(followed.shownColor).toArgb()
         val builder = Notification.Builder(context, FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
-            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
+            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.shownColor))
             .setContentTitle(title)
             .setColor(color)
             .setOnlyAlertOnce(true)
@@ -197,10 +200,10 @@ object FollowNotifications {
         }
         val notification = Notification.Builder(context, if (kind == Nudge.LeaveBy) REMINDER_CHANNEL else ALERT_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
-            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.color))
+            .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.shownColor))
             .setContentTitle(title)
             .setContentText(text)
-            .setColor(routeColor(followed.color).toArgb())
+            .setColor(routeColor(followed.shownColor).toArgb())
             .setCategory(Notification.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setTimeoutAfter((atMs - nowMs).coerceAtLeast(0) + 5 * 60_000L)

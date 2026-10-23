@@ -50,7 +50,7 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 
 @Composable
 fun rememberNow(): LocalDateTime {
@@ -72,17 +72,12 @@ fun LineBadge(
     minWidth: Dp = 40.dp,
     corner: Dp = 8.dp,
 ) {
-    Box(
-        modifier = modifier
-            .widthIn(min = minWidth)
-            .heightIn(min = height)
-            .clip(RoundedCornerShape(corner))
-            .background(routeColor(color))
-            .padding(horizontal = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
+    val looks = LocalLineLooks.current
+    val morph = rememberMorph(shortName, looks.color(shortName, color), looks.favorite(shortName))
+    FavoriteMorph(morph, RoundedCornerShape(corner), modifier.widthIn(min = minWidth).heightIn(min = height)) {
         Text(
             shortName,
+            Modifier.padding(horizontal = 6.dp),
             color = Color.White,
             fontSize = (height.value * 0.45f).sp,
             fontWeight = FontWeight.Black,

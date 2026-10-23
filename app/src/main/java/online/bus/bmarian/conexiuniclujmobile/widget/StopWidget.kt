@@ -50,6 +50,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.Links
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ownHex
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -115,7 +116,7 @@ class StopWidget : GlanceAppWidget() {
     private fun DepartureRow(row: WidgetRow) {
         Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                GlanceModifier.width(44.dp).height(24.dp).cornerRadius(7.dp).background(ColorProvider(routeColor(row.color))),
+                GlanceModifier.width(44.dp).height(24.dp).cornerRadius(7.dp).background(ColorProvider(routeColor(ownHex(row.line, row.color)))),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(row.line, style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp, color = ColorProvider(Color.White)), maxLines = 1)

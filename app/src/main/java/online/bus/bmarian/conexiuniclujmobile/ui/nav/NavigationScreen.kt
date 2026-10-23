@@ -138,7 +138,8 @@ import online.bus.bmarian.conexiuniclujmobile.journey.Progress
 import online.bus.bmarian.conexiuniclujmobile.journey.RouteLine
 import online.bus.bmarian.conexiuniclujmobile.journey.rideRoute
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ridesApart
 
 class NavigationViewModel : ViewModel() {
     private val _vehicles = MutableStateFlow<List<MapVehicle>>(emptyList())
@@ -243,6 +244,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
     val vm: NavigationViewModel = viewModel()
     val vehicles by vm.vehicles.collectAsStateWithLifecycle()
     val voice by Services.settings.journeyVoice.collectAsStateWithLifecycle()
+    val looks = LocalLineLooks.current
     var bannerBottom by remember { mutableFloatStateOf(0f) }
     var panelHeight by remember { mutableFloatStateOf(0f) }
     var overview by remember { mutableStateOf(false) }
@@ -273,9 +275,12 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
         progress = p
     }
     LaunchedEffect(journey, vehicles, riding, progress) { journey?.let { map.navigation = navScene(it, if (riding) emptyList() else vehicles, progress) } }
-    LaunchedEffect(journey, riding, state?.legIndex, state?.line, state?.color) {
-        val leg = journey?.legs?.getOrNull(state?.legIndex ?: -1)
-        map.rideAs = if (riding && leg != null) RideAs(state?.color ?: leg.colors.first()) else null
+    LaunchedEffect(journey, riding, state?.legIndex, state?.line, state?.color, looks) {
+        val trip = journey
+        val leg = trip?.legs?.getOrNull(state?.legIndex ?: -1)
+        map.rideAs = if (riding && leg != null) {
+            RideAs(looks.hex(state?.line ?: leg.lines.first(), state?.color ?: leg.colors.first(), ridesApart(trip.legs.map { it.lines })) ?: leg.colors.first())
+        } else null
     }
     LaunchedEffect(bannerBottom, panelHeight) { onInsets(bannerBottom, panelHeight) }
     BackHandler(onBack = onClose)
@@ -482,11 +487,13 @@ private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifie
     val getOff = stringResource(R.string.journey_get_off_at, "%s")
     val start = MaterialTheme.colorScheme.tertiary
     val end = MaterialTheme.colorScheme.primary
-    val (rows, current) = remember(journey, sync.stepType, sync.legIndex, sync.stopsLeft, sync.totalStops, walkTo, getOn, getOff, changeAt) {
+    val looks = LocalLineLooks.current
+    val (rows, current) = remember(journey, sync.stepType, sync.legIndex, sync.stopsLeft, sync.totalStops, walkTo, getOn, getOff, changeAt, looks) {
         val rows = mutableListOf<StepRow>()
         var current = 0
+        val apart = ridesApart(journey.legs.map { it.lines })
         journey.legs.forEachIndexed { i, leg ->
-            val color = routeColor(leg.colors.firstOrNull() ?: "#64748b")
+            val color = looks.color(leg.lines.firstOrNull(), leg.colors.firstOrNull() ?: "#64748b", apart)
             val walkRow = rows.size
             val previous = journey.legs.getOrNull(i - 1)?.alighting
             val sameStop = previous != null && haversineMeters(previous.lat, previous.lon, leg.boarding.lat, leg.boarding.lon) < 40
@@ -564,6 +571,8 @@ private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifie
 @Composable
 private fun TripProgress(journey: Journey, progress: Float) {
     val parts = remember(journey) { JourneyProgress.parts(journey) }
+    val looks = LocalLineLooks.current
+    val apart = ridesApart(journey.legs.map { it.lines })
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val walk = MapColors.Walk
     Canvas(Modifier.fillMaxWidth().height(8.dp)) {
@@ -579,7 +588,7 @@ private fun TripProgress(journey: Journey, progress: Float) {
             drawRoundRect(track, Offset(x, 0f), Size(w, size.height), r)
             val filled = ((done - start) / part.minutes).coerceIn(0.0, 1.0).toFloat()
             if (filled > 0f) {
-                val color = if (part.ride) routeColor(part.color ?: "#64748b") else walk
+                val color = if (part.ride) looks.color(journey.legs.getOrNull(part.leg)?.lines?.firstOrNull(), part.color ?: "#64748b", apart) else walk
                 drawRoundRect(color, Offset(x, 0f), Size(w * filled, size.height), r)
             }
             x += w + gap

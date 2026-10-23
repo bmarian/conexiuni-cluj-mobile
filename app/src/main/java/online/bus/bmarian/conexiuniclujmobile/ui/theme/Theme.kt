@@ -10,6 +10,8 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -129,9 +131,11 @@ fun ConexiuniTheme(dark: Boolean, dynamic: Boolean = true, content: @Composable 
         dark -> DarkColors
         else -> LightColors
     }
+    val lineLooks by LineColors.looks.collectAsState()
     androidx.compose.runtime.CompositionLocalProvider(
         LocalDarkTheme provides dark,
         LocalLiveColors provides if (dark) LiveDark else LiveLight,
+        LocalLineLooks provides lineLooks,
     ) {
         MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive(), content = content)
     }

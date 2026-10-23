@@ -302,7 +302,7 @@ fun StopScreen(stopId: Int) {
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                StationIcon(look, size = 52.dp, shape = RoundedCornerShape(16.dp))
+                StationIcon(look, size = 52.dp, shape = RoundedCornerShape(16.dp), favorite = isFavorite.takeIf { infos.isNotEmpty() && look != null })
                 Column(Modifier.weight(1f).padding(top = 2.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(

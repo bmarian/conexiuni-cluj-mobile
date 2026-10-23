@@ -57,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -163,20 +164,7 @@ fun PopIcon(
         icon,
         contentDescription,
         modifier
-            .drawBehind {
-                val b = burst.value
-                if (b >= 1f) return@drawBehind
-                val reach = size.minDimension * (0.55f + 0.75f * b)
-                val dot = size.minDimension * 0.11f * (1f - b)
-                for (i in 0 until 8) {
-                    val angle = (i / 8f) * 2f * PI.toFloat() - PI.toFloat() / 2f
-                    drawCircle(
-                        tint.copy(alpha = (1f - b) * tint.alpha),
-                        dot,
-                        center + Offset(cos(angle) * reach, sin(angle) * reach),
-                    )
-                }
-            }
+            .drawBehind { drawSparks(burst.value, tint) }
             .graphicsLayer {
                 scaleX = pop.value
                 scaleY = pop.value
@@ -184,6 +172,17 @@ fun PopIcon(
             },
         tint = tint,
     )
+}
+
+/** PopIcon's ring of sparks at [burst] (0 to 1) around a [box]-sized icon. */
+fun DrawScope.drawSparks(burst: Float, tint: Color, box: Float = size.minDimension) {
+    if (burst >= 1f) return
+    val reach = box * (0.55f + 0.75f * burst)
+    val dot = box * 0.11f * (1f - burst)
+    for (i in 0 until 8) {
+        val angle = (i / 8f) * 2f * PI.toFloat() - PI.toFloat() / 2f
+        drawCircle(tint.copy(alpha = (1f - burst) * tint.alpha), dot, center + Offset(cos(angle) * reach, sin(angle) * reach))
+    }
 }
 
 /** An up arrow that shoots out the top and springs back in from the bottom, over and over. Clip its parent. */

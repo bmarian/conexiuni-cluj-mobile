@@ -91,7 +91,7 @@ object SyncLocal {
             locale = s.locale.value,
             autoCenterOnMe = s.autoCenterOnMe.value,
             autoFitMap = s.autoFitMap.value,
-            showVehicleExtras = s.showVehicleExtras.value,
+            showVehicleExtras = true,
             greenFriday = s.regionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY),
         )
     }
@@ -102,7 +102,6 @@ object SyncLocal {
         if (s.locale.value != r.locale) s.setLocale(r.locale)
         if (s.autoCenterOnMe.value != r.autoCenterOnMe) s.setAutoCenterOnMe(r.autoCenterOnMe)
         if (s.autoFitMap.value != r.autoFitMap) s.setAutoFitMap(r.autoFitMap)
-        if (s.showVehicleExtras.value != r.showVehicleExtras) s.setShowVehicleExtras(r.showVehicleExtras)
         if (s.regionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY) != r.greenFriday) {
             s.setRegionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY, r.greenFriday)
         }

@@ -141,7 +141,7 @@
     <string name="w_news">News</string>
     <string name="w_auto_center_on_me">Center on me</string>
     <string name="w_auto_fit_map">Fit map</string>
-    <string name="w_vehicle_extras">Bus details</string>
+    <string name="w_colorful_lines">Colorful lines</string>
     <string name="w_timetable_changes">Timetable changes</string>
     <string name="w_news_loading">Loading…</string>
     <string name="w_news_empty">Nothing new</string>
@@ -195,7 +195,7 @@
     <string name="w_settings_notifications">Notifications</string>
     <string name="w_language_desc">Stop and line names stay in Romanian.</string>
     <string name="w_green_friday_setting_desc">Show a reminder on Fridays, when transport is free.</string>
-    <string name="w_vehicle_extras_desc">Show wheelchair and bike access on buses.</string>
+    <string name="w_colorful_lines_desc">Give every line its own color.</string>
     <string name="w_auto_center_on_me_desc">Center the map on you when it opens.</string>
     <string name="w_auto_fit_map_desc">Show the whole line when you open it.</string>
     <string name="w_beta">Beta</string>

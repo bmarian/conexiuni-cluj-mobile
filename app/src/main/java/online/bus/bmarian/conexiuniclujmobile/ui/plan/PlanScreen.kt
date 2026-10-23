@@ -141,7 +141,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
 
 @Composable
@@ -599,12 +599,13 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
         }
         return
     }
+    val apart = vm.linesApart(plan)
     var ride = 0
     plan.legs.forEachIndexed { i, leg ->
         if (!leg.isRide) return@forEachIndexed
         val legIdx = ride++
         val trips = plan.legTrips(legIdx)
-        val color = routeColor(vm.line(leg.lines.firstOrNull())?.color)
+        val color = vm.line(leg.lines.firstOrNull()).let { lineColor(it?.shortName, it?.color, apart) }
         val key = "detail-${plan.key}-$legIdx"
         val open = key in expanded
         TimelineRow(top = Rail.Walk, bottom = Rail.Ride(color), dot = TimelineDot.Station, color = color) {
@@ -783,7 +784,7 @@ private fun PlanCard(
                         val key = "list-${plan.key}-$lIdx"
                         val open = key in expanded
                         val names = (if (open) leg.lines else leg.lines.take(3)).joinToString("/") { vm.line(it)?.shortName.orEmpty() }
-                        Chip(names, routeColor(vm.line(leg.lines.firstOrNull())?.color), Color.White)
+                        Chip(names, vm.line(leg.lines.firstOrNull()).let { lineColor(it?.shortName, it?.color, vm.linesApart(plan)) }, Color.White)
                         if (leg.lines.size > 3) {
                             Text(
                                 if (open) "«" else "+${leg.lines.size - 3}",

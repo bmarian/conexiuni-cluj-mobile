@@ -69,6 +69,9 @@ import online.bus.bmarian.conexiuniclujmobile.logic.bikeAccess
 import online.bus.bmarian.conexiuniclujmobile.logic.wheelchairAccess
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LineColors
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.manyLines
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -110,7 +113,6 @@ fun TransitMap(
     insetsMoving: () -> Boolean,
     autoFit: Boolean,
     autoCenter: Boolean,
-    showVehicleExtras: Boolean,
     onStopTap: (Int) -> Unit,
     onStationsTap: (List<Int>) -> Unit,
     onNeedLocation: () -> Unit,
@@ -351,15 +353,25 @@ fun TransitMap(
     LaunchedEffect(session, shownHighlights, stopsById) {
         session?.setHighlights(shownHighlights.mapNotNull { (id, h) -> stopsById[id]?.let { it to h } })
     }
-    val scene = remember(controller.shapes, controller.directionArrowAtStart, nav) {
-        if (nav != null) buildScene(nav.shapes, terminals = false, arrows = false)
-        else buildScene(controller.shapes, terminals = controller.highlightedStops.isEmpty(), arrows = controller.directionArrowAtStart)
+    val shownShapes = nav?.shapes ?: controller.shapes
+    val drawnLines = remember(shownShapes) { shownShapes.filter { it.points.isNotEmpty() }.map { it.shortName to it.color } }
+    LaunchedEffect(drawnLines) { LineColors.draw(drawnLines) }
+    val base = LocalLineLooks.current
+    val looks = remember(base, drawnLines) { base.drawing(drawnLines) }
+    val scene = remember(shownShapes, controller.directionArrowAtStart, nav, looks) {
+        val colored = shownShapes.map { MapShape(it.tripId, it.shortName, looks.hex(it.shortName, it.color) ?: it.color, it.points) }
+        if (nav != null) buildScene(colored, terminals = false, arrows = false)
+        else buildScene(colored, terminals = controller.highlightedStops.isEmpty(), arrows = controller.directionArrowAtStart)
     }
-    LaunchedEffect(session, scene) { session?.setScene(scene) }
+    val coloredVehicles = remember(shownVehicles, looks) {
+        val apart = manyLines(shownVehicles.map { it.shortName })
+        shownVehicles.map { MapVehicle(it.id, it.vehicle, it.shortName, looks.hex(it.shortName, it.color, apart) ?: it.color, it.heading, it.faded) }
+    }
+    LaunchedEffect(session, scene) { session?.setScene(scene, looks.favoriteNames) }
     LaunchedEffect(session, shownWalks) { session?.setWalks(shownWalks) }
-    LaunchedEffect(session, shownVehicles) {
-        session?.setVehicles(shownVehicles)
-        if (shownVehicles.none { it.id == selectedVehicleId }) selectedVehicleId = null
+    LaunchedEffect(session, coloredVehicles) {
+        session?.setVehicles(coloredVehicles)
+        if (coloredVehicles.none { it.id == selectedVehicleId }) selectedVehicleId = null
     }
     LaunchedEffect(session) { session?.onTrackingLost = { controller.trackingLost = true } }
     var hadNav by remember { mutableStateOf(false) }
@@ -470,7 +482,7 @@ fun TransitMap(
         val s = session
         if (s != null) {
             tooltip?.let { tip -> MapTooltip(s, tip, dark) }
-            selectedVehicleId?.let { id -> VehicleBubble(s, id, dark, showVehicleExtras) }
+            selectedVehicleId?.let { id -> VehicleBubble(s, id, dark) }
         }
     }
 }
@@ -573,7 +585,7 @@ private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
 }
 
 @Composable
-private fun VehicleBubble(session: MapSession, id: String, dark: Boolean, extras: Boolean) {
+private fun VehicleBubble(session: MapSession, id: String, dark: Boolean) {
     val shown = session.shownVehicle(id) ?: return
     val vehicle = shown.vehicle
     val offset = with(LocalDensity.current) { 22.dp.toPx() }
@@ -588,7 +600,7 @@ private fun VehicleBubble(session: MapSession, id: String, dark: Boolean, extras
                 Text(vehicle.shortName, color = Color(0xFFF1F5F9), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 val wheelchair = wheelchairAccess(vehicle.vehicle)
                 val bikes = bikeAccess(vehicle.vehicle)
-                if (extras && (wheelchair != null || bikes != null)) {
+                if (wheelchair != null || bikes != null) {
                     val gray = Color(0xFF94A3B8)
                     Text("·", color = gray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     wheelchair?.let { ok ->

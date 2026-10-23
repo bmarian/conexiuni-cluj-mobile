@@ -155,7 +155,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
 
 @Composable
 fun routeViewModel(routeId: Int, direction: String, fromStopId: Int?, changeId: Long?): RouteViewModel =
@@ -768,7 +768,7 @@ fun RouteChangeBanner(change: RouteChange, onDismiss: () -> Unit) {
     val locale by Services.settings.locale.collectAsStateWithLifecycle()
     var showMore by rememberSaveable(change.id) { mutableStateOf(false) }
     var openRows by remember(change.id) { mutableStateOf(emptySet<String>()) }
-    val line = routeColor(change.routeColor.ifEmpty { "#64748b" })
+    val line = lineColor(change.routeShortName, change.routeColor.ifEmpty { "#64748b" })
     Column(
         Modifier.fillMaxWidth().background(line.copy(alpha = 0.10f)).padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 8.dp),
     ) {
