@@ -137,10 +137,9 @@
     <string name="alarm_setting_desc">Reminders ring until you stop them</string>
     <string name="alarm_full_screen_off">Allow full screen notifications</string>
     <string name="alarm_label">Reminder</string>
-    <string name="remind_location">Allow location all the time, so reminders know when you need to leave</string>
+    <string name="remind_location">Allow location all the time, so the app can tell you when to leave</string>
     <string name="location_reminders">Location for reminders</string>
-    <string name="location_reminders_body">%1$s collects location data to time your walk to the stop and tell you when to leave for your bus, even when the app is closed or not in use. Your location stays on this phone. To allow it, choose “%2$s”.</string>
-    <string name="location_reminders_desc">Know when to leave, even with the app closed</string>
+    <string name="location_reminders_body">“%1$s” collects data about your location even when the app is closed or not in use. This data is needed to work out your walk to the stop and to tell you when to leave for your bus.\n\nYour location stays only on your phone. To allow this feature, choose “%2$s”.</string>
     <string name="location_all_the_time">Allow all the time</string>
     <string name="location_continue">Continue</string>
     <string name="location_not_now">Not now</string>
