@@ -41,13 +41,19 @@ Search on the watch uses its own voice and keyboard input; the app only gets the
 
 The watch downloads the same things as the phone, from ceautobuziau.ro and OpenFreeMap.
 
-Your favorites, followed buses and trips go between the phone and the watch through Google Play services' Wear OS connection, which Google relays when the two aren't connected directly.
+Your favorites, followed buses and trips go between the phone and the watch through Google Play services' Wear OS connection, which Google relays when the two aren't connected directly. A watch used without the phone app can join sync on its own (below), and then syncs only favorite stops and lines.
 
 ## Favorites and settings
 
 Your favorites, reminders and settings are stored on your devices, and in Android's backup of your phone if you turned that on.
 
-When you move them to another device, they go through ceautobuziau.ro. If the other device scans the code, they are encrypted with a key the server never sees. If the code is typed, the server can read them while it passes them on. They're only ever kept in the server's memory, never written to disk. They're deleted as soon as the other device picks them up, and an unused code expires after 10 minutes.
+With Sync with other devices on, your favorite stops, lines and places and the lines whose changes you follow stay the same on your phone, watch and the website; with Also sync settings, so do the theme, language and map settings. Reminders, followed buses, trips and recent searches stay on the device they were made on.
+
+Everything synced is encrypted on your devices with a key that ceautobuziau.ro never gets, so the server stores it but can't read it. The key goes to a new device when you add it: inside the QR code, in a part of the link that never reaches the server, or, when you type the code instead, through a key exchange that you confirm by checking that both screens show the same six-digit number. The key isn't in Android's backup.
+
+For each group of synced devices, the server keeps the encrypted data, padded to a few fixed sizes so its size says little about what's in it; each device's type (phone, watch or browser), when it joined and the day it last synced; and what it needs to let only those devices in. The device names you see in the list are encrypted too. Codes for adding a device are kept only in the server's memory and expire after 5 minutes. The server's request log doesn't record which group a request is for.
+
+Removing a device gives the others a new key, so it can't read anything synced afterwards. Turning off sync on the last device, or Turn off sync everywhere, deletes the group from the server, and a group that no device has used for a year is deleted on its own. Your devices keep their favorites either way.
 
 ## Children
 
@@ -57,4 +63,4 @@ The app isn't directed at children and collects nothing about anyone.
 
 Changes to this policy will be published here. Questions go to the [issue tracker](https://github.com/bmarian/conexiuni-cluj-mobile/issues).
 
-Last updated: October 22, 2026.
+Last updated: October 23, 2026.
