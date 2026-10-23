@@ -8,7 +8,7 @@ SKIP = re.compile(
     r"^(head|kbd|simplified|watch|bsod|paper|arcade|legacyBlue|funMode|metroLegacy|pong|"
     r"themeDefault|adminDashboard|settingsAdminDesc|pushUnsupported|pushBrave|pushDeniedToastBody|pushFailed|notFoundFunny|"
     r"offlineBanner|searchRoutes|noRouteData|goBack|scheduledApprox|kbdHelp|weather|push|timetableChangesDesc|"
-    r"newsHasUpdates|android|busAlerts|experimental|limitReached|"
+    r"newsHasUpdates|android|busAlerts|experimental|"
     r"notificationsBlocked|remind|leave|journey|nav[A-Z]|follow(Arriving|Now|In|AtClock|Done|NoBus|Waiting)|following|"
     r"stopFollowing|notifyMe|wakeMe|directions|loadFailed|retry|save$|close$|shareFinding|shareNotFound|etaMinutes|"
     r"departuresClickHint|departuresHoldHint|stopsClickHint|stopsHoldHint|hostMove|region)"
@@ -40,10 +40,6 @@ APP = {
         "w_plan_no_results": "No trips found",
         "w_plan_searching": "Searching…",
         "w_rename_favorite_placeholder": "Name…",
-        "w_export_copied": "Copied",
-        "w_import_paste_placeholder": "Paste settings here…",
-        "w_import_success": "Imported",
-        "w_import_error": "These aren\\'t valid settings",
         "w_vehicle_extras": "Bus details",
         "w_vehicle_extras_desc": "Show wheelchair and bike access on buses.",
         "w_news_loading": "Loading…",
@@ -61,12 +57,6 @@ APP = {
         "w_auto_center_on_me": "Center on me",
         "w_auto_center_on_me_desc": "Center the map on you when it opens.",
         "w_auto_fit_map_desc": "Show the whole line when you open it.",
-        "w_transfer_desc": "Move your favorites and settings: tap Receive on the new device, then Send here.",
-        "w_transfer_hint": "Scan the code, or type the number under Settings, Send on the other device.",
-        "w_transfer_loading": "Getting a code…",
-        "w_receive_done": "Received",
-        "w_send_done": "Sent",
-        "w_send_too_many": "Too many tries. Wait a minute.",
     },
     "values": {
         "w_route": "Linie",
@@ -90,10 +80,6 @@ APP = {
         "w_plan_searching": "Se caută…",
         "w_rename_favorite": "Redenumește",
         "w_rename_favorite_placeholder": "Nume…",
-        "w_export_copied": "Copiat",
-        "w_import_paste_placeholder": "Lipește setările aici…",
-        "w_import_success": "Importat",
-        "w_import_error": "Nu sunt setări valide",
         "w_vehicle_extras": "Detalii autobuz",
         "w_vehicle_extras_desc": "Arată accesul pentru scaune cu rotile și biciclete.",
         "w_news_loading": "Se încarcă…",
@@ -109,13 +95,6 @@ APP = {
         "w_auto_center_on_me": "Centrează pe mine",
         "w_auto_center_on_me_desc": "Centrează harta pe tine când se deschide.",
         "w_auto_fit_map_desc": "Arată toată linia când o deschizi.",
-        "w_transfer_desc": "Mută preferatele și setările: apasă Primește pe dispozitivul nou, apoi Trimite aici.",
-        "w_transfer_hint": "Scanează codul sau scrie numărul la Setări, Trimite pe celălalt dispozitiv.",
-        "w_transfer_failed": "Nu s-a putut obține un cod. Încearcă din nou.",
-        "w_transfer_loading": "Se generează codul…",
-        "w_receive_done": "Primit",
-        "w_send_done": "Trimis",
-        "w_send_too_many": "Prea multe încercări. Așteaptă un minut.",
     },
 }
 

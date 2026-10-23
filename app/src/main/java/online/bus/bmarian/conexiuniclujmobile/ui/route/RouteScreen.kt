@@ -90,6 +90,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
@@ -249,6 +250,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     if (isFollowing) Icons.Rounded.Notifications else Icons.Rounded.NotificationsNone,
                 ) {
                     val following = Services.routeUpdates.toggleFollow(shortName)
+                        ?: return@MenuAction Services.settings.showToast(resources.getString(R.string.w_limit_reached, SyncRecords.CITY_CAP.toString()))
                     Services.settings.showToast(
                         resources.getString(if (following) R.string.w_follow_line_toast else R.string.w_unfollow_line_toast, shortName),
                         resources.getString(if (following) R.string.w_follow_line_toast_body else R.string.w_unfollow_line_toast_body),

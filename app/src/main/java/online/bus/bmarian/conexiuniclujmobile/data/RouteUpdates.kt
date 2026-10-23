@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import java.net.URLEncoder
 
 private const val MAX_SEEN_IDS = 500
@@ -101,17 +102,16 @@ class RouteUpdates(private val context: Context) {
 
     fun isFollowing(routeShortName: String) = routeShortName in _followed.value
 
-    fun toggleFollow(routeShortName: String): Boolean {
+    /** Null when the cap is reached. */
+    fun toggleFollow(routeShortName: String): Boolean? {
         val following = routeShortName !in _followed.value
+        if (following && _followed.value.size >= SyncRecords.CITY_CAP) return null
         _followed.value = if (following) _followed.value + routeShortName else _followed.value - routeShortName
         writeFollowed(prefs, _followed.value)
         return following
     }
 
-    fun importFollowed(raw: JsonArray?, city: String) {
-        val list = raw.orEmpty()
-            .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull?.takeIf(String::isNotEmpty) }
-            .distinct()
+    fun replaceFollowed(list: List<String>, city: String) {
         if (city != this.city) return writeFollowed(cityPrefs(context, "routeUpdates", city), list)
         _followed.value = list
         writeFollowed(prefs, list)

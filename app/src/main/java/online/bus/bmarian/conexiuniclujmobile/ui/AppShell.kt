@@ -491,13 +491,13 @@ private fun AppNavHost(navController: NavHostController) {
             Page { PlanScreen(PlanQuery.decode(entry.arguments?.getString("q").orEmpty())) }
         }
         composable(
-            "settings?send={send}&k={k}",
+            "settings?pair={pair}&k={k}",
             arguments = listOf(
-                navArgument("send") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("pair") { type = NavType.StringType; nullable = true; defaultValue = null },
                 navArgument("k") { type = NavType.StringType; nullable = true; defaultValue = null },
             ),
         ) { entry ->
-            Page { SettingsScreen(sendCode = entry.arguments?.getString("send"), sendKey = entry.arguments?.getString("k")) }
+            Page { SettingsScreen(pairCode = entry.arguments?.getString("pair"), pairKey = entry.arguments?.getString("k")) }
         }
     }
     }
@@ -566,8 +566,8 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
         nav.navigate(target)
     }
 
-    fun settingsSend(code: String, key: String?) {
-        nav.navigate("settings?send=$code" + (key?.let { "&k=${Uri.encode(it)}" } ?: ""))
+    fun settingsPair(code: String, key: String?) {
+        nav.navigate("settings?pair=$code" + (key?.let { "&k=${Uri.encode(it)}" } ?: ""))
     }
 }
 
@@ -602,10 +602,10 @@ private fun openLink(navigator: Navigator, uri: Uri) {
             HomeRequests.search.value = uri.getQueryParameter("q").orEmpty()
         }
         "settings" -> {
-            val code = uri.getQueryParameter("send")
+            val code = uri.getQueryParameter("pair")
             // The key is in the fragment, never sent to the server.
             val key = uri.fragment?.split('&')?.firstOrNull { it.startsWith("k=") }?.removePrefix("k=")
-            if (code != null && navigator is AppNavigator) navigator.settingsSend(code, key) else navigator.settings()
+            if (code != null && navigator is AppNavigator) navigator.settingsPair(code, key) else navigator.settings()
         }
         else -> navigator.home()
     }
