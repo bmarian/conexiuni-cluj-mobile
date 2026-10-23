@@ -14,6 +14,7 @@ data class Route(
     @SerialName("route_type") val type: Int = 3,
     @SerialName("route_color") val color: String = "#64748b",
     @SerialName("route_desc") val desc: String = "",
+    @SerialName("route_colorful") val colorful: String = "",
 )
 
 @Serializable
