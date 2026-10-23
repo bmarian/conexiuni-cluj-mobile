@@ -4,7 +4,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Favorites
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
-import online.bus.bmarian.conexiuniclujmobile.data.Transfer
 import online.bus.bmarian.conexiuniclujmobile.logic.StopBrowse
 import online.bus.bmarian.conexiuniclujmobile.logic.browseStops
 import online.bus.bmarian.conexiuniclujmobile.logic.initialOf
@@ -55,24 +54,5 @@ class ParityTest {
             }
         }
         assertEquals("#", initialOf("1 DECEMBRIE"))
-    }
-
-    @Test
-    fun opensWhatTheWebsiteSeals() {
-        val sample = Api.json.parseToJsonElement(read("sealed.json")).jsonObject
-        val opened = Transfer.open(sample["sealed"]!!, sample["key"]!!.jsonPrimitive.content)
-        assertEquals(sample["plain"], opened)
-
-        val summary = Transfer.describe(opened)!!
-        assertEquals(2, summary.stops)
-        assertEquals(2, summary.lines)
-        val favorites = (opened as JsonObject)["favorites"]!!.jsonObject
-        assertEquals(listOf(391, 4), Favorites.parseStopIds(favorites["stops"]))
-        assertEquals(
-            listOf(online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute(49, "1"), online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute(13, "0")),
-            Favorites.parseFavoriteRoutes(favorites["routes"]),
-        )
-        assertEquals(sample["plain"], Transfer.open(sample["plain"]!!, sample["key"]!!.jsonPrimitive.content))
-        assertEquals(null, Transfer.describe(JsonArray(emptyList())))
     }
 }

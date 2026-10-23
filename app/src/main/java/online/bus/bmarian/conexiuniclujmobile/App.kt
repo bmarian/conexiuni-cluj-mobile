@@ -34,6 +34,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.RouteUpdates
 import online.bus.bmarian.conexiuniclujmobile.data.Settings
 import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
+import online.bus.bmarian.conexiuniclujmobile.data.sync.Sync
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.work.RouteChangeWorker
@@ -64,6 +65,8 @@ object Services {
         private set
     lateinit var routeUpdates: RouteUpdates
         private set
+    lateinit var sync: Sync
+        private set
 
     private val rawLocation = MutableStateFlow<Fix?>(null)
     /** Null away from the city on screen: nothing there is near the person. */
@@ -87,6 +90,7 @@ object Services {
         favorites = Favorites(app)
         settings = Settings(app)
         routeUpdates = RouteUpdates(app)
+        sync = Sync(app)
         settings.applyLocale()
         watchConnectivity(app)
         scope.launch {
@@ -94,6 +98,11 @@ object Services {
             repository.refreshNetwork(now = true)
         }
         scope.launch { openOnCity(app) }
+        // Records are per city, so it waits for the city list.
+        scope.launch {
+            Cities.list.first { it.isNotEmpty() }
+            sync.start(scope)
+        }
         val lifecycle = ProcessLifecycleOwner.get().lifecycle
         scope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {

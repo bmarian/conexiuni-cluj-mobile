@@ -134,9 +134,6 @@ data class HourlyStopOffsets(
     @SerialName("hourly_offset_seconds") val hourlyOffsetSeconds: Map<String, List<Int>> = emptyMap(),
 )
 
-@Serializable
-data class TransferLink(val code: String, val secret: String, val expiresIn: Int = 600)
-
 fun routeIdFromTripId(tripId: String): Int? = tripId.substringBefore('_').toIntOrNull()
 
 fun directionFromTripId(tripId: String): String = if (tripId.endsWith(INCOMING_SUFFIX)) "1" else "0"

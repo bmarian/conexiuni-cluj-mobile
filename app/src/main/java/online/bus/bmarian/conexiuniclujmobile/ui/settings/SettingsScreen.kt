@@ -2,7 +2,6 @@ package online.bus.bmarian.conexiuniclujmobile.ui.settings
 
 import android.app.NotificationManager
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,7 +15,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,48 +31,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Accessible
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Place
-import androidx.compose.material.icons.rounded.QrCode2
-import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -88,34 +75,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.core.net.toUri
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.AppUpdates
 import online.bus.bmarian.conexiuniclujmobile.BuildConfig
@@ -124,7 +94,6 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
-import online.bus.bmarian.conexiuniclujmobile.data.Transfer
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
@@ -138,7 +107,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.stop.LiveBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 @Composable
-fun SettingsScreen(sendCode: String?, sendKey: String?) {
+fun SettingsScreen(pairCode: String?, pairKey: String?) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val settings = Services.settings
@@ -152,21 +121,10 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
     val alarms by settings.fullScreenAlarms.collectAsStateWithLifecycle()
     val update by AppUpdates.available.collectAsStateWithLifecycle()
     val watchApp by WearLink.watchWithoutApp.collectAsStateWithLifecycle()
-    val transfer: TransferViewModel = viewModel()
     val sheet = LocalSheet.current
     val scope = rememberCoroutineScope()
     val updateFlow = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
 
-    // Once per link.
-    var linkHandled by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(sendCode, sendKey) {
-        if (linkHandled) return@LaunchedEffect
-        linkHandled = true
-        if (sendCode != null && Regex("""^\d{6}$""").matches(sendCode)) {
-            transfer.openSend(sendCode, sendKey)
-            sheet?.animateTo(SheetSnap.Full)
-        }
-    }
 
     val notifications = context.getSystemService(NotificationManager::class.java)
     fun fullScreenAllowed() = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || notifications.canUseFullScreenIntent()
@@ -244,14 +202,8 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             Section(stringResource(R.string.w_settings_notifications))
             Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, onChange = ::toggleAlarms)
 
-            Section(stringResource(R.string.w_transfer))
-            Text(
-                stringResource(R.string.w_transfer_desc),
-                Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TransferPanel(transfer)
+            Section(stringResource(R.string.w_sync_title))
+            SyncPanel(pairCode, pairKey) { scope.launch { sheet?.animateTo(SheetSnap.Full) } }
 
             Section(stringResource(R.string.w_contact))
             ListItem(
@@ -405,7 +357,7 @@ private fun Section(title: String) {
 }
 
 @Composable
-private fun Toggle(icon: ImageVector, title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun Toggle(icon: ImageVector, title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
         modifier = Modifier.padding(horizontal = 4.dp),
         leadingContent = { Icon(icon, null) },
@@ -420,231 +372,6 @@ private fun Toggle(icon: ImageVector, title: String, description: String, checke
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     )
-}
-
-@Composable
-private fun TransferPanel(vm: TransferViewModel) {
-    val context = LocalContext.current
-    val mode by vm.mode.collectAsStateWithLifecycle()
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(vm) { lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { vm.pollNow() } }
-
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(shapes = ButtonDefaults.shapes(), onClick = { vm.openSend() }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.AutoMirrored.Rounded.Send, null, Modifier.size(18.dp))
-                Text(stringResource(R.string.w_transfer_send), Modifier.padding(start = 8.dp))
-            }
-            Button(shapes = ButtonDefaults.shapes(), onClick = vm::openReceive, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Rounded.QrCode2, null, Modifier.size(18.dp))
-                Text(stringResource(R.string.w_transfer_receive), Modifier.padding(start = 8.dp))
-            }
-        }
-        when (mode) {
-            TransferMode.Send -> SendPanel(vm)
-            TransferMode.Receive -> ReceivePanel(vm)
-            else -> {}
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::openExport, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp))
-                Text(stringResource(R.string.w_export_settings), Modifier.padding(start = 8.dp))
-            }
-            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::openImport, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp))
-                Text(stringResource(R.string.w_import_settings), Modifier.padding(start = 8.dp))
-            }
-        }
-        if (mode == TransferMode.Export || mode == TransferMode.Import) {
-            val text by vm.text.collectAsStateWithLifecycle()
-            val exportDone by vm.exportDone.collectAsStateWithLifecycle()
-            val importState by vm.importState.collectAsStateWithLifecycle()
-            val export = mode == TransferMode.Export
-            OutlinedTextField(
-                value = text,
-                onValueChange = { if (!export) vm.text.value = it },
-                readOnly = export,
-                minLines = 5,
-                maxLines = 7,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { if (!export) Text(stringResource(R.string.w_import_paste_placeholder)) },
-                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (export) {
-                    Button(
-                        shapes = ButtonDefaults.shapes(),
-                        onClick = {
-                            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
-                            context.startActivity(Intent.createChooser(send, null))
-                            vm.markExported()
-                        },
-                        enabled = !exportDone,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        if (exportDone) Icon(Icons.Rounded.Check, null, Modifier.size(18.dp))
-                        Text(stringResource(if (exportDone) R.string.w_export_copied else R.string.w_share), Modifier.padding(start = 6.dp))
-                    }
-                } else {
-                    Button(
-                        shapes = ButtonDefaults.shapes(),
-                        onClick = vm::doImport,
-                        enabled = text.isNotBlank() && importState == "idle",
-                        modifier = Modifier.weight(1f),
-                        colors = if (importState == "error") ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors(),
-                    ) {
-                        Text(
-                            when (importState) {
-                                "success" -> "✓ " + stringResource(R.string.w_import_success)
-                                "error" -> "✕ " + stringResource(R.string.w_import_error)
-                                else -> stringResource(R.string.w_import_confirm)
-                            },
-                        )
-                    }
-                }
-                OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = vm::cancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_cancel)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SendPanel(vm: TransferViewModel) {
-    val context = LocalContext.current
-    val code by vm.code.collectAsStateWithLifecycle()
-    val state by vm.sendState.collectAsStateWithLifecycle()
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(
-                value = code,
-                onValueChange = { if (it.length <= 7) vm.code.value = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.w_send_code_placeholder), Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-                textStyle = TextStyle(fontSize = 20.sp, letterSpacing = 4.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                keyboardActions = KeyboardActions(onDone = { vm.doSend() }),
-                trailingIcon = {
-                    androidx.compose.material3.IconButton(onClick = {
-                        val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-                        GmsBarcodeScanning.getClient(context, options).startScan().addOnSuccessListener { barcode ->
-                            val uri = barcode.rawValue?.let(Uri::parse) ?: return@addOnSuccessListener
-                            val scannedCode = uri.getQueryParameter("send") ?: return@addOnSuccessListener
-                            val key = uri.fragment?.split('&')?.firstOrNull { it.startsWith("k=") }?.removePrefix("k=")
-                            vm.openSend(scannedCode, key)
-                        }
-                    }) { Icon(Icons.Rounded.QrCodeScanner, contentDescription = stringResource(R.string.scan_code)) }
-                },
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val failed = state == SendState.Unknown || state == SendState.Limited || state == SendState.Failed
-                Button(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = vm::doSend,
-                    enabled = vm.canSend() || state != SendState.Idle,
-                    modifier = Modifier.weight(1f),
-                    colors = when {
-                        state == SendState.Sent -> ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                        failed -> ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                        else -> ButtonDefaults.buttonColors()
-                    },
-                ) {
-                    if (state == SendState.Busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    else Text(
-                        when (state) {
-                            SendState.Sent -> "✓ " + stringResource(R.string.w_send_done)
-                            SendState.Unknown -> "✕ " + stringResource(R.string.w_send_unknown_code)
-                            SendState.Limited -> "✕ " + stringResource(R.string.w_send_too_many)
-                            SendState.Failed -> "✕ " + stringResource(R.string.w_send_failed)
-                            else -> stringResource(R.string.w_send_confirm)
-                        },
-                    )
-                }
-                OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = vm::cancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_cancel)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReceivePanel(vm: TransferViewModel) {
-    val state by vm.receiveState.collectAsStateWithLifecycle()
-    val link by vm.link.collectAsStateWithLifecycle()
-    val summary by vm.summary.collectAsStateWithLifecycle()
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            when (state) {
-                ReceiveState.Waiting -> link?.let { current ->
-                    val url = Transfer.url(current.code, vm.key)
-                    Box(
-                        Modifier.size(170.dp).clip(RoundedCornerShape(8.dp)).background(Color.White)
-                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp)).padding(10.dp),
-                    ) { QrCode(url, Modifier.fillMaxSize()) }
-                    Text(Transfer.spaced(current.code), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
-                    Text(stringResource(R.string.w_transfer_hint), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                ReceiveState.Review, ReceiveState.Done -> {
-                    Text(stringResource(R.string.w_receive_review), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                    summary?.let { s ->
-                        for ((label, count) in listOf(
-                            R.string.w_favorite_stops to s.stops,
-                            R.string.w_favorite_routes to s.lines,
-                            R.string.w_favorite_plans to s.places,
-                            R.string.w_followed_lines to s.followed,
-                        )) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
-                                Text("$count", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-                ReceiveState.Expired -> Text(stringResource(R.string.w_transfer_expired))
-                ReceiveState.Failed -> Text(stringResource(R.string.w_transfer_failed))
-                ReceiveState.Broken -> Text(stringResource(R.string.w_transfer_broken), textAlign = TextAlign.Center)
-                else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text(stringResource(R.string.w_transfer_loading))
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                when (state) {
-                    ReceiveState.Done -> Button(shapes = ButtonDefaults.shapes(), onClick = {}, enabled = false, modifier = Modifier.weight(1f)) {
-                        Text("✓ " + stringResource(R.string.w_receive_done))
-                    }
-                    ReceiveState.Review -> Button(shapes = ButtonDefaults.shapes(), onClick = vm::accept, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_receive_replace)) }
-                    ReceiveState.Expired, ReceiveState.Failed, ReceiveState.Broken ->
-                        Button(shapes = ButtonDefaults.shapes(), onClick = vm::startReceive, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_transfer_new_code)) }
-                    else -> {}
-                }
-                if (state != ReceiveState.Done) {
-                    TextButton(shapes = ButtonDefaults.shapes(), onClick = vm::cancel, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Rounded.Close, null, Modifier.size(16.dp))
-                        Text(stringResource(R.string.w_cancel), Modifier.padding(start = 4.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** Same as the website's uqr: ECC L, no margin. */
-@Composable
-fun QrCode(text: String, modifier: Modifier = Modifier) {
-    val matrix = remember(text) {
-        QRCodeWriter().encode(
-            text, BarcodeFormat.QR_CODE, 0, 0,
-            mapOf(EncodeHintType.MARGIN to 0, EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.L),
-        )
-    }
-    Canvas(modifier) {
-        val cell = size.width / matrix.width
-        for (y in 0 until matrix.height) {
-            for (x in 0 until matrix.width) {
-                if (matrix[x, y]) drawRect(Color(0xFF0F172A), Offset(x * cell, y * cell), Size(cell + 0.5f, cell + 0.5f))
-            }
-        }
-    }
 }
 
 @Composable
