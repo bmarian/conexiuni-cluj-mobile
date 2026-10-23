@@ -134,8 +134,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.buzz
-import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocation
-import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberLocationAllTheTime
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.LiveBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
@@ -244,10 +242,7 @@ fun SettingsScreen(sendCode: String?, sendKey: String?) {
             }
 
             Section(stringResource(R.string.w_settings_notifications))
-            Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, beta = true, onChange = ::toggleAlarms)
-            Toggle(Icons.Rounded.MyLocation, stringResource(R.string.location_reminders), stringResource(R.string.location_reminders_desc), rememberLocationAllTheTime()) { on ->
-                if (on) ReminderLocation.ask() else ReminderLocation.openAppSettings(context)
-            }
+            Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, onChange = ::toggleAlarms)
 
             Section(stringResource(R.string.w_transfer))
             Text(
@@ -410,20 +405,11 @@ private fun Section(title: String) {
 }
 
 @Composable
-private fun Toggle(icon: ImageVector, title: String, description: String, checked: Boolean, beta: Boolean = false, onChange: (Boolean) -> Unit) {
+private fun Toggle(icon: ImageVector, title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
         modifier = Modifier.padding(horizontal = 4.dp),
         leadingContent = { Icon(icon, null) },
-        headlineContent = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title)
-                if (beta) {
-                    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(Palette.Amber.copy(alpha = 0.18f)).padding(horizontal = 6.dp, vertical = 1.dp)) {
-                        Text(stringResource(R.string.w_beta).uppercase(), style = MaterialTheme.typography.labelSmall, color = Color(0xFFB45309))
-                    }
-                }
-            }
-        },
+        headlineContent = { Text(title) },
         supportingContent = { Text(description) },
         trailingContent = {
             Switch(
