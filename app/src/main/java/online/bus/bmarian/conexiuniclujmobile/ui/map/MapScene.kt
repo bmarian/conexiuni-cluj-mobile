@@ -7,7 +7,7 @@ import kotlin.math.min
 /** In dp along a 5 dp line; the first is solid. */
 val DUPLICATE_DASH_PATTERNS = listOf(floatArrayOf(), floatArrayOf(8f, 7f), floatArrayOf(2f, 7f), floatArrayOf(10f, 4f, 2f, 4f), floatArrayOf(1f, 6f))
 
-class SceneLine(val color: String, val dash: Int, val points: List<LatLon>)
+class SceneLine(val name: String, val color: String, val dash: Int, val points: List<LatLon>)
 class SceneBadge(val at: LatLon, val routes: List<Pair<String, String>>)
 class SceneEnd(val at: LatLon, val color: String)
 class SceneArrow(val at: LatLon, val bearing: Double)
@@ -30,7 +30,7 @@ fun buildScene(shapes: List<MapShape>, terminals: Boolean, arrows: Boolean): Map
         val signature = "$dash|" + shape.points.joinToString("|") { "%.4f,%.4f".format(it.lat, it.lon) }
         if (!signatures.add(signature)) null else shape to dash
     }
-    val lines = kept.map { (shape, dash) -> SceneLine(shape.color, dash, shape.points) }
+    val lines = kept.map { (shape, dash) -> SceneLine(shape.shortName, shape.color, dash, shape.points) }
     val badges = if (!terminals) emptyList() else {
         val grouped = LinkedHashMap<String, Pair<LatLon, MutableList<Pair<String, String>>>>()
         for ((shape, _) in kept) {

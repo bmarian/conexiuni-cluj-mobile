@@ -63,6 +63,7 @@ object WearLink {
     // Cluj's; other cities' under it, as /sync/favorites/{city}. Older builds know only Cluj's.
     const val PATH_FAVORITES = "/sync/favorites"
     const val PATH_LANGUAGE = "/sync/language"
+    const val PATH_COLORS = "/sync/colors"
     const val PATH_CITY = "/sync/city"
 
     fun favoritesPath(city: String) = if (city == Cities.DEFAULT) PATH_FAVORITES else "$PATH_FAVORITES/$city"
@@ -96,6 +97,12 @@ object WearLink {
         scope.launch { catchUpFavorites(app) }
         scope.launch {
             Services.settings.locale.collect { tag -> if (prefs(app).getString("language", null) != tag) publishLanguage(app, tag) }
+        }
+        scope.launch {
+            Services.settings.colorfulLines.collect { on ->
+                val prefs = prefs(app)
+                if (!prefs.contains("colorful") || prefs.getBoolean("colorful", false) != on) publishColors(app, on)
+            }
         }
         scope.launch {
             Cities.current.collect { city -> if (prefs(app).getString("city", null) != city) publishCity(app, city) }
@@ -276,6 +283,17 @@ object WearLink {
             }.asPutDataRequest().setUrgent()
             Wearable.getDataClient(context).putDataItem(request).await()
             prefs(context).edit { putString("language", tag) }
+        }
+    }
+
+    private suspend fun publishColors(context: Context, colorful: Boolean) {
+        runCatching {
+            val request = PutDataMapRequest.create(PATH_COLORS).apply {
+                dataMap.putBoolean("colorful", colorful)
+                dataMap.putLong("at", System.currentTimeMillis())
+            }.asPutDataRequest().setUrgent()
+            Wearable.getDataClient(context).putDataItem(request).await()
+            prefs(context).edit { putBoolean("colorful", colorful) }
         }
     }
 

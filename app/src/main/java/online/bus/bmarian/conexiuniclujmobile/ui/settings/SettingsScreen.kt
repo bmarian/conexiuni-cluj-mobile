@@ -33,7 +33,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Accessible
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Check
@@ -46,6 +45,7 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Watch
@@ -113,7 +113,7 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
     val settings = Services.settings
     val locale by settings.locale.collectAsStateWithLifecycle()
     val theme by settings.theme.collectAsStateWithLifecycle()
-    val extras by settings.showVehicleExtras.collectAsStateWithLifecycle()
+    val colorful by settings.colorfulLines.collectAsStateWithLifecycle()
     val city by Cities.current.collectAsStateWithLifecycle()
     val regions by settings.regions.collectAsStateWithLifecycle()
     val center by settings.autoCenterOnMe.collectAsStateWithLifecycle()
@@ -184,7 +184,7 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
 
             Section(stringResource(R.string.w_display))
             ThemeRow(theme, settings::setTheme)
-            Toggle(Icons.Rounded.Accessible, stringResource(R.string.w_vehicle_extras), stringResource(R.string.w_vehicle_extras_desc), extras, onChange = settings::setShowVehicleExtras)
+            Toggle(Icons.Rounded.Palette, stringResource(R.string.w_colorful_lines), stringResource(R.string.w_colorful_lines_desc), colorful, onChange = settings::setColorfulLines)
 
             Section(stringResource(R.string.w_settings_map))
             Toggle(Icons.Rounded.MyLocation, stringResource(R.string.w_auto_center_on_me), stringResource(R.string.w_auto_center_on_me_desc), center, onChange = settings::setAutoCenterOnMe)

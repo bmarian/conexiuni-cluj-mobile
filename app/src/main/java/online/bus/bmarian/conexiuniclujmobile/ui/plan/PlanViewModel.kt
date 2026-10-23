@@ -45,6 +45,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.manyLines
 import java.util.UUID
 
 class Origin(val name: String, val lat: Double, val lon: Double)
@@ -111,6 +112,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     fun stopName(id: Int): String = stop(id)?.first ?: if (id != 0) "Stop $id" else ""
 
     fun line(id: Int?) = id?.let { planData.value?.lines?.get("$it") }
+    fun linesApart(plan: PlanOption) = manyLines(plan.rides.map { line(it.lines.firstOrNull())?.shortName.orEmpty() })
 
     fun journeyFor(plan: PlanOption): Journey? {
         val rides = plan.rides

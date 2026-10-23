@@ -141,7 +141,7 @@
     <string name="w_news">Noutăți</string>
     <string name="w_auto_center_on_me">Centrează pe mine</string>
     <string name="w_auto_fit_map">Încadrează harta</string>
-    <string name="w_vehicle_extras">Detalii autobuz</string>
+    <string name="w_colorful_lines">Linii colorate</string>
     <string name="w_timetable_changes">Modificări de orar</string>
     <string name="w_news_loading">Se încarcă…</string>
     <string name="w_news_empty">Nimic nou</string>
@@ -195,7 +195,7 @@
     <string name="w_settings_notifications">Notificări</string>
     <string name="w_language_desc">Numele stațiilor și liniilor rămân în română.</string>
     <string name="w_green_friday_setting_desc">Afișează un memento vinerea, când transportul e gratuit.</string>
-    <string name="w_vehicle_extras_desc">Arată accesul pentru scaune cu rotile și biciclete.</string>
+    <string name="w_colorful_lines_desc">Fiecare linie are culoarea ei.</string>
     <string name="w_auto_center_on_me_desc">Centrează harta pe tine când se deschide.</string>
     <string name="w_auto_fit_map_desc">Arată toată linia când o deschizi.</string>
     <string name="w_beta">Beta</string>

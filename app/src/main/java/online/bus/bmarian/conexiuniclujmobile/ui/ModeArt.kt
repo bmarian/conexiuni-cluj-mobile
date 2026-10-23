@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
 /** Port of utils/modeIcons.ts. */
@@ -90,10 +91,16 @@ fun DrawScope.drawModeGlyph(mode: Mode, color: Color) {
 }
 
 @Composable
-fun StationIcon(look: StationLook?, modifier: Modifier = Modifier, size: Dp = 36.dp, shape: androidx.compose.ui.graphics.Shape = CircleShape) {
+fun StationIcon(
+    look: StationLook?,
+    modifier: Modifier = Modifier,
+    size: Dp = 36.dp,
+    shape: androidx.compose.ui.graphics.Shape = CircleShape,
+    favorite: Boolean? = null,
+) {
     val container = look?.let { routeColor(it.color) } ?: MaterialTheme.colorScheme.secondaryContainer
     val tint = if (look != null) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
-    Box(modifier.size(size).clip(shape).background(container), contentAlignment = Alignment.Center) {
+    FavoriteMorph(rememberMorph(null, container, favorite), shape, modifier.size(size)) {
         Icon(ModeGlyphs.vector(look?.mode ?: Mode.BUS), null, Modifier.size(size * 0.5f), tint = tint)
     }
 }
@@ -107,7 +114,7 @@ fun LineBadges(routes: List<NetworkRoute>, modifier: Modifier = Modifier) {
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (route in routes) {
             Box(
-                Modifier.widthIn(min = 28.dp).clip(RoundedCornerShape(5.dp)).background(routeColor(route.color)).padding(horizontal = 5.dp, vertical = 1.dp),
+                Modifier.widthIn(min = 28.dp).clip(RoundedCornerShape(5.dp)).background(lineColor(route.shortName, route.color)).padding(horizontal = 5.dp, vertical = 1.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(route.shortName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)

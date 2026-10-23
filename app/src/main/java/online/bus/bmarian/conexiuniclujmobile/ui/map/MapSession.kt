@@ -7,6 +7,7 @@ import android.graphics.PointF
 import android.graphics.RectF
 import android.location.Location
 import android.view.Choreographer
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.runtime.mutableIntStateOf
@@ -96,6 +97,7 @@ private const val SRC_VEHICLES = "ct-vehicles"
 private const val SRC_PINS = "ct-pins"
 private const val SRC_AREA = "ct-area"
 private const val SRC_SPIDER = "ct-spider"
+private const val SRC_SWEEP = "ct-sweep"
 
 private const val LAYER_STOPS = "ct-stops"
 private const val LAYER_HIGHLIGHTS = "ct-highlights"
@@ -180,6 +182,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var selectedVehicleId: String? = null
     private val glide = VehicleGlide { pushVehicles() }
     private var drop: ValueAnimator? = null
+    private var recolor: ValueAnimator? = null
+    private var drawnFavorites = emptySet<String>()
     private var tracking: NavCamera? = null
     private var tracked: NavCamera? = null
     private var trackingMove = 0
@@ -273,10 +277,48 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         refreshStops()
     }
 
-    fun setScene(value: MapScene) {
+    /** [favorites] by line name, so a line unsaved sweeps back from its last stop. */
+    fun setScene(value: MapScene, favorites: Set<String> = emptySet()) {
+        val before = scene
+        val saved = drawnFavorites
         scene = value
+        drawnFavorites = favorites
+        recolor?.cancel()
         applyScene()
+        recolorLines(before, value, saved)
         refreshStops()
+    }
+
+    private fun recolorLines(before: MapScene, after: MapScene, saved: Set<String>) {
+        val same = before.lines.size == after.lines.size &&
+            before.lines.zip(after.lines).all { (a, b) -> a.points === b.points && a.dash == b.dash }
+        if (!same) return
+        val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 }
+        if (changed.isEmpty()) return
+        val sweeps = changed.map { i -> Triple(after.lines[i], after.lines[i].name in saved && after.lines[i].name !in drawnFavorites, lineArgb(after.lines[i].color)) }
+        fun paint(done: Float) = source(SRC_SWEEP)?.setGeoJson(
+            FeatureCollection.fromFeatures(
+                sweeps.mapNotNull { (line, backwards, color) ->
+                    sweptPart(line.points, done, backwards).takeIf { it.size >= 2 }?.let { part ->
+                        Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply {
+                            addStringProperty("color", "#%06X".format(0xFFFFFF and color))
+                        }
+                    }
+                },
+            ),
+        )
+        applyLines(after.lines.indices.map { lineArgb((if (it in changed) before else after).lines[it].color) })
+        recolor = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = SWEEP_MS
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { a -> paint(a.animatedValue as Float) }
+            doOnEnd {
+                applyLines()
+                paint(0f)
+                recolor = null
+            }
+            start()
+        }
     }
 
     fun setWalks(list: List<List<LatLon>>) {
@@ -586,7 +628,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun addLayers(style: Style, dark: Boolean) {
-        listOf(SRC_LINES, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER)
+        listOf(SRC_LINES, SRC_SWEEP, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER)
             .forEach { style.addSource(GeoJsonSource(it)) }
         addBaseImages(style, dark)
 
@@ -616,6 +658,15 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             if (pattern.isNotEmpty()) layer.setProperties(lineDasharray(pattern.map { it / 5f }.toTypedArray()))
             under(layer)
         }
+        under(
+            LineLayer("ct-sweep", SRC_SWEEP).withProperties(
+                lineColor(toColor(get("color"))),
+                lineWidth(5f),
+                lineOpacity(0.9f),
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND),
+            ),
+        )
         under(
             LineLayer("ct-walks", SRC_WALKS).withProperties(
                 lineColor(MapColors.Walk.toArgb()),
@@ -984,21 +1035,26 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         )
     }
 
-    private fun hex(color: String): String =
-        "#%06X".format(0xFFFFFF and (if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color)).toArgb())
+    private fun lineArgb(color: String): Int = (if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color)).toArgb()
 
-    private fun applyScene() {
-        val dark = dark ?: return
-        source(SRC_LINES)?.setGeoJson(
+    private fun applyLines(colors: List<Int> = scene.lines.map { lineArgb(it.color) }): Boolean {
+        val src = source(SRC_LINES) ?: return false
+        src.setGeoJson(
             FeatureCollection.fromFeatures(
-                scene.lines.filter { it.points.size >= 2 }.map { line ->
+                scene.lines.zip(colors).filter { (line, _) -> line.points.size >= 2 }.map { (line, color) ->
                     Feature.fromGeometry(LineString.fromLngLats(line.points.map(::point))).apply {
-                        addStringProperty("color", hex(line.color))
+                        addStringProperty("color", "#%06X".format(0xFFFFFF and color))
                         addNumberProperty("dash", line.dash)
                     }
                 },
             ),
-        ) ?: return
+        )
+        return true
+    }
+
+    private fun applyScene() {
+        val dark = dark ?: return
+        if (!applyLines()) return
         source(SRC_ENDS)?.setGeoJson(
             FeatureCollection.fromFeatures(
                 scene.ends.map { end ->
@@ -1208,6 +1264,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         glide.stop()
         motion.stop()
         drop?.cancel()
+        recolor?.cancel()
     }
 }
 

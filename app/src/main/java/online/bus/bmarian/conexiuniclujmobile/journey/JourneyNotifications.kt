@@ -17,6 +17,8 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowNotifications
 import online.bus.bmarian.conexiuniclujmobile.follow.NotificationArt
 import online.bus.bmarian.conexiuniclujmobile.follow.chipText
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ownHex
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ridesApart
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
 internal const val JOURNEY_NOTIFICATION_ID = 11
@@ -43,7 +45,9 @@ object JourneyNotifications {
     /** [alert] re-posts it on the alert channel so this one update buzzes and pops up. */
     fun ongoing(context: Context, journey: Journey, sync: JourneySync, progress: JourneyProgress, alert: Boolean = false): Notification {
         FollowNotifications.ensureChannels(context)
-        val color = sync.color?.let { routeColor(it).toArgb() } ?: routeColor(journey.legs.first().colors.firstOrNull()).toArgb()
+        val apart = ridesApart(journey.legs.map { it.lines })
+        val hex = ownHex(sync.line, sync.color, apart)
+        val color = routeColor(hex ?: journey.legs.first().let { ownHex(it.lines.firstOrNull(), it.colors.firstOrNull(), apart) }).toArgb()
         val builder = Notification.Builder(context, if (alert) FollowNotifications.ALERT_CHANNEL else FollowNotifications.FOLLOW_CHANNEL)
             .setSmallIcon(if (progress.riding) R.drawable.ic_bus else R.drawable.ic_walk)
             .setContentTitle(sync.step)
@@ -58,11 +62,11 @@ object JourneyNotifications {
             .setContentIntent(open(context, journey))
             .addAction(action(context, R.string.journey_next, JourneyActionReceiver.NEXT, 20))
             .addAction(action(context, R.string.journey_end, JourneyActionReceiver.END, 21))
-        sync.line?.let { builder.setLargeIcon(NotificationArt.badge(context, it, sync.color)) }
+        sync.line?.let { builder.setLargeIcon(NotificationArt.badge(context, it, hex)) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
             builder.setShortCriticalText(chip(context, sync))
-            builder.setStyle(bar(context, progress, sync))
+            builder.setStyle(bar(context, journey, progress, sync, hex))
         }
         return builder.build()
     }
@@ -77,14 +81,16 @@ object JourneyNotifications {
     }
 
     @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    private fun bar(context: Context, progress: JourneyProgress, sync: JourneySync): Notification.ProgressStyle {
+    private fun bar(context: Context, journey: Journey, progress: JourneyProgress, sync: JourneySync, hex: String?): Notification.ProgressStyle {
+        val apart = ridesApart(journey.legs.map { it.lines })
         val total = progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)
         // Segments must sum to the bar length; the last one takes the rounding.
         val lengths = progress.parts.map { (it.minutes / total * 1000).toInt().coerceAtLeast(1) }.toMutableList()
         lengths[lengths.lastIndex] += 1000 - lengths.sum()
         val segments = progress.parts.mapIndexed { i, part ->
             // The current ride takes the colour of the bus actually coming.
-            val color = if (part.ride && part.leg == sync.legIndex) sync.color ?: part.color else part.color
+            val line = journey.legs.getOrNull(part.leg)?.lines?.firstOrNull()
+            val color = if (!part.ride) part.color else hex.takeIf { part.leg == sync.legIndex } ?: ownHex(line, part.color, apart)
             Notification.ProgressStyle.Segment(lengths[i].coerceAtLeast(1))
                 .setColor(color?.let { routeColor(it).toArgb() } ?: WALK_GREY)
         }
@@ -97,7 +103,7 @@ object JourneyNotifications {
             .setStyledByProgress(true)
             .setProgressSegments(segments)
             .setProgressPoints(points)
-            .setProgressTrackerIcon(if (progress.riding) NotificationArt.bus(context, sync.color) else NotificationArt.walker(context))
+            .setProgressTrackerIcon(if (progress.riding) NotificationArt.bus(context, hex) else NotificationArt.walker(context))
             .setProgressEndIcon(NotificationArt.destination(context))
             .setProgress((progress.doneMinutes / total * 1000).toInt().coerceIn(0, 1000))
     }

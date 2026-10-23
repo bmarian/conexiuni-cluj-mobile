@@ -167,7 +167,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     val online by Services.online.collectAsStateWithLifecycle()
     val autoFit by Services.settings.autoFitMap.collectAsStateWithLifecycle()
     val autoCenter by Services.settings.autoCenterOnMe.collectAsStateWithLifecycle()
-    val extras by Services.settings.showVehicleExtras.collectAsStateWithLifecycle()
     val city by Cities.current.collectAsStateWithLifecycle()
     val cities by Cities.list.collectAsStateWithLifecycle()
     val cityInfo = cities.firstOrNull { it.slug == city }
@@ -265,7 +264,6 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 insetsMoving = { if (side) sidePanel.anchored.moving else sheet.anchored.moving },
                 autoFit = autoFit,
                 autoCenter = autoCenter,
-                showVehicleExtras = extras,
                 onStopTap = {
                     revealForPick()
                     navigator.mapStop(it)
