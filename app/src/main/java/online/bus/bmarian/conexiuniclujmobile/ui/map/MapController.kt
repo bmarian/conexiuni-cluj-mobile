@@ -40,6 +40,9 @@ data class RideAs(val color: String)
 /** top and bottom in px. */
 data class NavCamera(val zoom: Double, val tilt: Double, val top: Float, val bottom: Float, val epoch: Int = 0)
 
+/** [padding] left, top, right, bottom in px. */
+class CameraView(val center: LatLon, val zoom: Double, val bearing: Double, val padding: DoubleArray?)
+
 @Stable
 class MapController {
     var shapes by mutableStateOf<List<MapShape>>(emptyList())
@@ -75,6 +78,11 @@ class MapController {
         private set
     var centerRequest by mutableIntStateOf(0)
         private set
+    var cameraBack by mutableStateOf<Pair<CameraView, Int>?>(null)
+        private set
+    var bearing by mutableStateOf(0.0)
+        internal set
+    internal var resting: CameraView? = null
 
     internal var hasFittedForContent = false
     internal var firstFixHandled = false
@@ -85,21 +93,71 @@ class MapController {
     internal var handledFit = 0
     internal var handledFly = 0
     internal var handledCenter = 0
+    internal var handledCameraBack = 0
 
     private var shapesKey = ""
     private var owner: Any? = null
+    /** Screens still shown under the owner, with what they had on the map. */
+    private val covered = ArrayList<Pair<Any, Owned>>()
 
     /** The next screen can take the map before the last one leaves, so only the owner clears it. */
     fun claim(owner: Any) {
         if (this.owner == owner) return
+        this.owner?.let { covered += it to save() }
         this.owner = owner
         clear()
     }
 
     fun release(owner: Any) {
+        if (covered.removeAll { it.first == owner }) return
         if (this.owner != owner) return
-        this.owner = null
-        clear()
+        // The page behind a cancelled back gesture leaves before the one it covered, which gets its map back.
+        val (back, owned) = covered.removeLastOrNull() ?: run {
+            this.owner = null
+            clear()
+            return
+        }
+        this.owner = back
+        restore(owned)
+    }
+
+    private class Owned(
+        val shapes: List<MapShape>,
+        val vehicles: List<MapVehicle>,
+        val highlightedStops: Map<Int, StopHighlight>,
+        val selectedStopId: Int?,
+        val walkingPolylines: List<List<LatLon>>,
+        val fitWalking: Boolean,
+        val fitNewShapes: Boolean,
+        val directionArrowAtStart: Boolean,
+        val pinnedLocation: MapPin?,
+        val customOrigin: MapPin?,
+        val onPinDragged: ((LatLon) -> Unit)?,
+        val onOriginDragged: ((LatLon) -> Unit)?,
+        val camera: CameraView?,
+    )
+
+    private fun save() = Owned(
+        shapes, vehicles, highlightedStops, selectedStopId, walkingPolylines, fitWalking, fitNewShapes,
+        directionArrowAtStart, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting,
+    )
+
+    private fun restore(owned: Owned) {
+        showShapes(owned.shapes)
+        // Fitted when they were first shown; the camera goes back to where it rested.
+        handledShapes = shapesVersion
+        owned.camera?.let { cameraBack = it to ((cameraBack?.second ?: 0) + 1) }
+        vehicles = owned.vehicles
+        highlightedStops = owned.highlightedStops
+        selectedStopId = owned.selectedStopId
+        walkingPolylines = owned.walkingPolylines
+        fitWalking = owned.fitWalking
+        fitNewShapes = owned.fitNewShapes
+        directionArrowAtStart = owned.directionArrowAtStart
+        pinnedLocation = owned.pinnedLocation
+        customOrigin = owned.customOrigin
+        onPinDragged = owned.onPinDragged
+        onOriginDragged = owned.onOriginDragged
     }
 
     private fun clear() {

@@ -10,10 +10,14 @@ import android.view.Choreographer
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import androidx.compose.animation.core.EaseIn
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.animation.doOnEnd
 import com.google.gson.JsonArray
+import java.time.OffsetDateTime
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -34,6 +38,8 @@ import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
+import online.bus.bmarian.conexiuniclujmobile.logic.VehicleTrack
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
@@ -114,6 +120,9 @@ private const val FADED_VEHICLE_OPACITY = 0.5f
 private const val FADED_VEHICLE_SIZE = 0.7f
 
 private const val GLIDE_MAX_METERS = 600.0
+private const val POP_METERS = 50.0
+private const val MIN_STEP_PX = 0.3
+private const val MAX_IDLE_MS = 250L
 
 // The selected stop leads its own group; highlighted stops stay out of the groups.
 private data class ClusterKey(val anchor: Int?, val skip: Set<Int>)
@@ -180,7 +189,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var puckStyled = false
     private var lastBearing: Float? = null
     private var selectedVehicleId: String? = null
-    private val glide = VehicleGlide { pushVehicles() }
+    private val glide = VehicleGlide({ map.projection.getMetersPerPixelAtLatitude(map.cameraPosition.target?.latitude ?: 0.0) }) { pushVehicles() }
     private var drop: ValueAnimator? = null
     private var recolor: ValueAnimator? = null
     private var drawnFavorites = emptySet<String>()
@@ -332,6 +341,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         pins = list
         applyPins()
     }
+
+    fun setVehiclePaths(paths: Map<String, RoutePath>) = glide.setPaths(paths)
 
     fun setVehicles(list: List<MapVehicle>) {
         glide.update(list)
@@ -593,8 +604,24 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     fun cancelCamera() = map.cancelTransitions()
 
+    fun view(): CameraView? {
+        val camera = map.cameraPosition
+        val target = camera.target ?: return null
+        return CameraView(LatLon(target.latitude, target.longitude), camera.zoom, camera.bearing, camera.padding)
+    }
+
+    fun ease(view: CameraView) {
+        val camera = CameraPosition.Builder()
+            .target(LatLng(view.center.lat, view.center.lon))
+            .zoom(view.zoom)
+            .bearing(view.bearing)
+        view.padding?.let { camera.padding(it) }
+        map.easeCamera(CameraUpdateFactory.newCameraPosition(camera.build()), 650)
+    }
+
     private var cityFlight = 0
-    private var flying = false
+    var flying by mutableStateOf(false)
+        private set
     private var cityBounds: LatLngBounds? = null
 
     /** The camera stays over the city; lifted while flying in from another one. */
@@ -1276,16 +1303,20 @@ private object MapStyles {
     }
 }
 
-private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.FrameCallback {
+private class VehicleGlide(private val metersPerPixel: () -> Double, private val onFrame: () -> Unit) : Choreographer.FrameCallback {
     private class Track(var vehicle: MapVehicle, var from: LatLon, var to: LatLon, var fromHeading: Double, var toHeading: Double, var at: LatLon, var heading: Double) {
         var born: Long? = null
         var gone: Long? = null
+        var follow: VehicleTrack? = null
+        var untracked: String? = null
+        var drawn: LatLon? = null
+        var drawnHeading = 0.0
     }
 
     private val tracks = LinkedHashMap<String, Track>()
+    private var paths: Map<String, RoutePath> = emptyMap()
     private var startNanos = 0L
     private var lastFrame = 0L
-    private var running = false
 
     fun update(list: List<MapVehicle>) {
         val now = System.nanoTime()
@@ -1297,7 +1328,10 @@ private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.Fram
             val target = LatLon(v.vehicle.latitude, v.vehicle.longitude)
             val track = tracks[v.id]
             if (track == null || track.gone != null) {
-                tracks[v.id] = Track(v, target, target, v.heading, v.heading, target, v.heading).apply { if (animate) born = now }
+                tracks[v.id] = Track(v, target, target, v.heading, v.heading, target, v.heading).apply {
+                    if (animate) born = now
+                    follow(this, now)
+                }
                 continue
             }
             track.vehicle = v
@@ -1306,6 +1340,7 @@ private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.Fram
             track.to = target
             track.fromHeading = if (far) v.heading else track.heading
             track.toHeading = v.heading
+            follow(track, now)
         }
         if (animate) {
             for ((id, track) in tracks) if (id !in ids && track.gone == null) track.gone = now
@@ -1313,30 +1348,98 @@ private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.Fram
             tracks.keys.retainAll(ids)
         }
         startNanos = now
+        push()
+        run()
+    }
+
+    fun setPaths(paths: Map<String, RoutePath>) {
+        this.paths = paths
+        val now = System.nanoTime()
+        for (track in tracks.values) if (track.gone == null) follow(track, now)
+        push()
+        run()
+    }
+
+    private fun follow(track: Track, now: Long) {
+        val v = track.vehicle.vehicle
+        val tripId = v.tripId
+        val path = tripId?.let(paths::get)
+        val fixMs = runCatching { OffsetDateTime.parse(v.timestamp).toInstant().toEpochMilli() }.getOrNull()
+        if (!motionOn() || path == null || fixMs == null || track.untracked == tripId) {
+            track.follow = null
+            return
+        }
+        val fresh = track.follow?.path !== path
+        val follow = if (fresh) VehicleTrack(path) else track.follow!!
+        if (!follow.fix(v.latitude, v.longitude, fixMs, v.speed, v.heading, System.currentTimeMillis())) {
+            track.follow = null
+            track.untracked = tripId
+            return
+        }
+        if (fresh) {
+            val (lat, lon) = follow.position
+            if (track.born == null && haversineMeters(track.at.lat, track.at.lon, lat, lon) > POP_METERS) track.born = now
+            track.at = LatLon(lat, lon)
+            track.heading = follow.heading
+        }
+        track.follow = follow
+    }
+
+    private fun run() {
+        if (tracks.values.none { it.from != it.to || it.fromHeading != it.toHeading || it.born != null || it.gone != null || it.follow != null }) return
+        // Now, not after an idle wait: a bus coming in animates from its first frame.
+        Choreographer.getInstance().removeFrameCallback(this)
+        Choreographer.getInstance().postFrameCallback(this)
+    }
+
+    private fun push() {
+        for (track in tracks.values) {
+            track.drawn = track.at
+            track.drawnHeading = track.heading
+        }
         onFrame()
-        if (!running && tracks.values.any { it.from != it.to || it.fromHeading != it.toHeading || it.born != null || it.gone != null }) {
-            running = true
-            Choreographer.getInstance().postFrameCallback(this)
+    }
+
+    private fun moved(): Boolean {
+        val step = metersPerPixel() * MIN_STEP_PX
+        return tracks.values.any { track ->
+            val drawn = track.drawn ?: return@any true
+            haversineMeters(drawn.lat, drawn.lon, track.at.lat, track.at.lon) >= step ||
+                abs((track.heading - track.drawnHeading + 540) % 360 - 180) >= 1
         }
     }
 
     override fun doFrame(frameTimeNanos: Long) {
         val now = System.nanoTime()
+        val nowMs = System.currentTimeMillis()
         val previous = lastFrame
         lastFrame = now
         val t = ((now - startNanos) / 1_000_000.0 / GLIDE_MS).coerceIn(0.0, 1.0)
         val e = if (t < 0.5) 4 * t * t * t else 1 - Math.pow(-2 * t + 2, 3.0) / 2
         tracks.values.removeAll { track -> track.gone?.let { progress(it, previous, LEAVE_MS) >= 1f } == true }
         for (track in tracks.values) {
-            track.at = LatLon(track.from.lat + (track.to.lat - track.from.lat) * e, track.from.lon + (track.to.lon - track.from.lon) * e)
-            track.heading = headingBetween(track.fromHeading, track.toHeading, e)
+            val follow = track.follow
+            if (follow == null) {
+                track.at = LatLon(track.from.lat + (track.to.lat - track.from.lat) * e, track.from.lon + (track.to.lon - track.from.lon) * e)
+                track.heading = headingBetween(track.fromHeading, track.toHeading, e)
+            } else if (track.gone == null) {
+                if (follow.step(nowMs)) track.born = now
+                val (lat, lon) = follow.position
+                track.at = LatLon(lat, lon)
+                track.heading = follow.heading
+            }
             if (track.born?.let { progress(it, previous, ENTER_MS) >= 1f } == true) track.born = null
         }
-        onFrame()
-        if (t < 1.0 || tracks.values.any { it.born != null || it.gone != null }) {
+        val animating = t < 1.0 || tracks.values.any { it.born != null || it.gone != null }
+        if (animating || moved()) push()
+        if (animating) {
             Choreographer.getInstance().postFrameCallback(this)
+        } else if (tracks.values.any { it.follow != null }) {
+            // Until the fastest bus has moved far enough to see.
+            val fastest = tracks.values.maxOf { it.follow?.v ?: 0.0 }
+            val idle = if (fastest <= 0) MAX_IDLE_MS else (metersPerPixel() * MIN_STEP_PX / fastest * 1000).toLong().coerceAtMost(MAX_IDLE_MS)
+            Choreographer.getInstance().postFrameCallbackDelayed(this, idle)
         } else {
-            running = false
             for (track in tracks.values) {
                 track.from = track.to
                 track.fromHeading = track.toHeading
@@ -1359,6 +1462,5 @@ private class VehicleGlide(private val onFrame: () -> Unit) : Choreographer.Fram
 
     fun stop() {
         Choreographer.getInstance().removeFrameCallback(this)
-        running = false
     }
 }

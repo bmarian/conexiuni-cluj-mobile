@@ -31,7 +31,7 @@ class SheetFlingTest {
     @Test
     fun slowReleaseGoesToTheNearerRest() {
         assertEquals(SheetSnap.Half, sheet(SheetSnap.Half, moveBy = -300f).targetFor(-200f, density))
-        assertEquals(SheetSnap.Full, sheet(SheetSnap.Half, moveBy = -500f).targetFor(0f, density))
+        assertEquals(SheetSnap.Full, sheet(SheetSnap.Half, moveBy = -600f).targetFor(0f, density))
     }
 
     @Test

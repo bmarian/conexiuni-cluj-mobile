@@ -76,6 +76,8 @@ object Services {
     private val permissionChecks = MutableStateFlow(0)
     private val locationInterval = MutableStateFlow(LOCATION_UPDATE_MS)
 
+    val atHome = MutableStateFlow(true)
+
     private val _online = MutableStateFlow(true)
     val online: StateFlow<Boolean> = _online
 
@@ -157,14 +159,14 @@ object Services {
         showCity(Cities.resolve(rawLocation.value ?: UserLocation.recent(app, city = null)))
     }
 
-    // The nearest city needs a fix; none is asked for here. A link opened meanwhile has the last word.
+    // The nearest city needs a fix; none is asked for here. A link or a screen opened meanwhile has the last word.
     private suspend fun openOnCity(context: Context) {
         val shown = Cities.current.value
         val list = Cities.reload()
         val fix = if (Cities.choice.value == null && list.size > 1 && UserLocation.permitted(context)) {
             UserLocation.recent(context, city = null) ?: withTimeoutOrNull(LOCATE_TIMEOUT_MS) { rawLocation.filterNotNull().first() }
         } else null
-        if (Cities.current.value == shown) showCity(Cities.resolve(fix))
+        if (Cities.current.value == shown && atHome.value) showCity(Cities.resolve(fix))
     }
 
     fun locationPermissionChanged() {

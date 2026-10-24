@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AlarmAdd
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -69,7 +70,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -143,6 +146,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberCascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
@@ -176,6 +180,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val info by vm.shapeInfo.collectAsStateWithLifecycle()
     val dir by vm.direction.collectAsStateWithLifecycle()
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val headings by vm.headings.collectAsStateWithLifecycle()
     val failed by vm.failed.collectAsStateWithLifecycle()
     val initialLoading by vm.initialLoading.collectAsStateWithLifecycle()
     val fromStopName by vm.fromStopName.collectAsStateWithLifecycle()
@@ -232,6 +237,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     }
 
     val listState = rememberLazyListState()
+    val cascade = rememberCascade(dir)
     val scope = rememberCoroutineScope()
 
     val context = LocalContext.current
@@ -390,9 +396,10 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 enabled = vm::hasDirection,
             ) { d ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (d == "0") Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(16.dp))
+                    val heading = headings[d]?.minus(map.bearing)
+                    if (d == "0") DirectionArrow(heading, Icons.AutoMirrored.Rounded.ArrowForward)
                     Text(vm.terminal(d), Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (d == "1") Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, Modifier.size(16.dp))
+                    if (d == "1") DirectionArrow(heading, Icons.AutoMirrored.Rounded.ArrowBack)
                 }
             }
         }
@@ -424,7 +431,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 val name = stop.stop.headsign.ifEmpty { "Stop ${idx + 1}" }
                 val alerting = follows.firstOrNull { it.matches(stop.stop.stopId, routeId, tripId) }
                 val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir), Cities.current.value)
-                Box(Modifier.cascade(idx, dir)) {
+                Box(Modifier.cascade(cascade)) {
                     StopLine(
                         name = name,
                         mark = mark(idx, stop),
@@ -590,6 +597,12 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     }
     }
     reminding?.let { ReminderSheet(it) { reminding = null } }
+}
+
+@Composable
+private fun DirectionArrow(heading: Double?, fallback: ImageVector) {
+    if (heading == null) Icon(fallback, null, Modifier.size(16.dp))
+    else Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(16.dp).rotate(heading.toFloat()))
 }
 
 @Composable

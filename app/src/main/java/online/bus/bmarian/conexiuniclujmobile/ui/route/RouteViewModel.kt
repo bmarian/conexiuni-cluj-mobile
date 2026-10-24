@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.Services
@@ -29,6 +30,8 @@ import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import online.bus.bmarian.conexiuniclujmobile.logic.routeHeaderArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.routeStopArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.stopsForDirection
+import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
+import online.bus.bmarian.conexiuniclujmobile.ui.map.routeHeading
 import java.time.Instant
 import java.time.LocalDateTime
 
@@ -78,6 +81,10 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
 
     private val shapes = MutableStateFlow<Map<String, DirectionShape>>(emptyMap())
     private val live = MutableStateFlow<LiveState?>(null)
+
+    val headings: StateFlow<Map<String, Double>> = shapes.map { byDir ->
+        byDir.mapNotNull { (dir, shape) -> routeHeading(shape.shape.map { LatLon(it.lat, it.lon) })?.let { dir to it } }.toMap()
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     val activeChange = MutableStateFlow<RouteChange?>(null)
 

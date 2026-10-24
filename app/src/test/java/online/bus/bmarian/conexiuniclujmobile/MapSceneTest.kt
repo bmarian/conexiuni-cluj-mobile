@@ -3,8 +3,8 @@ package online.bus.bmarian.conexiuniclujmobile
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.buildScene
-import online.bus.bmarian.conexiuniclujmobile.ui.map.computeStartBearing
 import online.bus.bmarian.conexiuniclujmobile.ui.map.headingBetween
+import online.bus.bmarian.conexiuniclujmobile.ui.map.routeHeading
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -65,10 +65,18 @@ class MapSceneTest {
     }
 
     @Test
-    fun startBearingPointsAlongTheRoute() {
-        assertEquals(0.0, computeStartBearing(north)!!, 1.0)
-        assertEquals(90.0, computeStartBearing(east)!!, 1.0)
-        assertNull(computeStartBearing(listOf(LatLon(46.77, 23.6))))
+    fun headingPointsFromTheFirstTerminalToTheLast() {
+        assertEquals(0.0, routeHeading(north)!!, 1.0)
+        assertEquals(90.0, routeHeading(east)!!, 1.0)
+        val heading = routeHeading(listOf(LatLon(46.77, 23.59), LatLon(46.772, 23.59), LatLon(46.772, 23.616)))!!
+        assertTrue(heading in 80.0..90.0)
+        assertNull(routeHeading(listOf(LatLon(46.77, 23.6))))
+    }
+
+    @Test
+    fun headingFollowsTheFirstLegWhenTheLineLoopsBack() {
+        val loop = listOf(LatLon(46.77, 23.59), LatLon(46.772, 23.59), LatLon(46.772, 23.616), LatLon(46.77, 23.616), LatLon(46.7701, 23.5901))
+        assertEquals(0.0, routeHeading(loop)!!, 1.0)
     }
 
     @Test

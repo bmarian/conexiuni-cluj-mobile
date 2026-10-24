@@ -111,17 +111,40 @@ fun Modifier.squishClickable(
 private const val CASCADE_ITEMS = 12
 
 /** Rises into place after [index] × a beat whenever [key] changes. Rows past CASCADE_ITEMS just appear. */
-fun Modifier.cascade(index: Int, key: Any?): Modifier = if (index >= CASCADE_ITEMS) this else composed {
+fun Modifier.cascade(index: Int, key: Any?): Modifier = if (index >= CASCADE_ITEMS) this else cascadeIn(key, { index })
+
+/** A lazy list's rows on screen as [key] changes rise in turn; rows scrolled to later just appear. */
+class Cascade(val key: Any?) {
+    private var joined = 0
+    private var laidOut = false
+
+    internal fun join(): Int? = if (laidOut) null else joined++
+
+    internal fun settle() {
+        laidOut = true
+    }
+}
+
+@Composable
+fun rememberCascade(key: Any?): Cascade = remember(key) { Cascade(key) }
+
+fun Modifier.cascade(cascade: Cascade): Modifier = cascadeIn(cascade.key, cascade::join, cascade::settle)
+
+private fun Modifier.cascadeIn(key: Any?, turn: () -> Int?, settle: () -> Unit = {}): Modifier = composed {
     val rise = with(LocalDensity.current) { 28.dp.toPx() }
     val tag = key.toString()
     // Saved with the list item, so scrolling back doesn't replay it.
     var played by rememberSaveable { mutableStateOf<String?>(null) }
-    val progress = remember { Animatable(if (played == tag) 1f else 0f) }
+    val beat = remember(tag) { if (played == tag) null else turn() }
+    val progress = remember { Animatable(if (played == tag || beat == null) 1f else 0f) }
     LaunchedEffect(tag) {
+        // Runs once the list has laid out the rows it starts with.
+        settle()
         if (played == tag) return@LaunchedEffect
         played = tag
+        if (beat == null) return@LaunchedEffect progress.snapTo(1f)
         progress.snapTo(0f)
-        delay(index * 28L)
+        delay(beat * 28L)
         progress.animateTo(1f, Bouncy.land)
     }
     graphicsLayer {

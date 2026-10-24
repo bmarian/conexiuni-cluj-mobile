@@ -65,7 +65,9 @@ import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
+import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
 import online.bus.bmarian.conexiuniclujmobile.logic.bikeAccess
+import online.bus.bmarian.conexiuniclujmobile.logic.pathOf
 import online.bus.bmarian.conexiuniclujmobile.logic.wheelchairAccess
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
@@ -197,6 +199,8 @@ fun TransitMap(
             map.uiSettings.isRotateGesturesEnabled = true
             map.uiSettings.isFlingVelocityAnimationEnabled = true
             val created = MapSession(context, map)
+            map.addOnCameraIdleListener { controller.resting = created.view() }
+            map.addOnCameraMoveListener { controller.bearing = map.cameraPosition.bearing }
             map.addOnMapClickListener { latLng ->
                 val point = map.projection.toScreenLocation(latLng)
                 val vehicle = created.vehicleAt(point, with(density) { 18.dp.toPx() })
@@ -369,6 +373,12 @@ fun TransitMap(
     }
     LaunchedEffect(session, scene) { session?.setScene(scene, looks.favoriteNames) }
     LaunchedEffect(session, shownWalks) { session?.setWalks(shownWalks) }
+    val vehicleTrips = remember(shownVehicles) { shownVehicles.mapNotNull { it.vehicle.tripId }.distinct().sorted() }
+    val vehiclePaths by produceState(emptyMap<String, RoutePath>(), vehicleTrips, city) {
+        value = runCatching { Services.repository.shapes(vehicleTrips, city) }.getOrDefault(emptyMap())
+            .filterValues { it.size > 1 }.mapValues { pathOf(it.value) }
+    }
+    LaunchedEffect(session, vehiclePaths) { session?.setVehiclePaths(vehiclePaths) }
     LaunchedEffect(session, coloredVehicles) {
         session?.setVehicles(coloredVehicles)
         if (coloredVehicles.none { it.id == selectedVehicleId }) selectedVehicleId = null
@@ -453,6 +463,12 @@ fun TransitMap(
         controller.handledFly = n
         flyToVisible(target, DEFAULT_ZOOM)
     }
+    LaunchedEffect(session, controller.cameraBack) {
+        val (view, n) = controller.cameraBack ?: return@LaunchedEffect
+        if (session == null || n == controller.handledCameraBack) return@LaunchedEffect
+        controller.handledCameraBack = n
+        session?.ease(view)
+    }
     LaunchedEffect(session, controller.centerRequest) {
         if (session == null || controller.centerRequest == controller.handledCenter) return@LaunchedEffect
         controller.handledCenter = controller.centerRequest
@@ -465,8 +481,11 @@ fun TransitMap(
         }
     }
     LaunchedEffect(session, me != null) {
-        val fix = me ?: return@LaunchedEffect
-        if (session == null) return@LaunchedEffect
+        val s = session ?: return@LaunchedEffect
+        if (me == null) return@LaunchedEffect
+        // A fix in a city just switched to waits for the flight there.
+        snapshotFlow { s.flying }.first { !it }
+        val fix = currentMe ?: return@LaunchedEffect
         if (!controller.firstFixHandled) {
             controller.firstFixHandled = true
             if (autoCenter && !controller.hasFittedForContent) flyToVisible(LatLon(fix.lat, fix.lon), DEFAULT_ZOOM)
