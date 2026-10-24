@@ -32,7 +32,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AlarmAdd
-import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -70,9 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -397,9 +394,9 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             ) { d ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val heading = headings[d]?.minus(map.bearing)
-                    if (d == "0") DirectionArrow(heading, Icons.AutoMirrored.Rounded.ArrowForward)
+                    if (d == "0") DirectionArrow(Icons.AutoMirrored.Rounded.ArrowForward, 90.0, heading, d == dir)
                     Text(vm.terminal(d), Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (d == "1") DirectionArrow(heading, Icons.AutoMirrored.Rounded.ArrowBack)
+                    if (d == "1") DirectionArrow(Icons.AutoMirrored.Rounded.ArrowBack, 270.0, heading, d == dir)
                 }
             }
         }
@@ -597,12 +594,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     }
     }
     reminding?.let { ReminderSheet(it) { reminding = null } }
-}
-
-@Composable
-private fun DirectionArrow(heading: Double?, fallback: ImageVector) {
-    if (heading == null) Icon(fallback, null, Modifier.size(16.dp))
-    else Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(16.dp).rotate(heading.toFloat()))
 }
 
 @Composable
