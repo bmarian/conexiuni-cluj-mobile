@@ -215,6 +215,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     val atRoot = entry != null && navController.previousBackStackEntry == null
     val route = entry?.destination?.route
     val atHome = route == "home"
+    LaunchedEffect(atHome) { Services.atHome.value = atHome }
 
     val search = remember { SearchState() }
     var searchOpen by rememberSaveable { mutableStateOf(false) }

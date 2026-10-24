@@ -44,19 +44,21 @@ fun buildScene(shapes: List<MapShape>, terminals: Boolean, arrows: Boolean): Map
     }
     val ends = if (!terminals) emptyList() else kept.map { (shape, _) -> SceneEnd(shape.points.last(), shape.color) }
     val arrowList = if (!arrows) emptyList() else kept.mapNotNull { (shape, _) ->
-        computeStartBearing(shape.points)?.let { SceneArrow(shape.points.first(), it) }
+        routeHeading(shape.points)?.let { SceneArrow(shape.points.first(), it) }
     }
     return MapScene(lines, badges, ends, arrowList)
 }
 
-fun computeStartBearing(points: List<LatLon>): Double? {
+private const val LOOP_SHARE = 0.25
+
+fun routeHeading(points: List<LatLon>): Double? {
     if (points.size < 2) return null
     val start = points[0]
-    for (i in 1 until min(points.size, 20)) {
-        val p = points[i]
-        if (haversineMeters(start.lat, start.lon, p.lat, p.lon) >= 30) return bearingDegrees(start.lat, start.lon, p.lat, p.lon)
-    }
-    return bearingDegrees(start.lat, start.lon, points[1].lat, points[1].lon)
+    fun fromStart(p: LatLon) = haversineMeters(start.lat, start.lon, p.lat, p.lon)
+    val end = points.last()
+    val toward = if (fromStart(end) >= points.maxOf(::fromStart) * LOOP_SHARE) end
+    else points.subList(1, min(points.size, 20)).firstOrNull { fromStart(it) >= 30 } ?: points[1]
+    return bearingDegrees(start.lat, start.lon, toward.lat, toward.lon)
 }
 
 fun headingBetween(from: Double, to: Double, t: Double): Double {
