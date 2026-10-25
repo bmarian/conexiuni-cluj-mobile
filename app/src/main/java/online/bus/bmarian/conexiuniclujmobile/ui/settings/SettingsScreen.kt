@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
@@ -197,15 +198,8 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
             SyncPanel(pairCode, pairKey) { scope.launch { sheet?.animateTo(SheetSnap.Full) } }
 
             Section(stringResource(R.string.w_contact))
-            ListItem(
-                modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$CONTACT_EMAIL".toUri())) }
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = { Icon(Icons.Rounded.Email, null) },
-                headlineContent = { Text(CONTACT_EMAIL) },
-                supportingContent = { Text(stringResource(R.string.w_contact_desc)) },
-            )
+            LinkRow(Icons.Rounded.Email, CONTACT_EMAIL, stringResource(R.string.w_contact_desc), Intent(Intent.ACTION_SENDTO, "mailto:$CONTACT_EMAIL".toUri()))
+            LinkRow(Icons.Rounded.Code, "GitHub", stringResource(R.string.w_source_code_desc), Intent(Intent.ACTION_VIEW, SOURCE_URL.toUri()))
             Text(
                 stringResource(R.string.app_version, BuildConfig.VERSION_NAME),
                 Modifier.fillMaxWidth().padding(top = 24.dp),
@@ -219,6 +213,21 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
 }
 
 private const val CONTACT_EMAIL = "ceautobuziau@gmail.com"
+private const val SOURCE_URL = "https://github.com/bmarian/conexiuni-cluj-mobile"
+
+@Composable
+private fun LinkRow(icon: ImageVector, title: String, description: String, intent: Intent) {
+    val context = LocalContext.current
+    ListItem(
+        modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable {
+            runCatching { context.startActivity(intent) }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = { Icon(icon, null) },
+        headlineContent = { Text(title) },
+        supportingContent = { Text(description) },
+    )
+}
 
 private fun regionIcon(key: String): ImageVector = when (key) {
     RegionSettings.GREEN_FRIDAY -> Icons.Rounded.Eco

@@ -205,6 +205,7 @@
     <string name="w_no">No</string>
     <string name="w_contact">Contact</string>
     <string name="w_contact_desc">Help, suggestions or anything else.</string>
+    <string name="w_source_code_desc">Source code, issues and ideas.</string>
     <string name="w_sync_title">Sync with other devices</string>
     <string name="w_sync_desc">Keep your favorites the same on your phone, computer and watch.</string>
     <string name="w_sync_show_code">Show code</string>
