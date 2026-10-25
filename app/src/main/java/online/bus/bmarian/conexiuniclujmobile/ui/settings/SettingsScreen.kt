@@ -8,7 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -42,11 +41,9 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.Email
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -57,7 +54,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -66,15 +62,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -94,7 +87,6 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
-import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
@@ -103,7 +95,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.buzz
-import online.bus.bmarian.conexiuniclujmobile.ui.stop.LiveBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 @Composable
@@ -232,66 +223,6 @@ private const val CONTACT_EMAIL = "ceautobuziau@gmail.com"
 private fun regionIcon(key: String): ImageVector = when (key) {
     RegionSettings.GREEN_FRIDAY -> Icons.Rounded.Eco
     else -> Icons.Rounded.Tune
-}
-
-/** The city on screen; the nearest one is offered only while location is already allowed. */
-@Composable
-private fun CityChooser() {
-    val context = LocalContext.current
-    val city by Cities.current.collectAsStateWithLifecycle()
-    val choice by Cities.choice.collectAsStateWithLifecycle()
-    val cities by Cities.list.collectAsStateWithLifecycle()
-    val located = remember { UserLocation.permitted(context) }
-    val automatic = located && choice == null
-    val info = cities.firstOrNull { it.slug == city }
-    var open by rememberSaveable { mutableStateOf(false) }
-    val turn by animateFloatAsState(if (open) 180f else 0f, label = "chevron")
-    fun choose(slug: String?) {
-        open = false
-        Services.chooseCity(slug)
-    }
-    ListItem(
-        modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable { open = !open },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Icon(Icons.Rounded.Place, null) },
-        headlineContent = { Text(if (automatic) stringResource(R.string.w_city_auto) else info?.name ?: city) },
-        supportingContent = (if (automatic) info?.name else info?.operator)?.let { { Text(it) } },
-        trailingContent = { Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(turn)) },
-    )
-    AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-        Column {
-            if (located) CityOption(stringResource(R.string.w_city_auto), null, null, automatic) { choose(null) }
-            for (option in cities) CityOption(option.name, option.operator, option.realtime, !automatic && option.slug == city) { choose(option.slug) }
-        }
-    }
-}
-
-@Composable
-private fun CityOption(name: String, operator: String?, realtime: Boolean?, selected: Boolean, onClick: () -> Unit) {
-    ListItem(
-        modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { RadioButton(selected = selected, onClick = null) },
-        headlineContent = { Text(name) },
-        supportingContent = operator?.takeIf { it.isNotEmpty() }?.let { { Text(it) } },
-        trailingContent = when (realtime) {
-            true -> { { LiveBadge() } }
-            false -> { { TimetableBadge() } }
-            null -> null
-        },
-    )
-}
-
-/** A city without live positions, shaped like [LiveBadge]. */
-@Composable
-private fun TimetableBadge() {
-    Text(
-        stringResource(R.string.w_timetable).uppercase(),
-        Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 5.dp, vertical = 1.dp),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 }
 
 /** A one-off question at the top. */

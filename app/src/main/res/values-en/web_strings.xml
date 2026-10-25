@@ -191,6 +191,7 @@
     <string name="w_settings_all_settings">All settings</string>
     <string name="w_city_auto">Nearest city</string>
     <string name="w_city">City</string>
+    <string name="w_city_search">Search cities</string>
     <string name="w_settings_map">Map</string>
     <string name="w_settings_notifications">Notifications</string>
     <string name="w_language_desc">Stop and line names stay in Romanian.</string>

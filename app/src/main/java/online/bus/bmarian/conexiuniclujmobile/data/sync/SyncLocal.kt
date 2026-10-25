@@ -73,6 +73,11 @@ object SyncLocal {
         Services.routeUpdates.replaceFollowed(r.followed, slug)
     }
 
+    fun newsFromLocal(slug: String) =
+        SyncRecords.News(Services.routeUpdates.seenIn(slug).filter { it in validId }.distinct().sortedDescending().take(SyncRecords.NEWS_CAP))
+
+    fun applyNews(slug: String, r: SyncRecords.News) = Services.routeUpdates.replaceSeen(r.seen, slug)
+
     fun syncedCities(): List<String> = Cities.list.value.map { it.slug }
 
     data class OverCap(val city: String, val list: String, val count: Int)

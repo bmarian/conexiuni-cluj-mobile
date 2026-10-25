@@ -17,7 +17,6 @@ import kotlinx.serialization.json.longOrNull
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import java.net.URLEncoder
 
-private const val MAX_SEEN_IDS = 500
 private const val REFRESH_AFTER_MS = 30 * 60_000L
 
 @Serializable
@@ -61,7 +60,7 @@ class RouteUpdates(private val context: Context) {
 
     private val _followed = MutableStateFlow(readFollowed(prefs))
     val followed: StateFlow<List<String>> = _followed
-    private val _seen = MutableStateFlow(readSeen())
+    private val _seen = MutableStateFlow(readSeen(prefs))
     val seen: StateFlow<Set<Long>> = _seen
     private val _updates = MutableStateFlow<List<Update>>(emptyList())
     val updates: StateFlow<List<Update>> = _updates
@@ -77,7 +76,7 @@ class RouteUpdates(private val context: Context) {
             .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull?.takeIf(String::isNotEmpty) }
     }.getOrDefault(emptyList())
 
-    private fun readSeen(): Set<Long> = runCatching {
+    private fun readSeen(prefs: SharedPreferences): Set<Long> = runCatching {
         (Api.json.parseToJsonElement(prefs.getString("seen", null) ?: "[]") as JsonArray)
             .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> !p.isString }?.longOrNull }.toSet()
     }.getOrDefault(emptySet())
@@ -87,7 +86,7 @@ class RouteUpdates(private val context: Context) {
         city = slug
         prefs = cityPrefs(context, "routeUpdates", slug)
         _followed.value = readFollowed(prefs)
-        _seen.value = readSeen()
+        _seen.value = readSeen(prefs)
         _updates.value = emptyList()
         error.value = false
         lastFetchAt = 0
@@ -99,6 +98,8 @@ class RouteUpdates(private val context: Context) {
     fun followedIn(city: String): List<String> = if (city == this.city) _followed.value else readFollowed(cityPrefs(context, "routeUpdates", city))
 
     private fun writeFollowed(prefs: SharedPreferences, list: List<String>) = prefs.edit { putString("followed", Api.json.encodeToString(list)) }
+
+    private fun writeSeen(prefs: SharedPreferences, ids: Collection<Long>) = prefs.edit { putString("seen", Api.json.encodeToString(ids.toList())) }
 
     fun isFollowing(routeShortName: String) = routeShortName in _followed.value
 
@@ -151,8 +152,16 @@ class RouteUpdates(private val context: Context) {
     fun markSeen(ids: Collection<Long>) {
         val next = _seen.value + ids
         if (next.size == _seen.value.size) return
-        _seen.value = next.sortedDescending().take(MAX_SEEN_IDS).toSet()
-        prefs.edit { putString("seen", Api.json.encodeToString(_seen.value.toList())) }
+        _seen.value = next.sortedDescending().take(SyncRecords.NEWS_CAP).toSet()
+        writeSeen(prefs, _seen.value)
+    }
+
+    fun seenIn(city: String): List<Long> = (if (city == this.city) _seen.value else readSeen(cityPrefs(context, "routeUpdates", city))).toList()
+
+    fun replaceSeen(ids: List<Long>, city: String) {
+        if (city != this.city) return writeSeen(cityPrefs(context, "routeUpdates", city), ids)
+        _seen.value = ids.toSet()
+        writeSeen(prefs, ids)
     }
 
     fun markAllSeen() = markSeen(changes.map { it.id })

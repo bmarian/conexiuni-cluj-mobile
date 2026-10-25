@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -69,8 +70,8 @@ import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
 import online.bus.bmarian.conexiuniclujmobile.logic.bikeAccess
 import online.bus.bmarian.conexiuniclujmobile.logic.pathOf
 import online.bus.bmarian.conexiuniclujmobile.logic.wheelchairAccess
-import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
-import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
+import online.bus.bmarian.conexiuniclujmobile.ui.ModeBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LineColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.manyLines
@@ -500,8 +501,8 @@ fun TransitMap(
         AndroidView(factory = { host }, modifier = Modifier.fillMaxSize())
         val s = session
         if (s != null) {
-            tooltip?.let { tip -> MapTooltip(s, tip, dark) }
-            selectedVehicleId?.let { id -> VehicleBubble(s, id, dark) }
+            tooltip?.let { tip -> MapTooltip(s, tip) }
+            selectedVehicleId?.let { id -> VehicleBubble(s, id) }
         }
     }
 }
@@ -556,10 +557,11 @@ private fun Anchored(
 }
 
 @Composable
-private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
-    val bg = if (dark) Color(0xFF1E293B) else Color.White
-    val fg = if (dark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-    val sub = if (dark) Color(0xFF94A3B8) else Color(0xFF64748B)
+private fun MapTooltip(session: MapSession, tip: Tooltip) {
+    val bg = MaterialTheme.colorScheme.surfaceContainer
+    val fg = MaterialTheme.colorScheme.onSurface
+    val sub = MaterialTheme.colorScheme.onSurfaceVariant
+    val type = MaterialTheme.typography
     val lift = with(LocalDensity.current) { (if (tip is Tooltip.Pin) 30.dp else 18.dp).toPx() }
     val arrow = @Composable {
         Canvas(Modifier.size(12.dp, 6.dp)) {
@@ -568,34 +570,36 @@ private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
     }
     Anchored(session, { tip.at }, lift, shift = tip.shift, pointer = arrow) {
         Column(
-            Modifier.shadow(4.dp, RoundedCornerShape(8.dp)).clip(RoundedCornerShape(8.dp)).background(bg)
-                .widthIn(max = 320.dp).padding(horizontal = 10.dp, vertical = 5.dp),
+            Modifier.shadow(4.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp)).background(bg)
+                .widthIn(max = 320.dp).padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             val station = @Composable { name: String, look: StationLook? ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (look != null) StationIcon(look, size = 24.dp)
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(name, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        StationLines(look, Modifier.widthIn(max = 224.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(name, color = fg, style = type.titleSmall, maxLines = 1)
+                    look?.groups?.forEach { group ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ModeBadge(group.mode, group.color, 24.dp)
+                            LineBadges(group.routes, Modifier.widthIn(max = 224.dp))
+                        }
                     }
                 }
             }
             when (tip) {
                 is Tooltip.StopName -> station(tip.name, tip.look)
                 is Tooltip.Group -> if (tip.stations.size <= CLUSTER_STATIONS_MAX) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { tip.stations.forEach { (name, look) -> station(name, look) } }
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { tip.stations.forEach { (name, look) -> station(name, look) } }
                 } else {
                     val names = tip.stations.map { it.first }.distinct().sortedWith(Collator.getInstance(Locale.getDefault()))
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        names.take(CLUSTER_NAMES_MAX).forEach { Text(it, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
-                        if (names.size > CLUSTER_NAMES_MAX) Text(stringResource(R.string.map_more_stations, names.size - CLUSTER_NAMES_MAX), color = sub, fontSize = 12.sp)
+                    Column {
+                        names.take(CLUSTER_NAMES_MAX).forEach { Text(it, color = fg, style = type.bodyMedium, maxLines = 1) }
+                        if (names.size > CLUSTER_NAMES_MAX) Text(stringResource(R.string.map_more_stations, names.size - CLUSTER_NAMES_MAX), color = sub, style = type.bodySmall)
                     }
                 }
                 is Tooltip.Pin -> {
                     val parts = tip.label.split(',').map { it.trim() }
-                    Text(parts.firstOrNull() ?: tip.label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(parts.firstOrNull() ?: tip.label, color = fg, style = type.titleSmall)
                     parts.drop(1).joinToString(", ").takeIf { it.isNotEmpty() }?.let {
-                        Text(it, color = sub, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(it, color = sub, style = type.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -604,34 +608,35 @@ private fun MapTooltip(session: MapSession, tip: Tooltip, dark: Boolean) {
 }
 
 @Composable
-private fun VehicleBubble(session: MapSession, id: String, dark: Boolean) {
+private fun VehicleBubble(session: MapSession, id: String) {
     val shown = session.shownVehicle(id) ?: return
     val vehicle = shown.vehicle
     val offset = with(LocalDensity.current) { 22.dp.toPx() }
     val reported = vehicle.vehicle.speed
     Anchored(session, { session.shownVehicle(id)?.at }, 0f, alignStart = offset) {
         Column(
-            Modifier.shadow(4.dp, RoundedCornerShape(6.dp)).clip(RoundedCornerShape(6.dp))
-                .background(if (dark) Color(0xE61D293D) else Color(0xE60F172B))
-                .padding(horizontal = 10.dp, vertical = 4.dp),
+            Modifier.shadow(4.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
+            val sub = MaterialTheme.colorScheme.onSurfaceVariant
+            val strike = MaterialTheme.colorScheme.error
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(vehicle.shortName, color = Color(0xFFF1F5F9), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(vehicle.shortName, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 val wheelchair = wheelchairAccess(vehicle.vehicle)
                 val bikes = bikeAccess(vehicle.vehicle)
                 if (wheelchair != null || bikes != null) {
-                    val gray = Color(0xFF94A3B8)
-                    Text("·", color = gray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("·", color = sub, style = MaterialTheme.typography.bodySmall)
                     wheelchair?.let { ok ->
-                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = true, ok = ok, color = gray) }
+                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = true, ok = ok, color = sub, strike = strike) }
                     }
                     bikes?.let { ok ->
-                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = false, ok = ok, color = gray) }
+                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = false, ok = ok, color = sub, strike = strike) }
                     }
                 }
             }
             val number = vehicle.vehicle.label.takeIf { it.isNotBlank() }?.let { "#$it · " }.orEmpty()
-            Text("$number${Math.round(reported)} km/h", color = Color(0xFF90A1B9), fontSize = 12.sp)
+            Text("$number${Math.round(reported)} km/h", color = sub, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -106,6 +106,13 @@ fun StationIcon(
 }
 
 @Composable
+fun ModeBadge(mode: Mode, color: String, size: Dp) {
+    Box(Modifier.size(size).clip(CircleShape).background(routeColor(color)), contentAlignment = Alignment.Center) {
+        Icon(ModeGlyphs.vector(mode), null, Modifier.size(size * 0.6f), tint = Color.White)
+    }
+}
+
+@Composable
 fun StationLines(look: StationLook?, modifier: Modifier = Modifier) = LineBadges(look?.routes.orEmpty(), modifier)
 
 @Composable

@@ -55,7 +55,6 @@ object MapColors {
     val Ink = Color(0xFF0F172B)
     val InkDark = Color(0xFF0F172A)
     val Paper = Color(0xFFF1F5F9)
-    val Strike = Color(0xFFEF4444)
     val ShapeFallback = Color(0xFF94A3B8)
 
     fun highlight(h: StopHighlight) = when (h) {
@@ -105,7 +104,7 @@ fun DrawScope.pinMarker(tip: Offset, color: Color) {
     }
 }
 
-fun DrawScope.accessibilityIcon(topLeft: Offset, size: Float, wheelchair: Boolean, ok: Boolean, color: Color) {
+fun DrawScope.accessibilityIcon(topLeft: Offset, size: Float, wheelchair: Boolean, ok: Boolean, color: Color, strike: Color) {
     val alpha = if (ok) 1f else 0.4f
     val stroke = Stroke(2.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
     translate(topLeft.x, topLeft.y) {
@@ -121,7 +120,7 @@ fun DrawScope.accessibilityIcon(topLeft: Offset, size: Float, wheelchair: Boolea
                 drawCircle(c, 2f, Offset(14f, 4.5f), style = Fill)
                 drawPath(Glyphs.bikeFrame, c, style = stroke)
             }
-            if (!ok) drawLine(MapColors.Strike, Offset(2f, 2f), Offset(22f, 22f), 4f, cap = StrokeCap.Round)
+            if (!ok) drawLine(strike, Offset(2f, 2f), Offset(22f, 22f), 4f, cap = StrokeCap.Round)
         }
     }
 }
