@@ -25,27 +25,24 @@ import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
+import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.data.cityPrefs
 import online.bus.bmarian.conexiuniclujmobile.logic.changeDirection
 import online.bus.bmarian.conexiuniclujmobile.logic.changeSummary
 import online.bus.bmarian.conexiuniclujmobile.logic.changeTitle
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
 private const val CHANNEL = "route-changes"
 private const val PREFS = "push"
 private const val WORK = "route-changes"
 
-/** The server only sends web push, so the app polls, each city with followed lines. */
+/** The server sends no push, so the app polls each city with followed lines. */
 class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val cities = (Cities.list.value.map { it.slug } + Cities.DEFAULT).distinct()
             .associateWith { Services.routeUpdates.followedIn(it) }
             .filterValues { it.isNotEmpty() }
         if (cities.isEmpty()) return Result.success()
-        val hour = ZonedDateTime.now(ZoneId.of("Europe/Bucharest")).hour
-        if (hour < 8 || hour >= 20) return Result.success()
         if (ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             return Result.success()
         }
@@ -74,7 +71,7 @@ class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineW
         val notified = prefs.getStringSet("notified", emptySet()).orEmpty().mapNotNull { it.toLongOrNull() }.toMutableSet()
         val fresh = changes.filter { it.detectedAt > since && it.id !in notified }
         val newestPerLine = fresh.groupBy { it.routeShortName }.mapValues { (_, list) -> list.maxBy { it.detectedAt } }
-        for ((_, change) in newestPerLine) notify(city, change)
+        if (!UserLocation.open()) for ((_, change) in newestPerLine) notify(city, change)
         notified += fresh.map { it.id }
         prefs.edit { putStringSet("notified", notified.sortedDescending().take(500).map { "$it" }.toSet()) }
         return true

@@ -33,16 +33,13 @@ private const val ORBIT_MS = 1000
 private const val ORBIT_DP = 6.0
 const val ARROW_MS = TAPS * TAP_MS + ORBIT_MS
 private const val ARROW_BACK_MS = 320
-// Lets the page finish sliding in before the direction it opens on plays.
+// Waits out the page's slide-in.
 private const val ARROW_OPEN_DELAY_MS = 500L
 
 /** x and y in dp. */
 class ArrowPose(val x: Float, val y: Float, val heading: Double)
 
-/**
- * Where an arrow resting on compass [rest] is [ms] into its run: two taps along [rest],
- * then a spiral out round its spot and back in, over the top, landing on [heading].
- */
+/** Where the arrow is at [ms]: two taps along compass [rest], then a spiral landing on [heading]. */
 fun arrowPose(rest: Double, heading: Double, ms: Float): ArrowPose {
     if (ms < TAPS * TAP_MS) {
         val k = ms % TAP_MS / TAP_MS
@@ -61,7 +58,6 @@ fun arrowPose(rest: Double, heading: Double, ms: Float): ArrowPose {
     return ArrowPose((r * sin(phi)).toFloat(), (-r * cos(phi)).toFloat(), Math.toDegrees(facing))
 }
 
-/** Points at its name, drawn by [icon] on compass [rest], until [on]; then runs [arrowPose] onto [heading]. */
 @Composable
 fun DirectionArrow(icon: ImageVector, rest: Double, heading: Double?, on: Boolean) {
     // Saved with the list item, so scrolling back doesn't replay it.
@@ -77,7 +73,6 @@ fun DirectionArrow(icon: ImageVector, rest: Double, heading: Double?, on: Boolea
             else -> ArrowPose(leaving.x * (1 - k), leaving.y * (1 - k), leaving.heading + (((rest - leaving.heading) % 360 + 540) % 360 - 180) * k)
         }
     }
-    // The direction the page opens on plays once, as soon as its heading is known.
     LaunchedEffect(heading != null) {
         if (heading == null || !shown || opened) return@LaunchedEffect
         delay(ARROW_OPEN_DELAY_MS)

@@ -53,6 +53,7 @@
     <string name="w_mode_lines_tram">Tramvaie</string>
     <string name="w_mode_lines_metro">Metrou</string>
     <string name="w_mode_lines_rail">Trenuri</string>
+    <string name="w_lines_in">Liniile din %1$s</string>
     <string name="w_next_departures">Plecări</string>
     <string name="w_all_routes">Toate liniile</string>
     <string name="w_all_stops">Toate stațiile</string>
@@ -255,4 +256,21 @@
     <string name="w_sync_device_label">%1$s pe %2$s</string>
     <string name="w_sync_web_device">Browser web</string>
     <string name="w_limit_reached">Cel mult %1$s deodată</string>
+    <string name="w_destinations">Destinații</string>
+    <string name="w_dest_question">Ce autobuz iau până în %1$s?</string>
+    <string name="w_dest_kind_district">Cartier</string>
+    <string name="w_dest_kind_town">Localitate</string>
+    <string name="w_dest_lines_in">Liniile care opresc în %1$s</string>
+    <string name="w_dest_from">Din alte zone</string>
+    <string name="w_dest_from_area">Din %1$s</string>
+    <string name="w_dest_every">la ~%1$d min</string>
+    <string name="w_dest_no_weekdays">nu circulă în zilele lucrătoare</string>
+    <string name="w_dest_no_rides">Nicio linie directă din alte zone; planifică drumul cu schimbare.</string>
+    <string name="w_dest_stops_in">Stații în %1$s</string>
+    <string name="w_dest_more_rides">Încă %1$d</string>
+    <string name="w_dest_all">Destinațiile din %1$s</string>
+    <string name="w_dests_in">Destinații în %1$s</string>
+    <string name="w_dests_districts">Cartiere</string>
+    <string name="w_dests_towns">Localități</string>
+    <string name="w_dest_counts">%1$d stații · %2$d linii</string>
 </resources>

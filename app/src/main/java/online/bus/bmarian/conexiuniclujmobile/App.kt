@@ -159,7 +159,7 @@ object Services {
         showCity(Cities.resolve(rawLocation.value ?: UserLocation.recent(app, city = null)))
     }
 
-    // The nearest city needs a fix; none is asked for here. A link or a screen opened meanwhile has the last word.
+    // A link or a screen opened meanwhile has the last word.
     private suspend fun openOnCity(context: Context) {
         val shown = Cities.current.value
         val list = Cities.reload()

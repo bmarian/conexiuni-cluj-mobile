@@ -91,7 +91,7 @@ class SearchState {
     fun routes(routes: List<Route>): List<Route> {
         val q = norm(query.trim())
         if (q.isEmpty()) return emptyList()
-        return routes.filter { norm(it.shortName).contains(q) || norm(it.longName).contains(q) }.take(3)
+        return routes.filter { norm(it.shortName).contains(q) || norm(it.longName).contains(q) }.take(RESULTS_PER_KIND)
     }
 
     /** Port of searchStopResults. */
@@ -101,7 +101,7 @@ class SearchState {
         val matches = stops.mapNotNull { stop -> stopMatchRank(norm(stop.name), q).takeIf { it >= 0 }?.let { stop to it } }
         val sorted = if (me != null) sortByDistance(matches, me.lat, me.lon, { it.first.lat }, { it.first.lon }) else matches
         val ranked = sorted.sortedBy { it.second }.map { it.first }
-        return (index?.oneStopPerStation(ranked) ?: ranked).take(3)
+        return (index?.oneStopPerStation(ranked) ?: ranked).take(RESULTS_PER_KIND)
     }
 
     suspend fun searchPlaces(query: String, online: Boolean, me: Fix?) {
@@ -114,7 +114,7 @@ class SearchState {
         }
         delay(350)
         val results = try {
-            Places.search(trimmed, 3)
+            Places.search(trimmed, RESULTS_PER_KIND)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             emptyList()
@@ -245,9 +245,9 @@ fun StationRow(
 }
 
 @Composable
-fun ResultRow(icon: @Composable () -> Unit, title: String, distance: String?, subtitle: String? = null, onClick: () -> Unit) {
+fun ResultRow(icon: @Composable () -> Unit, title: String, distance: String?, subtitle: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

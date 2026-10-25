@@ -74,7 +74,7 @@ object SyncLocal {
     }
 
     fun newsFromLocal(slug: String) =
-        SyncRecords.News(Services.routeUpdates.seenIn(slug).filter { it in validId }.distinct().sortedDescending().take(SyncRecords.NEWS_CAP))
+        SyncRecords.News(Services.routeUpdates.seenIn(slug).filter { it in validId }.distinct().let(SyncRecords::newestSeen))
 
     fun applyNews(slug: String, r: SyncRecords.News) = Services.routeUpdates.replaceSeen(r.seen, slug)
 

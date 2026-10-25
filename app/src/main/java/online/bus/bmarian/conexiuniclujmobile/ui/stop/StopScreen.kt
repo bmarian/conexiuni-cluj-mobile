@@ -44,12 +44,10 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.Widgets
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -116,6 +114,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.LoadFailed
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
@@ -135,6 +134,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotification
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.modeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.route.RouteHandoff
 import online.bus.bmarian.conexiuniclujmobile.ui.share
@@ -346,12 +346,7 @@ fun StopScreen(stopId: Int) {
         }
 
         when {
-            failed && info == null -> item {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(R.string.load_failed), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::load) { Text(stringResource(R.string.retry)) }
-                }
-            }
+            failed && info == null -> item { LoadFailed(vm::load) }
             else -> {
                 item { DeparturesLabel() }
                 when {
@@ -438,14 +433,6 @@ private fun stopKind(mode: Mode) = when (mode) {
     Mode.TRAM -> R.string.w_stop_kind_tram
     Mode.TROLLEYBUS -> R.string.w_stop_kind_trolleybus
     Mode.BUS -> R.string.w_stop_kind_bus
-}
-
-private fun modeLines(mode: Mode) = when (mode) {
-    Mode.METRO -> R.string.w_mode_lines_metro
-    Mode.RAIL -> R.string.w_mode_lines_rail
-    Mode.TRAM -> R.string.w_mode_lines_tram
-    Mode.TROLLEYBUS -> R.string.w_mode_lines_trolleybus
-    Mode.BUS -> R.string.w_mode_lines_bus
 }
 
 @Composable
@@ -573,7 +560,7 @@ fun DepartureCard(
 @Composable
 fun LiveBadge() {
     Row(
-        Modifier.clip(RoundedCornerShape(6.dp)).background(LocalLiveColors.current.container).padding(horizontal = 5.dp, vertical = 1.dp),
+        Modifier.badge(LocalLiveColors.current.container),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -586,6 +573,19 @@ fun LiveBadge() {
         )
     }
 }
+
+@Composable
+fun TimetableBadge() {
+    Text(
+        stringResource(R.string.w_timetable).uppercase(),
+        Modifier.badge(MaterialTheme.colorScheme.surfaceContainerHighest),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+private fun Modifier.badge(color: Color) = clip(RoundedCornerShape(6.dp)).background(color).padding(horizontal = 5.dp, vertical = 1.dp)
 
 @Composable
 fun RouteRow(shortName: String, color: String, name: String, favorite: Boolean = false, busy: Boolean = false, onClick: () -> Unit) {

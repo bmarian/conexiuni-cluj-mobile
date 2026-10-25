@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
@@ -88,6 +89,14 @@ fun DrawScope.drawModeGlyph(mode: Mode, color: Color) {
     } else {
         drawPath(ModeGlyphs.path(ModeGlyphs.of(mode)), color)
     }
+}
+
+fun modeLines(mode: Mode) = when (mode) {
+    Mode.METRO -> R.string.w_mode_lines_metro
+    Mode.RAIL -> R.string.w_mode_lines_rail
+    Mode.TRAM -> R.string.w_mode_lines_tram
+    Mode.TROLLEYBUS -> R.string.w_mode_lines_trolleybus
+    Mode.BUS -> R.string.w_mode_lines_bus
 }
 
 @Composable

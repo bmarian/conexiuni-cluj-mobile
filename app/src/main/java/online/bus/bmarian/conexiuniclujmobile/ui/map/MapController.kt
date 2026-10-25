@@ -111,7 +111,7 @@ class MapController {
     fun release(owner: Any) {
         if (covered.removeAll { it.first == owner }) return
         if (this.owner != owner) return
-        // The page behind a cancelled back gesture leaves before the one it covered, which gets its map back.
+        // A cancelled back gesture removes the page behind first.
         val (back, owned) = covered.removeLastOrNull() ?: run {
             this.owner = null
             clear()
@@ -144,7 +144,7 @@ class MapController {
 
     private fun restore(owned: Owned) {
         showShapes(owned.shapes)
-        // Fitted when they were first shown; the camera goes back to where it rested.
+        // Already fitted once: the camera goes back to where it rested.
         handledShapes = shapesVersion
         owned.camera?.let { cameraBack = it to ((cameraBack?.second ?: 0) + 1) }
         vehicles = owned.vehicles

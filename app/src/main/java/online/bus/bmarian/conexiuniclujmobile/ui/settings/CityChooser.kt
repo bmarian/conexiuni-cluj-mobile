@@ -6,7 +6,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
@@ -39,7 +38,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -49,10 +47,10 @@ import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.ui.home.SearchField
 import online.bus.bmarian.conexiuniclujmobile.ui.home.norm
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.LiveBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.stop.TimetableBadge
 
 private const val CITY_ROWS_SHOWN = 5
 
-/** The city on screen; the nearest one is offered only while location is already allowed. */
 @Composable
 fun CityChooser() {
     val context = LocalContext.current
@@ -128,14 +126,3 @@ private fun CityOption(name: String, operator: String?, realtime: Boolean?, sele
     )
 }
 
-/** A city without live positions, shaped like [LiveBadge]. */
-@Composable
-private fun TimetableBadge() {
-    Text(
-        stringResource(R.string.w_timetable).uppercase(),
-        Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 5.dp, vertical = 1.dp),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}

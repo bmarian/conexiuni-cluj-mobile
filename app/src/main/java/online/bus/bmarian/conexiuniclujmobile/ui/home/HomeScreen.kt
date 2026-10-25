@@ -117,6 +117,7 @@ fun HomeScreen() {
         onDispose { map.release(owner) }
     }
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
+    val lines = remember(index) { linesByMode(index) }
 
     val routesById = remember(routes) { routes.associateBy { it.routeId } }
     val stopsById = remember(stops) { stops.associateBy { it.stopId } }
@@ -293,6 +294,9 @@ fun HomeScreen() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        if (!hasFavorites) {
+            allLines(lines) { nav.route(it.routeId, "auto") }
         }
         item(key = "end") { Spacer(Modifier.height(24.dp)) }
     }
