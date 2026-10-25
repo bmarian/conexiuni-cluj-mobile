@@ -152,7 +152,7 @@ class RouteUpdates(private val context: Context) {
     fun markSeen(ids: Collection<Long>) {
         val next = _seen.value + ids
         if (next.size == _seen.value.size) return
-        _seen.value = next.sortedDescending().take(SyncRecords.NEWS_CAP).toSet()
+        _seen.value = SyncRecords.newestSeen(next).toSet()
         writeSeen(prefs, _seen.value)
     }
 

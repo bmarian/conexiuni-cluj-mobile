@@ -79,7 +79,7 @@ object SyncMerge {
     }
 
     fun mergeNews(base: News, local: News, remote: News): News =
-        News(mergeList(base.seen, local.seen, remote.seen, SyncRecords::stopId, ::same, Int.MAX_VALUE).merged.sortedDescending().take(SyncRecords.NEWS_CAP))
+        News(mergeList(base.seen, local.seen, remote.seen, SyncRecords::stopId, ::same, Int.MAX_VALUE).merged.let(SyncRecords::newestSeen))
 
     fun mergeSettings(base: Settings?, local: Settings, remote: Settings): Settings {
         if (base == null) return remote

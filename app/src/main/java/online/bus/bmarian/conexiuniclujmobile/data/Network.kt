@@ -132,6 +132,8 @@ class NetworkIndex(val bundle: NetworkBundle) {
 
     fun route(routeId: Int): NetworkRoute? = routeById[routeId]
 
+    fun stop(stopId: Int): Stop? = stopById[stopId]
+
     fun route(shortName: String): NetworkRoute? = routeByShortName[shortName]
 
     fun shapeHash(tripId: String): String? =

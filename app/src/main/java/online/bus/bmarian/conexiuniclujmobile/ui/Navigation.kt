@@ -65,6 +65,8 @@ interface Navigator {
     fun plan(query: PlanQuery)
     fun settings()
     fun news()
+    fun destinations()
+    fun destination(slug: String)
 }
 
 /** Same keys as the website's /plan query. */

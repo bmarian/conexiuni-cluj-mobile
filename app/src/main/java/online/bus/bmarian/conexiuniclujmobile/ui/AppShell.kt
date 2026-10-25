@@ -103,6 +103,8 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocationDialog
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeChrome
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeRequests
+import online.bus.bmarian.conexiuniclujmobile.ui.destinations.DestinationScreen
+import online.bus.bmarian.conexiuniclujmobile.ui.destinations.DestinationsScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.home.MapFabs
 import online.bus.bmarian.conexiuniclujmobile.ui.home.NewsPage
@@ -458,6 +460,10 @@ private fun AppNavHost(navController: NavHostController) {
     ) {
         composable("home") { Page { HomeScreen() } }
         composable("news") { Page { NewsPage() } }
+        composable("destinations") { Page { DestinationsScreen() } }
+        composable("to/{slug}", arguments = listOf(navArgument("slug") { type = NavType.StringType })) { entry ->
+            Page { DestinationScreen(entry.arguments?.getString("slug").orEmpty()) }
+        }
         composable("stop/{stopId}", arguments = listOf(navArgument("stopId") { type = NavType.IntType })) { entry ->
             Page { StopScreen(entry.arguments?.getInt("stopId") ?: 0) }
         }
@@ -552,6 +558,14 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
 
     override fun news() {
         go("news")
+    }
+
+    override fun destinations() {
+        go("destinations")
+    }
+
+    override fun destination(slug: String) {
+        go("to/${Uri.encode(slug)}")
     }
 
     private var lastTarget: String? = null

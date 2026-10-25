@@ -53,6 +53,7 @@
     <string name="w_mode_lines_tram">Trams</string>
     <string name="w_mode_lines_metro">Metro</string>
     <string name="w_mode_lines_rail">Trains</string>
+    <string name="w_lines_in">Lines in %1$s</string>
     <string name="w_next_departures">Departures</string>
     <string name="w_all_routes">All lines</string>
     <string name="w_all_stops">All stops</string>
@@ -255,4 +256,21 @@
     <string name="w_sync_device_label">%1$s on %2$s</string>
     <string name="w_sync_web_device">Web browser</string>
     <string name="w_limit_reached">Up to %1$s at a time</string>
+    <string name="w_destinations">Destinations</string>
+    <string name="w_dest_question">Which bus goes to %1$s?</string>
+    <string name="w_dest_kind_district">District</string>
+    <string name="w_dest_kind_town">Town</string>
+    <string name="w_dest_lines_in">Lines stopping in %1$s</string>
+    <string name="w_dest_from">From other areas</string>
+    <string name="w_dest_from_area">From %1$s</string>
+    <string name="w_dest_every">every ~%1$d min</string>
+    <string name="w_dest_no_weekdays">no weekday service</string>
+    <string name="w_dest_no_rides">No direct line from other areas; plan a trip with a change.</string>
+    <string name="w_dest_stops_in">Stops in %1$s</string>
+    <string name="w_dest_more_rides">%1$d more</string>
+    <string name="w_dest_all">Destinations in %1$s</string>
+    <string name="w_dests_in">Destinations in %1$s</string>
+    <string name="w_dests_districts">Districts</string>
+    <string name="w_dests_towns">Towns and villages</string>
+    <string name="w_dest_counts">%1$d stops · %2$d lines</string>
 </resources>

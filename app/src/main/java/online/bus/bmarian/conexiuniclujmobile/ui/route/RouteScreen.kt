@@ -43,10 +43,8 @@ import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Watch
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
@@ -135,6 +133,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.LoadFailed
 import online.bus.bmarian.conexiuniclujmobile.ui.LoadingRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
@@ -278,10 +277,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         Column(Modifier.fillMaxSize()) {
             SheetTopBar(null, false)
             if (failed) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(R.string.load_failed))
-                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = vm::load) { Text(stringResource(R.string.retry)) }
-                }
+                LoadFailed(vm::load)
             } else {
                 LoadingRow(text = stringResource(R.string.w_loading_route))
             }

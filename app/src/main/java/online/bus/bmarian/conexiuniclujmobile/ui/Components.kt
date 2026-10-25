@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -47,10 +49,18 @@ import java.time.Instant
 import java.time.LocalDateTime
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
+
+@Composable
+fun cityName(): String {
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val cities by Cities.list.collectAsStateWithLifecycle()
+    return cities.firstOrNull { it.slug == city }?.name ?: city
+}
 
 @Composable
 fun rememberNow(): LocalDateTime {
@@ -170,6 +180,14 @@ fun MessageText(text: String, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Start,
     )
+}
+
+@Composable
+fun LoadFailed(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(R.string.load_failed), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onRetry) { Text(stringResource(R.string.retry)) }
+    }
 }
 
 @Composable

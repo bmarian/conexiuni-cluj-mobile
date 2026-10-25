@@ -1394,7 +1394,7 @@ private class VehicleGlide(private val metersPerPixel: () -> Double, private val
 
     private fun run() {
         if (tracks.values.none { it.from != it.to || it.fromHeading != it.toHeading || it.born != null || it.gone != null || it.follow != null }) return
-        // Now, not after an idle wait: a bus coming in animates from its first frame.
+        // Cancels any idle wait.
         Choreographer.getInstance().removeFrameCallback(this)
         Choreographer.getInstance().postFrameCallback(this)
     }

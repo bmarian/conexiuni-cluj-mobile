@@ -183,6 +183,8 @@ object SyncRecords {
 
     val emptyNews = News(emptyList())
 
+    fun newestSeen(ids: Collection<Long>) = ids.sortedDescending().take(NEWS_CAP)
+
     private fun parseNews(record: JsonElement): News {
         val seen = list(obj(record, "v", "seen")["seen"], NEWS_CAP).map { integer(it, 1, MAX_INT) }
         if (seen.zipWithNext().any { (a, b) -> b >= a }) refuse()
