@@ -1,9 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.stop
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -55,18 +54,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
@@ -78,8 +79,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import android.content.Intent
-import android.provider.Settings
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -104,27 +103,33 @@ import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
 import online.bus.bmarian.conexiuniclujmobile.follow.nextBusReminder
+import online.bus.bmarian.conexiuniclujmobile.logic.DueArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.groupByMode
 import online.bus.bmarian.conexiuniclujmobile.logic.mainMode
-import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
-import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
+import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.tripIdForRouteAtStop
 import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
+import online.bus.bmarian.conexiuniclujmobile.ui.Emphasized
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LoadFailed
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalLiveBeat
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
 import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
+import online.bus.bmarian.conexiuniclujmobile.ui.OnLiveBeat
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.RIPPLE_MS
 import online.bus.bmarian.conexiuniclujmobile.ui.RealtimeIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SectionLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
+import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
@@ -137,11 +142,14 @@ import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.modeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
+import online.bus.bmarian.conexiuniclujmobile.ui.popped
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberPop
 import online.bus.bmarian.conexiuniclujmobile.ui.route.RouteHandoff
 import online.bus.bmarian.conexiuniclujmobile.ui.share
 import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
@@ -216,6 +224,14 @@ fun StopScreen(stopId: Int) {
     LaunchedEffect(layer) {
         map.showShapes(layer.shapes)
         map.vehicles = layer.vehicles
+    }
+    val looks = LocalLineLooks.current
+    val dueArrivals = remember { DueArrivals() }
+    LaunchedEffect(ui) {
+        val list = ui?.departures ?: return@LaunchedEffect
+        for (departure in dueArrivals.newlyDue(list).filter(vm::isDepartureFavorite)) {
+            map.arrive(looks.hex(departure.shortName, departure.color) ?: departure.color, departure.nextTimes.first().vehicleId.toString())
+        }
     }
 
     val departures = remember(ui, favoriteRoutes) {
@@ -294,6 +310,8 @@ fun StopScreen(stopId: Int) {
         add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
     }
 
+    val beat by vm.beat.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalLiveBeat provides beat) {
     Column(Modifier.fillMaxSize()) {
     SheetTopBar(name, listState.pastHeader(), menu = menu)
     LazyColumn(Modifier.weight(1f), state = listState) {
@@ -368,6 +386,7 @@ fun StopScreen(stopId: Int) {
                         Box(Modifier.animateItem().cascade(index, stopId)) {
                             DepartureCard(
                                 departure, ui!!.now, vm.isDepartureFavorite(departure),
+                                mode = Services.repository.network.index.value?.route(departure.routeId)?.type?.let(::modeOf) ?: Mode.BUS,
                                 remindOn = following != null || clocked.isNotEmpty(),
                                 reminded = forBus.any { !it.once },
                                 onRemind = {
@@ -425,6 +444,7 @@ fun StopScreen(stopId: Int) {
         }
     }
     }
+    }
     reminding?.let { ReminderSheet(it) { reminding = null } }
 }
 
@@ -438,14 +458,26 @@ private fun stopKind(mode: Mode) = when (mode) {
 
 @Composable
 private fun DeparturesLabel() {
-    val pulse = rememberInfiniteTransition(label = "pulse")
-    val alpha by pulse.animateFloat(1f, 0.35f, infiniteRepeatable(tween(1000), RepeatMode.Reverse), label = "alpha")
+    val ring = remember { Animatable(1f) }
+    val dot = rememberPop()
+    OnLiveBeat {
+        launch { dot.from(1.5f) }
+        ring.snapTo(0f)
+        ring.animateTo(1f, tween(RIPPLE_MS, easing = Emphasized))
+    }
+    val color = liveColor()
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(Modifier.size(8.dp).alpha(alpha).clip(CircleShape).background(liveColor()))
+        Box(
+            Modifier.size(8.dp)
+                .drawBehind { if (ring.value < 1f) drawCircle(color.copy(alpha = 0.6f * (1f - ring.value)), size.minDimension / 2 * (1f + 2.2f * ring.value)) }
+                .popped(dot)
+                .clip(CircleShape)
+                .background(color),
+        )
         Text(
             stringResource(R.string.w_next_departures),
             style = MaterialTheme.typography.titleSmall,
@@ -469,6 +501,7 @@ fun DepartureCard(
     departure: StopDeparture,
     now: java.time.LocalDateTime,
     favorite: Boolean,
+    mode: Mode = Mode.BUS,
     remindOn: Boolean = false,
     reminded: Boolean = false,
     onRemind: (() -> Unit)? = null,
@@ -533,6 +566,8 @@ fun DepartureCard(
                             text = if (i == 0 && departure.isStatic) "~ $label" else label,
                             live = i == 0 && live,
                             extra = i > 0,
+                            due = i == 0 && live && time.minutes == 0,
+                            mode = mode,
                         )
                     }
                 }

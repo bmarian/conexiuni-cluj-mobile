@@ -49,6 +49,7 @@ class StopViewModel(val stopId: Int) : ViewModel() {
     val info: StateFlow<StopInfo?> = _info
     private val shapes = MutableStateFlow<Map<String, List<ShapePoint>>>(emptyMap())
     private val live = MutableStateFlow<LiveState?>(null)
+    val beat: StateFlow<Long?> = live.map { it?.asOfMs }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val infos: StateFlow<List<StopInfo>> = combine(_info, repository.network.index) { info, index ->
         if (info == null) return@combine emptyList()

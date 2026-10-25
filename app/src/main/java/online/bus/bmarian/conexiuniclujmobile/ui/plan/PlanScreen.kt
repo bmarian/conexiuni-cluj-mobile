@@ -36,6 +36,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsBus
@@ -60,6 +61,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -67,18 +69,19 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -87,7 +90,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
@@ -97,6 +102,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -105,9 +111,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.Instant
 import java.time.LocalDateTime
 import kotlin.math.max
+import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
+import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanOption
@@ -120,18 +129,15 @@ import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.LoadingRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
+import online.bus.bmarian.conexiuniclujmobile.ui.LocalTimelineDraw
 import online.bus.bmarian.conexiuniclujmobile.ui.Rail
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
+import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDraw
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineRow
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocation
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
-import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
-import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
-import androidx.compose.material.icons.rounded.Alarm
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapPin
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
@@ -142,6 +148,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
+import online.bus.bmarian.conexiuniclujmobile.ui.timelineDraw
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
 
 @Composable
@@ -192,6 +199,12 @@ fun PlanScreen(query: PlanQuery) {
 
     val validCoords = destLatText?.toDoubleOrNull() != null && destLonText?.toDoubleOrNull() != null
     val selectedPlan = plans.getOrNull(selected)
+    val scope = rememberCoroutineScope()
+    val swapMotion = remember { SwapMotion() }
+    val draw = remember { TimelineDraw() }
+    LaunchedEffect(selectedPlan?.key, calculating) {
+        if (selectedPlan != null && !calculating) draw.play()
+    }
     val permitted = UserLocation.permitted(context)
     val hasOrigin = origin != null || me != null
     val gpsResolving = permitted && me == null && origin == null && !timedOut
@@ -362,7 +375,8 @@ fun PlanScreen(query: PlanQuery) {
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             ) {
-                Column(Modifier.padding(vertical = 8.dp)) {
+                CompositionLocalProvider(LocalTimelineDraw provides draw) {
+                Column(Modifier.padding(vertical = 8.dp).timelineDraw(draw)) {
                     EndpointRow(
                         dot = MaterialTheme.colorScheme.tertiary,
                         top = null,
@@ -371,6 +385,7 @@ fun PlanScreen(query: PlanQuery) {
                         value = origin?.name ?: if (me != null) stringResource(R.string.w_plan_origin_current_location) else stringResource(R.string.w_plan_origin_unknown),
                         enabled = true,
                         searching = activeSearch == SearchField.Origin,
+                        valueModifier = with(swapMotion) { Modifier.fromLabel() },
                         onOpen = { vm.openSearch(SearchField.Origin) },
                     )
                     if (activeSearch == SearchField.Origin) PlaceSearch(vm, SearchField.Origin, me != null, online)
@@ -387,9 +402,11 @@ fun PlanScreen(query: PlanQuery) {
                         value = destName.ifEmpty { "—" },
                         enabled = online,
                         searching = activeSearch == SearchField.Destination,
+                        valueModifier = with(swapMotion) { Modifier.toLabel() },
                         onOpen = { vm.openSearch(SearchField.Destination) },
                     )
                     if (activeSearch == SearchField.Destination) PlaceSearch(vm, SearchField.Destination, me != null, online)
+                }
                 }
             }
         }
@@ -412,7 +429,14 @@ fun PlanScreen(query: PlanQuery) {
                 onMode = vm::setTimeMode,
                 onValue = vm::setTimeValue,
                 onSearch = vm::refreshRoutes,
-                onSwap = vm::swap,
+                spin = swapMotion.spin.value,
+                onSwap = {
+                    scope.launch {
+                        launch { swapMotion.turn() }
+                        val apply = vm.prepareSwap() ?: return@launch
+                        swapMotion.swap(apply)
+                    }
+                },
                 onRefresh = vm::refreshRoutes,
             )
         }
@@ -514,7 +538,7 @@ private fun Stat(value: String, label: String, live: Boolean = false) {
 }
 
 @Composable
-private fun EndpointRow(dot: Color, top: Rail?, bottom: Rail?, label: String, value: String, enabled: Boolean, searching: Boolean, onOpen: () -> Unit) {
+private fun EndpointRow(dot: Color, top: Rail?, bottom: Rail?, label: String, value: String, enabled: Boolean, searching: Boolean, valueModifier: Modifier = Modifier, onOpen: () -> Unit) {
     if (searching) return
     TimelineRow(
         top = top,
@@ -525,7 +549,7 @@ private fun EndpointRow(dot: Color, top: Rail?, bottom: Rail?, label: String, va
         trailing = { Icon(Icons.Rounded.Edit, null, Modifier.padding(8.dp).size(16.dp), tint = MaterialTheme.colorScheme.outline) },
     ) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, valueModifier, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -691,6 +715,7 @@ private fun TimeFilter(
     onMode: (TimeMode) -> Unit,
     onValue: (String) -> Unit,
     onSearch: () -> Unit,
+    spin: Float,
     onSwap: () -> Unit,
     onRefresh: () -> Unit,
 ) {
@@ -731,7 +756,7 @@ private fun TimeFilter(
             }
             if (canSwap) {
                 FilledTonalIconButton(onClick = onSwap, enabled = !calculating) {
-                    Icon(Icons.Rounded.SwapVert, contentDescription = stringResource(R.string.w_plan_swap))
+                    Icon(Icons.Rounded.SwapVert, contentDescription = stringResource(R.string.w_plan_swap), Modifier.graphicsLayer { rotationZ = spin })
                 }
             }
             if (canRefresh) {

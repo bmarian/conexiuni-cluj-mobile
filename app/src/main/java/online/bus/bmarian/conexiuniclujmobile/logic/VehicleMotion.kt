@@ -1,6 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.logic
 
 import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
+import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
+import java.time.OffsetDateTime
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.exp
@@ -79,11 +81,18 @@ class RoutePath(private val lats: DoubleArray, private val lons: DoubleArray, pr
     }
 }
 
-fun pathOf(shape: List<ShapePoint>): RoutePath {
-    val at = DoubleArray(shape.size)
-    for (i in 1 until shape.size) at[i] = at[i - 1] + haversineMeters(shape[i - 1].lat, shape[i - 1].lon, shape[i].lat, shape[i].lon)
-    return RoutePath(DoubleArray(shape.size) { shape[it].lat }, DoubleArray(shape.size) { shape[it].lon }, at)
+val Vehicle.fixMs: Long? get() = runCatching { OffsetDateTime.parse(timestamp).toInstant().toEpochMilli() }.getOrNull()
+
+fun pathThrough(lats: DoubleArray, lons: DoubleArray): RoutePath {
+    val at = DoubleArray(lats.size)
+    for (i in 1 until lats.size) at[i] = at[i - 1] + haversineMeters(lats[i - 1], lons[i - 1], lats[i], lons[i])
+    return RoutePath(lats, lons, at)
 }
+
+fun pathOf(shape: List<ShapePoint>): RoutePath = pathThrough(DoubleArray(shape.size) { shape[it].lat }, DoubleArray(shape.size) { shape[it].lon })
+
+/** 0 for a point off the path. */
+fun RoutePath.shareAlong(lat: Double, lon: Double): Double = if (length > 0) locate(lat, lon)?.let { it.s / length } ?: 0.0 else 0.0
 
 class VehicleTrack(val path: RoutePath) {
     var s = 0.0

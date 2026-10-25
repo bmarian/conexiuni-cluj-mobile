@@ -1,7 +1,10 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.route
 
 import android.icu.text.PluralRules
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,11 +14,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -46,7 +49,6 @@ import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
@@ -55,9 +57,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +83,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -88,11 +93,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
-import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
 import online.bus.bmarian.conexiuniclujmobile.data.linePath
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
@@ -118,6 +123,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.changeTitle
 import online.bus.bmarian.conexiuniclujmobile.logic.chipsByHour
 import online.bus.bmarian.conexiuniclujmobile.logic.chipsForDay
 import online.bus.bmarian.conexiuniclujmobile.logic.daysLabel
+import online.bus.bmarian.conexiuniclujmobile.logic.directionKeys
 import online.bus.bmarian.conexiuniclujmobile.logic.formatAbsoluteMinutes
 import online.bus.bmarian.conexiuniclujmobile.logic.formatChangeDate
 import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
@@ -125,12 +131,17 @@ import online.bus.bmarian.conexiuniclujmobile.logic.formatServiceStart
 import online.bus.bmarian.conexiuniclujmobile.logic.groupByDays
 import online.bus.bmarian.conexiuniclujmobile.logic.groupByDirection
 import online.bus.bmarian.conexiuniclujmobile.logic.isPastTab
+import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
+import online.bus.bmarian.conexiuniclujmobile.logic.pathOf
 import online.bus.bmarian.conexiuniclujmobile.logic.plainTodayTab
 import online.bus.bmarian.conexiuniclujmobile.logic.specialDayOn
+import online.bus.bmarian.conexiuniclujmobile.logic.stopsAlong
+import online.bus.bmarian.conexiuniclujmobile.logic.stopsForDirection
 import online.bus.bmarian.conexiuniclujmobile.logic.todayTab
 import online.bus.bmarian.conexiuniclujmobile.logic.tripHourlyOffsets
 import online.bus.bmarian.conexiuniclujmobile.logic.tripStops
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
+import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
@@ -141,9 +152,9 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
 import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
+import online.bus.bmarian.conexiuniclujmobile.ui.Ticker
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
-import online.bus.bmarian.conexiuniclujmobile.ui.rememberCascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
@@ -151,10 +162,12 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberCascade
 import online.bus.bmarian.conexiuniclujmobile.ui.share
 import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
 
@@ -287,6 +300,21 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     }
 
     val stops = current?.stops.orEmpty()
+    val networkIndex by Services.repository.network.index.collectAsStateWithLifecycle()
+    val keysByDirection = remember(route, networkIndex) {
+        directionKeys(stopsForDirection(route, tripIdFor(routeId, "0")).map { it.stop }, stopsForDirection(route, tripIdFor(routeId, "1")).map { it.stop }) {
+            networkIndex?.stationId(it.stopId) ?: it.stopId
+        }
+    }
+    val stopKeys = (if (dir == "0") keysByDirection.first else keysByDirection.second).takeIf { it.size == stops.size } ?: stops.indices.map { "s-$it" }
+    var shownKeys by remember { mutableStateOf(emptySet<String>()) }
+    val stayingKeys = remember(dir) { shownKeys }
+    SideEffect { shownKeys = stopKeys.toSet() }
+    val busTarget = stops.indexOfFirst { it.stop.stopId == fromStopId }.takeIf { it >= 0 } ?: current?.nearestStopIdx ?: -1
+    val directionPath = remember(current?.shape) { current?.shape?.shape?.let(::pathOf) }
+    val stopsAt = remember(directionPath, stops) { directionPath?.let { stopsAlong(it, stops) }.orEmpty() }
+    val buses = rememberListBuses(directionPath, stopsAt, current?.vehicles.orEmpty(), busTarget)
+    val lineColor = LocalLineLooks.current.color(route.shortName, route.color)
     val outgoing = dir == "0"
     val tripId = tripIdFor(routeId, dir)
     val hourlyTrip = remember(hourly, stops, tripId) { tripHourlyOffsets(hourly, tripId, stops) }
@@ -334,7 +362,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
 
     Column(Modifier.fillMaxSize()) {
     SheetTopBar(barTitle, listState.pastHeader(), menu = menu)
-    LazyColumn(Modifier.weight(1f), state = listState) {
+    Box(Modifier.weight(1f)) {
+    LazyColumn(Modifier.fillMaxSize(), state = listState) {
         activeChange?.let { change ->
             item(key = "change") {
                 RouteChangeBanner(change, onDismiss = { vm.activeChange.value = null })
@@ -420,12 +449,16 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     }
                 }
             }
-            itemsIndexed(stops, key = { idx, s -> "${s.stop.stopId}-$idx" }) { idx, stop ->
+            itemsIndexed(stops, key = { idx, _ -> stopKeys[idx] }) { idx, stop ->
                 val arrivals = current?.arrivals?.getOrNull(idx).orEmpty()
                 val name = stop.stop.headsign.ifEmpty { "Stop ${idx + 1}" }
                 val alerting = follows.firstOrNull { it.matches(stop.stop.stopId, routeId, tripId) }
                 val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir), Cities.current.value)
-                Box(Modifier.cascade(cascade)) {
+                Box(
+                    Modifier
+                        .animateItem(fadeInSpec = null, placementSpec = spring(Bouncy.slide.dampingRatio, Bouncy.slide.stiffness, IntOffset.VisibilityThreshold), fadeOutSpec = tween(160))
+                        .then(if (stopKeys[idx] in stayingKeys) Modifier else Modifier.cascade(cascade)),
+                ) {
                     StopLine(
                         name = name,
                         mark = mark(idx, stop),
@@ -434,6 +467,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         last = idx == stops.lastIndex,
                         times = arrivals.map { (if (it.soon) soonLabel else formatMinutesFromNow(it.minutes, current!!.now, nowLabel)) to it.isLive },
                         trailingText = null,
+                        paint = { buses.paintIn(idx) },
+                        paintColor = lineColor,
                         alerting = alerting != null,
                         reminded = reminders.any { it.isFor(stop.stop.stopId, routeId, tripId) },
                         onClick = { nav.stop(stop.stop.stopId) },
@@ -589,6 +624,14 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         }
         item { Spacer(Modifier.height(32.dp)) }
     }
+    StopListBuses(
+        buses, listState, stopKeys, busTarget,
+        mark = if (stops.getOrNull(busTarget)?.stop?.stopId == fromStopId) Palette.Emerald else Palette.Purple,
+        color = lineColor,
+        mode = modeOf(route.type),
+        modifier = Modifier.matchParentSize(),
+    )
+    }
     }
     reminding?.let { ReminderSheet(it) { reminding = null } }
 }
@@ -614,6 +657,9 @@ private fun TimeColumns(times: List<Pair<String, Boolean>>, header: Boolean = fa
     }
 }
 
+internal val RAIL_START = 16.dp
+internal val RAIL_WIDTH = 20.dp
+
 @Composable
 private fun StopLine(
     name: String,
@@ -624,6 +670,8 @@ private fun StopLine(
     times: List<Pair<String, Boolean>>,
     trailingText: String?,
     trailingHighlight: Boolean = false,
+    paint: (() -> ClosedFloatingPointRange<Float>?)? = null,
+    paintColor: Color = Color.Unspecified,
     alerting: Boolean = false,
     reminded: Boolean = false,
     onClick: () -> Unit,
@@ -638,14 +686,17 @@ private fun StopLine(
         else -> Color.Transparent
     }
     Row(
-        Modifier.fillMaxWidth().background(rowTint).squishClickable(onLongClick = onLongClick, onClick = onClick).padding(start = 16.dp, end = 16.dp),
+        Modifier.fillMaxWidth().background(rowTint).squishClickable(onLongClick = onLongClick, onClick = onClick).padding(start = RAIL_START, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(20.dp).height(40.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.width(RAIL_WIDTH).height(40.dp), contentAlignment = Alignment.Center) {
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                 val x = size.width / 2
                 val w = 2.dp.toPx()
                 drawLine(rail, androidx.compose.ui.geometry.Offset(x, if (first) size.height / 2 else 0f), androidx.compose.ui.geometry.Offset(x, if (last) size.height / 2 else size.height), w)
+                paint?.invoke()?.let { part ->
+                    drawLine(paintColor, androidx.compose.ui.geometry.Offset(x, part.start * size.height), androidx.compose.ui.geometry.Offset(x, part.endInclusive * size.height), 4.dp.toPx())
+                }
             }
             val color = when (mark) {
                 StopMark.From -> Palette.Emerald
@@ -661,7 +712,7 @@ private fun StopLine(
             }
         }
         Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
+            Ticker(
                 name,
                 modifier = Modifier.weight(1f, fill = false),
                 style = MaterialTheme.typography.bodyMedium,
@@ -676,8 +727,6 @@ private fun StopLine(
                     StopMark.Terminal -> MaterialTheme.colorScheme.onSurface
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             when (mark) {
                 StopMark.From -> Icon(Icons.Rounded.Place, null, Modifier.size(14.dp), tint = Palette.Emerald)
