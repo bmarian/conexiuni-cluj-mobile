@@ -125,6 +125,8 @@ class NetworkIndex(val bundle: NetworkBundle) {
         }
     }
 
+    fun stationId(stopId: Int): Int = stopById[stopId]?.station ?: stopId
+
     fun look(stopId: Int): StationLook? = stopById[stopId]?.let { looks[it.station] }
 
     fun platforms(stopId: Int): List<Stop> {

@@ -473,6 +473,12 @@ fun TransitMap(
         controller.handledFly = n
         flyToVisible(target, DEFAULT_ZOOM)
     }
+    LaunchedEffect(session, controller.arrival) {
+        val arrival = controller.arrival ?: return@LaunchedEffect
+        if (session == null || arrival.seq == controller.handledArrival) return@LaunchedEffect
+        controller.handledArrival = arrival.seq
+        session?.ripple(arrival.color, arrival.vehicleId)
+    }
     LaunchedEffect(session, controller.cameraBack) {
         val (view, n) = controller.cameraBack ?: return@LaunchedEffect
         if (session == null || n == controller.handledCameraBack) return@LaunchedEffect

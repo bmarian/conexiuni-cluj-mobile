@@ -448,17 +448,18 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         }
     }
 
-    fun swap() {
-        if (!hasValidCoords) return
+    /** Looks up the names a swap needs; the returned swap is applied by the caller. */
+    suspend fun prepareSwap(): (() -> Unit)? {
+        if (!hasValidCoords) return null
         val origin = customOrigin.value
-        val newDestLat = origin?.lat ?: Services.location.value?.lat ?: return
-        val newDestLon = origin?.lon ?: Services.location.value?.lon ?: return
+        val newDestLat = origin?.lat ?: Services.location.value?.lat ?: return null
+        val newDestLon = origin?.lon ?: Services.location.value?.lon ?: return null
         val oldLat = destLat
         val oldLon = destLon
         val oldName = destName.value
-        viewModelScope.launch {
-            val newDestName = origin?.name ?: reverseGeocode(newDestLat, newDestLon)
-            val newOriginName = if (oldName == string(R.string.w_plan_origin_current_location)) reverseGeocode(oldLat, oldLon) else oldName
+        val newDestName = origin?.name ?: reverseGeocode(newDestLat, newDestLon)
+        val newOriginName = if (oldName == string(R.string.w_plan_origin_current_location)) reverseGeocode(oldLat, oldLon) else oldName
+        return {
             customOrigin.value = Origin(newOriginName, clampCoord4(oldLat), clampCoord4(oldLon))
             clearPlanSelection()
             setDestination(PlanQuery.jsNumber(newDestLat), PlanQuery.jsNumber(newDestLon), newDestName)

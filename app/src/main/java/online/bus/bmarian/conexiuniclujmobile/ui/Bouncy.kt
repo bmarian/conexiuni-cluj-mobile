@@ -3,7 +3,9 @@ package online.bus.bmarian.conexiuniclujmobile.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -43,7 +45,9 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,22 +67,55 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+const val RIPPLE_MS = 1000
 
 object Bouncy {
+    val fastSize = spring<IntSize>(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)
     val press = spring<Float>(dampingRatio = 0.32f, stiffness = 650f)
     val pop = spring<Float>(dampingRatio = 0.26f, stiffness = Spring.StiffnessMedium)
     val slide = spring<Float>(dampingRatio = 0.58f, stiffness = 340f)
     val land = spring<Float>(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow)
+}
+
+class Pop {
+    val x = Animatable(1f)
+    val y = Animatable(1f)
+
+    suspend fun from(scaleX: Float, scaleY: Float = scaleX) = coroutineScope {
+        x.snapTo(scaleX)
+        y.snapTo(scaleY)
+        launch { x.animateTo(1f, Bouncy.pop) }
+        y.animateTo(1f, Bouncy.pop)
+    }
+
+    suspend fun squash() = from(1.2f, 0.8f)
+}
+
+@Composable
+fun rememberPop() = remember { Pop() }
+
+fun Modifier.popped(pop: Pop): Modifier = graphicsLayer {
+    scaleX = pop.x.value
+    scaleY = pop.y.value
 }
 
 /** Squashes while [source] is pressed and springs back on release. */
@@ -242,7 +279,18 @@ fun Modifier.buzz(): Modifier = composed {
     graphicsLayer { rotationZ = angle.value }
 }
 
-/** Text that rolls up to its new value. */
+private val DIGITS = Regex("""\d+""")
+
+private fun numbers(text: String) = DIGITS.findAll(text).map { it.value.toLong() }.toList()
+
+private fun shrinks(was: String, now: String): Boolean {
+    val before = numbers(was)
+    val after = numbers(now)
+    val i = after.indices.firstOrNull { after[it] != before.getOrNull(it) } ?: return false
+    return before.getOrNull(i)?.let { after[i] < it } == true
+}
+
+/** Text that rolls to its new value; when the words stay, only the digits that change roll, down when the number shrinks. */
 @Composable
 fun Ticker(
     text: String,
@@ -251,16 +299,48 @@ fun Ticker(
     color: Color = Color.Unspecified,
     fontWeight: FontWeight? = null,
 ) {
+    var last by remember { mutableStateOf(text) }
+    val down = remember(text) { shrinks(last, text) }
+    SideEffect { last = text }
     AnimatedContent(
         text,
         modifier,
+        contentKey = { it.replace(DIGITS, "#") },
         transitionSpec = {
             (slideInVertically(spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow)) { it } + fadeIn()) togetherWith
                 (slideOutVertically(spring(stiffness = Spring.StiffnessMediumLow)) { -it } + fadeOut()) using SizeTransform(clip = false)
         },
         label = "ticker",
     ) { value ->
-        Text(value, style = style, color = color, fontWeight = fontWeight, maxLines = 1)
+        if (!DIGITS.containsMatchIn(value)) {
+            Text(value, style = style, color = color, fontWeight = fontWeight, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            return@AnimatedContent
+        }
+        Row(Modifier.clearAndSetSemantics { this.text = AnnotatedString(value) }) {
+            var at = 0
+            for (run in DIGITS.findAll(value)) {
+                if (run.range.first > at) Text(value.substring(at, run.range.first), style = style, color = color, fontWeight = fontWeight, maxLines = 1)
+                Row(Modifier.animateContentSize(Bouncy.fastSize)) {
+                    run.value.forEachIndexed { k, digit ->
+                        key(run.value.length - k) {
+                            AnimatedContent(
+                                digit,
+                                transitionSpec = {
+                                    val from = if (down) -1 else 1
+                                    (slideInVertically(spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow)) { it * from } + fadeIn()) togetherWith
+                                        (slideOutVertically(spring(stiffness = Spring.StiffnessMediumLow)) { -it * from } + fadeOut()) using SizeTransform(clip = true)
+                                },
+                                label = "digit",
+                            ) { d ->
+                                Text(d.toString(), style = style.copy(fontFeatureSettings = "tnum"), color = color, fontWeight = fontWeight, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                at = run.range.last + 1
+            }
+            if (at < value.length) Text(value.substring(at), style = style, color = color, fontWeight = fontWeight, maxLines = 1)
+        }
     }
 }
 

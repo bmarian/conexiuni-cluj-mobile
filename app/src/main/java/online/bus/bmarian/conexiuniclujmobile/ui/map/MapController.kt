@@ -44,6 +44,8 @@ data class NavCamera(val zoom: Double, val tilt: Double, val top: Float, val bot
 class CameraView(val center: LatLon, val zoom: Double, val bearing: Double, val padding: DoubleArray?)
 
 @Stable
+class MapArrival(val color: String, val vehicleId: String?, val seq: Int)
+
 class MapController {
     var shapes by mutableStateOf<List<MapShape>>(emptyList())
         private set
@@ -80,6 +82,8 @@ class MapController {
         private set
     var cameraBack by mutableStateOf<Pair<CameraView, Int>?>(null)
         private set
+    var arrival by mutableStateOf<MapArrival?>(null)
+        private set
     var bearing by mutableStateOf(0.0)
         internal set
     internal var resting: CameraView? = null
@@ -94,6 +98,7 @@ class MapController {
     internal var handledFly = 0
     internal var handledCenter = 0
     internal var handledCameraBack = 0
+    internal var handledArrival = 0
 
     private var shapesKey = ""
     private var owner: Any? = null
@@ -185,6 +190,10 @@ class MapController {
 
     fun fitShapes() {
         fitRequest++
+    }
+
+    fun arrive(color: String, vehicleId: String?) {
+        arrival = MapArrival(color, vehicleId, (arrival?.seq ?: 0) + 1)
     }
 
     fun flyTo(lat: Double, lon: Double) {

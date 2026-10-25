@@ -8,7 +8,9 @@ import android.graphics.RectF
 import android.location.Location
 import android.view.Choreographer
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import android.view.animation.OvershootInterpolator
+import android.view.animation.PathInterpolator
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -17,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.animation.doOnEnd
 import com.google.gson.JsonArray
-import java.time.OffsetDateTime
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -40,8 +41,12 @@ import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
 import online.bus.bmarian.conexiuniclujmobile.logic.VehicleTrack
+import online.bus.bmarian.conexiuniclujmobile.logic.fixMs
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import online.bus.bmarian.conexiuniclujmobile.logic.pathThrough
 import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
+import online.bus.bmarian.conexiuniclujmobile.logic.shareAlong
+import online.bus.bmarian.conexiuniclujmobile.ui.RIPPLE_MS
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -59,10 +64,16 @@ import org.maplibre.android.style.expressions.Expression.eq
 import org.maplibre.android.style.expressions.Expression.get
 import org.maplibre.android.style.expressions.Expression.literal
 import org.maplibre.android.style.expressions.Expression.toColor
+import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.Layer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleRadius
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeOpacity
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.fillColor
 import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
@@ -71,9 +82,9 @@ import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconOffset
 import org.maplibre.android.style.layers.PropertyFactory.iconOpacity
-import org.maplibre.android.style.layers.PropertyFactory.iconSize
 import org.maplibre.android.style.layers.PropertyFactory.iconRotate
 import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
+import org.maplibre.android.style.layers.PropertyFactory.iconSize
 import org.maplibre.android.style.layers.PropertyFactory.iconTranslate
 import org.maplibre.android.style.layers.PropertyFactory.iconTranslateAnchor
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
@@ -104,6 +115,7 @@ private const val SRC_PINS = "ct-pins"
 private const val SRC_AREA = "ct-area"
 private const val SRC_SPIDER = "ct-spider"
 private const val SRC_SWEEP = "ct-sweep"
+private const val SRC_RIPPLE = "ct-ripple"
 
 private const val LAYER_STOPS = "ct-stops"
 private const val LAYER_HIGHLIGHTS = "ct-highlights"
@@ -111,6 +123,8 @@ private const val LAYER_SPIDER = "ct-spider"
 private const val LAYER_SELECTED = "ct-selected"
 private const val LAYER_VEHICLES = "ct-vehicles"
 private const val LAYER_PINS = "ct-pins"
+private const val RIPPLE_GAP_MS = 240L
+private const val SELECTED_RADIUS_DP = 16f
 
 private val HEADING_OFFSET = 12.0 to 12.0
 
@@ -192,6 +206,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private val glide = VehicleGlide({ map.projection.getMetersPerPixelAtLatitude(map.cameraPosition.target?.latitude ?: 0.0) }) { pushVehicles() }
     private var drop: ValueAnimator? = null
     private var recolor: ValueAnimator? = null
+    private var ripple: ValueAnimator? = null
+    private val bounces = HashMap<String, ValueAnimator>()
     private var drawnFavorites = emptySet<String>()
     private var tracking: NavCamera? = null
     private var tracked: NavCamera? = null
@@ -295,7 +311,89 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         recolor?.cancel()
         applyScene()
         recolorLines(before, value, saved)
+        growLines(before, value)
         refreshStops()
+    }
+
+    private fun paintSweep(parts: List<Pair<List<LatLon>, Int>>) = source(SRC_SWEEP)?.setGeoJson(
+        FeatureCollection.fromFeatures(
+            parts.filter { it.first.size >= 2 }.map { (part, color) ->
+                Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply {
+                    addStringProperty("color", "#%06X".format(0xFFFFFF and color))
+                }
+            },
+        ),
+    )
+
+    private fun sweep(paint: (Float) -> Unit) {
+        recolor = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = SWEEP_MS
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { a -> paint(a.animatedValue as Float) }
+            doOnEnd {
+                applyLines()
+                paintSweep(emptyList())
+                recolor = null
+            }
+            start()
+        }
+    }
+
+    /** Port of growLine. */
+    private fun growLines(before: MapScene, after: MapScene) {
+        if (!motionOn() || recolor != null) return
+        val known = before.lines.map { it.points }.toSet()
+        val fresh = after.lines.indices.filter { after.lines[it].points !in known && after.lines[it].dash == 0 && after.lines[it].points.size >= 2 }
+        if (fresh.isEmpty()) return
+        val origin = selected
+        val grows = fresh.map { i ->
+            val line = after.lines[i]
+            val path = pathThrough(line.points.map { it.lat }.toDoubleArray(), line.points.map { it.lon }.toDoubleArray())
+            Triple(line.points, origin?.let { path.shareAlong(it.lat, it.lon).toFloat() } ?: 0f, lineArgb(line.color))
+        }
+        applyLines(hidden = fresh.toSet())
+        sweep { done -> paintSweep(grows.map { (points, from, color) -> partBetween(points, from * (1 - done), from + (1 - from) * done) to color }) }
+    }
+
+    fun ripple(color: String, vehicleId: String?) {
+        val stop = selected ?: return
+        if (!motionOn()) return
+        val argb = lineArgb(color)
+        ripple?.cancel()
+        ripple = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = RIPPLE_MS + RIPPLE_GAP_MS
+            interpolator = LinearInterpolator()
+            val ease = PathInterpolator(0.2f, 0f, 0f, 1f)
+            addUpdateListener { a ->
+                val ms = (a.animatedValue as Float) * duration
+                source(SRC_RIPPLE)?.setGeoJson(
+                    FeatureCollection.fromFeatures(
+                        listOf(0L, RIPPLE_GAP_MS).map { delay ->
+                            val p = ease.getInterpolation(((ms - delay) / RIPPLE_MS).coerceIn(0f, 1f))
+                            Feature.fromGeometry(point(LatLon(stop.lat, stop.lon))).apply {
+                                addNumberProperty("r", SELECTED_RADIUS_DP * (1f + 2.4f * p))
+                                addNumberProperty("o", if (ms < delay) 0f else 0.8f * (1f - p))
+                                addStringProperty("color", "#%06X".format(0xFFFFFF and argb))
+                            }
+                        },
+                    ),
+                )
+            }
+            doOnEnd { source(SRC_RIPPLE)?.setGeoJson(FeatureCollection.fromFeatures(emptyList())) }
+            start()
+        }
+        val id = vehicleId ?: return
+        bounces.remove(id)?.cancel()
+        bounces[id] = ValueAnimator.ofFloat(1.2f, 1f).apply {
+            duration = 450
+            interpolator = OvershootInterpolator(2.5f)
+            addUpdateListener { pushVehicles() }
+            doOnEnd {
+                bounces.remove(id)
+                pushVehicles()
+            }
+            start()
+        }
     }
 
     private fun recolorLines(before: MapScene, after: MapScene, saved: Set<String>) {
@@ -305,28 +403,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 }
         if (changed.isEmpty()) return
         val sweeps = changed.map { i -> Triple(after.lines[i], after.lines[i].name in saved && after.lines[i].name !in drawnFavorites, lineArgb(after.lines[i].color)) }
-        fun paint(done: Float) = source(SRC_SWEEP)?.setGeoJson(
-            FeatureCollection.fromFeatures(
-                sweeps.mapNotNull { (line, backwards, color) ->
-                    sweptPart(line.points, done, backwards).takeIf { it.size >= 2 }?.let { part ->
-                        Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply {
-                            addStringProperty("color", "#%06X".format(0xFFFFFF and color))
-                        }
-                    }
-                },
-            ),
-        )
         applyLines(after.lines.indices.map { lineArgb((if (it in changed) before else after).lines[it].color) })
-        recolor = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = SWEEP_MS
-            interpolator = AccelerateDecelerateInterpolator()
-            addUpdateListener { a -> paint(a.animatedValue as Float) }
-            doOnEnd {
-                applyLines()
-                paint(0f)
-                recolor = null
-            }
-            start()
+        sweep { done ->
+            paintSweep(sweeps.map { (line, backwards, color) -> partBetween(line.points, if (backwards) 1 - done else 0f, if (backwards) 1f else done) to color })
         }
     }
 
@@ -655,7 +734,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun addLayers(style: Style, dark: Boolean) {
-        listOf(SRC_LINES, SRC_SWEEP, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER)
+        listOf(SRC_LINES, SRC_SWEEP, SRC_RIPPLE, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER)
             .forEach { style.addSource(GeoJsonSource(it)) }
         addBaseImages(style, dark)
 
@@ -743,6 +822,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             ),
         )
         over(SymbolLayer(LAYER_SELECTED, SRC_SELECTED).withProperties(iconImage(get("img"))))
+        style.addLayerBelow(
+            CircleLayer("ct-ripple", SRC_RIPPLE).withProperties(
+                circleRadius(get("r")),
+                circleColor(android.graphics.Color.TRANSPARENT),
+                circleStrokeWidth(3f),
+                circleStrokeColor(toColor(get("color"))),
+                circleStrokeOpacity(get("o")),
+            ),
+            LAYER_SELECTED,
+        )
         over(
             SymbolLayer(LAYER_VEHICLES, SRC_VEHICLES).withProperties(
                 iconImage(get("img")),
@@ -1064,11 +1153,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     private fun lineArgb(color: String): Int = (if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color)).toArgb()
 
-    private fun applyLines(colors: List<Int> = scene.lines.map { lineArgb(it.color) }): Boolean {
+    private fun applyLines(colors: List<Int> = scene.lines.map { lineArgb(it.color) }, hidden: Set<Int> = emptySet()): Boolean {
         val src = source(SRC_LINES) ?: return false
         src.setGeoJson(
             FeatureCollection.fromFeatures(
-                scene.lines.zip(colors).filter { (line, _) -> line.points.size >= 2 }.map { (line, color) ->
+                scene.lines.zip(colors).filterIndexed { i, (line, _) -> line.points.size >= 2 && i !in hidden }.map { (line, color) ->
                     Feature.fromGeometry(LineString.fromLngLats(line.points.map(::point))).apply {
                         addStringProperty("color", "#%06X".format(0xFFFFFF and color))
                         addNumberProperty("dash", line.dash)
@@ -1160,7 +1249,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
             addNumberProperty("opacity", (if (faded) FADED_VEHICLE_OPACITY else 1f) * shown.opacity)
-            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale)
+            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * ((bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f))
             if (shown.leaving) addBooleanProperty("gone", true)
             addProperty("off", JsonArray().apply { add(off.first); add(off.second) })
         }
@@ -1371,7 +1460,7 @@ private class VehicleGlide(private val metersPerPixel: () -> Double, private val
         val v = track.vehicle.vehicle
         val tripId = v.tripId
         val path = tripId?.let(paths::get)
-        val fixMs = runCatching { OffsetDateTime.parse(v.timestamp).toInstant().toEpochMilli() }.getOrNull()
+        val fixMs = v.fixMs
         if (!motionOn() || path == null || fixMs == null || track.untracked == tripId) {
             track.follow = null
             return

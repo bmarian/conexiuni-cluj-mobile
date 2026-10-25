@@ -1,5 +1,13 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -25,8 +34,12 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +48,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -47,13 +61,17 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.Instant
 import java.time.LocalDateTime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
+import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 
 @Composable
 fun cityName(): String {
@@ -96,16 +114,40 @@ fun LineBadge(
     }
 }
 
+/** When fresh live times last landed. */
+val LocalLiveBeat = compositionLocalOf<Long?> { null }
+
+@Composable
+fun OnLiveBeat(action: suspend CoroutineScope.() -> Unit) {
+    val beat = LocalLiveBeat.current
+    var seen by remember { mutableStateOf(beat) }
+    LaunchedEffect(beat) {
+        if (beat == null || beat == seen) return@LaunchedEffect
+        seen = beat
+        action()
+    }
+}
+
 @Composable
 fun RealtimeIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 12.dp) {
+    val parts = remember { List(3) { Animatable(1f) } }
+    OnLiveBeat {
+        parts.forEach { it.snapTo(0.2f) }
+        parts.forEachIndexed { i, part ->
+            launch {
+                delay(140L + i * 110L)
+                part.animateTo(1f, tween(240, easing = LinearEasing))
+            }
+        }
+    }
     Canvas(modifier.size(size)) {
         val stroke = this.size.width * 0.13f
         val corner = Offset(stroke, this.size.height - stroke)
-        drawCircle(color, stroke * 1.1f, corner)
+        drawCircle(color.copy(alpha = color.alpha * parts[0].value), stroke * 1.1f, corner)
         for (step in 1..2) {
             val radius = this.size.width * (0.32f + 0.3f * (step - 1))
             drawArc(
-                color = color,
+                color = color.copy(alpha = color.alpha * parts[step].value),
                 startAngle = -90f,
                 sweepAngle = 90f,
                 useCenter = false,
@@ -201,25 +243,78 @@ fun RowIcon(icon: ImageVector, container: Color, tint: Color, size: Dp = 36.dp) 
 }
 
 @Composable
-fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: Boolean = false) {
-    val container = when {
-        live -> LocalLiveColors.current.container
-        extra -> Color.Transparent
-        else -> MaterialTheme.colorScheme.surfaceContainerHighest
-    }
-    val content = when {
-        live -> LocalLiveColors.current.onContainer
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: Boolean = false, due: Boolean = false, mode: Mode = Mode.BUS) {
+    val colors = LocalLiveColors.current
+    val solid = live && due
+    val container by animateColorAsState(
+        when {
+            solid -> colors.content
+            live -> colors.container
+            extra -> Color.Transparent
+            else -> MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        if (solid) tween(220, delayMillis = 560, easing = LinearEasing) else snap(),
+        label = "pill",
+    )
+    val content by animateColorAsState(
+        when {
+            solid -> colors.container
+            live -> colors.onContainer
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        if (solid) tween(220, delayMillis = 560, easing = LinearEasing) else snap(),
+        label = "pillText",
+    )
+    val pill = rememberPop()
+    val vehicle = rememberPop()
+    val arrive = remember { Animatable(1f) }
+    var was by remember { mutableStateOf(live to solid) }
+    // Only when the time counts down to now, not when a page opens on a bus already due.
+    LaunchedEffect(solid) {
+        val (wasLive, wasDue) = was
+        was = live to solid
+        if (!solid || wasDue || !wasLive) return@LaunchedEffect arrive.snapTo(1f)
+        arrive.snapTo(0f)
+        launch {
+            delay(80)
+            arrive.animateTo(1f, tween(620, easing = EmphasizedDecelerate))
+        }
+        launch {
+            delay(620)
+            pill.from(0.86f)
+        }
+        delay(700)
+        vehicle.squash()
     }
     Row(
         modifier
+            .popped(pill)
             .clip(RoundedCornerShape(8.dp))
             .background(container)
             .padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        if (live) RealtimeIcon(content, size = 10.dp)
+        if (live) {
+            Box(Modifier.size(10.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.animation.AnimatedVisibility(!solid, enter = fadeIn(), exit = scaleOut(tween(160)) + fadeOut(tween(160))) {
+                    RealtimeIcon(content, size = 10.dp)
+                }
+                if (solid) {
+                    Icon(
+                        ModeGlyphs.vector(mode),
+                        null,
+                        Modifier.fillMaxSize().popped(vehicle).graphicsLayer {
+                            val k = 0.15f + 0.85f * arrive.value
+                            scaleX *= k
+                            scaleY *= k
+                            alpha = arrive.value.coerceIn(0f, 1f)
+                        },
+                        tint = content,
+                    )
+                }
+            }
+        }
         Ticker(
             text,
             style = TextStyle(fontSize = 13.sp, fontWeight = if (extra) FontWeight.Medium else FontWeight.Bold),

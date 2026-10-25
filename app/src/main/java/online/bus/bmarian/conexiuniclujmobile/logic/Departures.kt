@@ -25,7 +25,7 @@ fun stopDepartures(info: StopInfo, live: LiveState?, now: LocalDateTime, nowMs: 
         if (entries != null) {
             if (entries.isEmpty()) return@mapNotNull null
             departure.copy(
-                nextTimes = entries.map { Arrival(it.minutes, it.live) },
+                nextTimes = entries.map { Arrival(it.minutes, it.live, it.vehicleId) },
                 minutesLeft = entries.first().minutes,
                 isStatic = entries.none { it.live },
             )
@@ -100,6 +100,6 @@ fun routeHeaderArrivals(
     nowMs: Long,
 ): List<Arrival> {
     val first = stops.firstOrNull() ?: return emptyList()
-    live?.entriesAt(tripId, first.stop.stopId, nowMs)?.let { entries -> return entries.map { Arrival(it.minutes, it.live) } }
+    live?.entriesAt(tripId, first.stop.stopId, nowMs)?.let { entries -> return entries.map { Arrival(it.minutes, it.live, it.vehicleId) } }
     return scheduledRow(shapeInfo, first, outgoing, now)
 }
