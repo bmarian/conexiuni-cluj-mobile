@@ -38,6 +38,7 @@ class NetworkRoute(
     @SerialName("route_color") val color: String = "#64748b",
     @SerialName("route_colorful") val colorful: String = "",
     @SerialName("route_desc") val desc: String = "",
+    val slug: String = "",
     val timetable: Timetable? = null,
     val trips: List<NetworkTrip> = emptyList(),
     val offsets: Map<String, List<IntArray>> = emptyMap(),
@@ -98,6 +99,12 @@ class NetworkIndex(val bundle: NetworkBundle) {
     val calendar = ScheduleCalendar(bundle.scheduleDays, bundle.dayNotes)
 
     private val platformsByStation: Map<Int, List<Stop>> by lazy { bundle.stops.groupBy { it.station } }
+    private val stationBySlug: Map<String, Int> by lazy { bundle.stops.filter { it.slug.isNotEmpty() }.associate { it.slug to it.station } }
+    private val routeBySlug: Map<String, Int> by lazy { bundle.routes.filter { it.slug.isNotEmpty() }.associate { it.slug to it.routeId } }
+
+    fun stationNamed(slug: String): Int? = stationBySlug[slug]
+
+    fun lineNamed(slug: String): Int? = routeBySlug[slug]
 
     private val colorOf: Map<Mode, String> by lazy { modeColors(bundle.routes) }
 

@@ -92,6 +92,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RouteChange
+import online.bus.bmarian.conexiuniclujmobile.data.linePath
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
@@ -377,7 +378,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleRoute(routeId, dir)
                     },
-                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, "/route/$routeId/$dir") },
+                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, Services.repository.network.index.value.linePath(routeId, dir)) },
                 ),
                 Modifier.padding(bottom = 12.dp),
             )

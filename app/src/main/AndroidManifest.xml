@@ -162,10 +162,15 @@
                 <!-- The same pages under a city: /{city}/stop/… -->
                 <data android:pathPattern="/.*/stop/.*" />
                 <data android:pathPattern="/.*/route/.*" />
+                <data android:pathPattern="/.*/statia/.*" />
+                <data android:pathPattern="/.*/linia/.*" />
                 <data android:pathPattern="/.*/plan" />
                 <data android:pathPattern="/.*/settings" />
+                <data android:pathPattern="/.*/setari" />
                 <data android:pathPattern="/.*/to/.*" />
+                <data android:pathPattern="/.*/spre/.*" />
                 <data android:pathPattern="/.*/destinations" />
+                <data android:pathPattern="/.*/destinatii" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

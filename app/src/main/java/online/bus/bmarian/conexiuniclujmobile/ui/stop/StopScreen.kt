@@ -96,6 +96,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
 import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
 import online.bus.bmarian.conexiuniclujmobile.data.directionFromTripId
+import online.bus.bmarian.conexiuniclujmobile.data.stopPath
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
@@ -339,7 +340,7 @@ fun StopScreen(stopId: Int) {
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleStop(favoritePlatform ?: stopId)
                     },
-                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, "/stop/$stopId") },
+                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, Services.repository.network.index.value.stopPath(stopId)) },
                 ),
                 Modifier.padding(bottom = 8.dp),
             )
