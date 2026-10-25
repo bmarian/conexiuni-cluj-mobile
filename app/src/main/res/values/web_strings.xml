@@ -206,7 +206,6 @@
     <string name="w_no">Nu</string>
     <string name="w_contact">Contact</string>
     <string name="w_contact_desc">Ajutor, sugestii sau orice altceva.</string>
-    <string name="w_source_code_desc">Codul sursă, probleme și idei.</string>
     <string name="w_sync_title">Sincronizare cu alte dispozitive</string>
     <string name="w_sync_desc">Păstrează aceleași preferate pe telefon, calculator și ceas.</string>
     <string name="w_sync_show_code">Arată codul</string>

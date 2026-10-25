@@ -150,7 +150,7 @@
     <string name="location_continue">Continuă</string>
     <string name="location_not_now">Nu acum</string>
     <string name="locating">Calculez drumul până la stație</string>
-    <string name="app_version">Open source · v%1$s</string>
+    <string name="app_version">Versiunea %1$s</string>
     <string name="update_question">Vrei să actualizezi aplicația?</string>
     <string name="watch_install_question">Vrei să instalezi aplicația pe ceas?</string>
     <string name="watch_install">Instalează</string>
