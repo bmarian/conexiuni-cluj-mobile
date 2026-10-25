@@ -25,6 +25,7 @@ data class Stop(
     @SerialName("stop_lon") val lon: Double = 0.0,
     @SerialName("stop_code") val stopCode: String = "",
     @SerialName("station_id") val stationId: Int = 0,
+    val slug: String = "",
 ) {
     val station: Int get() = if (stationId != 0) stationId else stopId
 }

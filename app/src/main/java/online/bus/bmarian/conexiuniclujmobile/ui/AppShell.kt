@@ -93,6 +93,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -210,7 +211,8 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
         if (target != null && target != Cities.current.value) return@LaunchedEffect Services.showCity(target)
         if (target != null && target != stackCity) return@LaunchedEffect
         links.value = null
-        openLink(navigator, uri)
+        // Clearing the link restarts this effect.
+        scope.launch { openLink(navigator, uri) }
     }
 
     val entry by navController.currentBackStackEntryAsState()
@@ -599,24 +601,35 @@ private fun linkCity(uri: Uri): String? {
     return Cities.DEFAULT.takeIf { first in CITY_SECTIONS }
 }
 
-private fun openLink(navigator: Navigator, uri: Uri) {
+private suspend fun openLink(navigator: Navigator, uri: Uri) {
     val segments = uri.pathSegments.let { if (it.firstOrNull() in SECTIONS) it else it.drop(1) }
+    val named = suspend { Services.repository.network.index.filterNotNull().first() }
     when (segments.firstOrNull()) {
         "stop" -> segments.getOrNull(1)?.toIntOrNull()?.let(navigator::stop)
+        "statia" -> segments.getOrNull(1)?.let { named().stationNamed(it) }?.let(navigator::stop) ?: navigator.home()
+        "linia" -> {
+            val routeId = segments.getOrNull(1)?.let { named().lineNamed(it) } ?: return navigator.home()
+            val direction = when (segments.getOrNull(2)) {
+                "intors" -> "1"
+                "auto" -> "auto"
+                else -> "0"
+            }
+            navigator.route(routeId, direction, change = uri.getQueryParameter("change")?.toLongOrNull())
+        }
         "route" -> {
             val routeId = segments.getOrNull(1)?.toIntOrNull() ?: return
             val direction = segments.getOrNull(2)?.takeIf { it == "0" || it == "1" || it == "auto" } ?: "auto"
             navigator.route(routeId, direction, change = uri.getQueryParameter("change")?.toLongOrNull())
         }
         "plan" -> navigator.plan(PlanQuery.fromUri(uri))
-        "to" -> segments.getOrNull(1)?.let(navigator::destination) ?: navigator.destinations()
-        "destinations" -> navigator.destinations()
+        "spre", "to" -> segments.getOrNull(1)?.let(navigator::destination) ?: navigator.destinations()
+        "destinatii", "destinations" -> navigator.destinations()
         "journey", "nav" -> JourneyManager.openNavigation()
         "search" -> {
             navigator.home()
             HomeRequests.search.value = uri.getQueryParameter("q").orEmpty()
         }
-        "settings" -> {
+        "setari", "settings" -> {
             val code = uri.getQueryParameter("pair")
             // The key is in the fragment, never sent to the server.
             val key = uri.fragment?.split('&')?.firstOrNull { it.startsWith("k=") }?.removePrefix("k=")
