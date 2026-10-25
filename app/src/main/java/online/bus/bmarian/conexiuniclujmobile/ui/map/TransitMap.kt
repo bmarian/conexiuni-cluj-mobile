@@ -19,7 +19,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Accessible
+import androidx.compose.material.icons.rounded.PedalBike
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,10 +40,16 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,11 +62,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -83,6 +92,7 @@ import org.maplibre.android.maps.MapView
 import java.text.Collator
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 private const val TOOLTIP_MS = 2_500L
 
@@ -160,7 +170,6 @@ fun TransitMap(
                 CameraPosition.Builder()
                     .target(LatLng(camera.center.lat, camera.center.lon))
                     .zoom(camera.zoom)
-                    .bearing(camera.bearing)
                     .build(),
             )
             .minZoomPreference(MIN_ZOOM)
@@ -168,6 +177,7 @@ fun TransitMap(
             .attributionEnabled(false)
             .logoEnabled(false)
             .tiltGesturesEnabled(false)
+            .rotateGesturesEnabled(false)
             .compassEnabled(true)
             .compassFadesWhenFacingNorth(true)
             .compassGravity(Gravity.TOP or Gravity.END)
@@ -197,7 +207,6 @@ fun TransitMap(
 
     DisposableEffect(host) {
         host.map.getMapAsync { map ->
-            map.uiSettings.isRotateGesturesEnabled = true
             map.uiSettings.isFlingVelocityAnimationEnabled = true
             val created = MapSession(context, map)
             map.addOnCameraIdleListener { controller.resting = created.view() }
@@ -546,8 +555,11 @@ private fun Anchored(
             session.frame.intValue
             val target = at() ?: return@layout
             val p = session.screen(target).apply { offset(shift.x, shift.y) }
-            val x = if (alignStart != null) p.x + alignStart
-            else (p.x - body.width / 2f).coerceIn(margin, maxOf(margin, constraints.maxWidth - body.width - margin))
+            val x = when {
+                alignStart == null -> (p.x - body.width / 2f).coerceIn(margin, maxOf(margin, constraints.maxWidth - body.width - margin))
+                p.x + alignStart + body.width > constraints.maxWidth - margin -> p.x - alignStart - body.width
+                else -> p.x + alignStart
+            }
             val y = if (alignStart != null) p.y - body.height / 2f else p.y - lift - tip.height - body.height
             body.place(x.roundToInt(), y.roundToInt())
             // The card may be pushed off-centre at the edges; the arrow stays on the target.
@@ -614,29 +626,48 @@ private fun VehicleBubble(session: MapSession, id: String) {
     val offset = with(LocalDensity.current) { 22.dp.toPx() }
     val reported = vehicle.vehicle.speed
     Anchored(session, { session.shownVehicle(id)?.at }, 0f, alignStart = offset) {
-        Column(
+        Row(
             Modifier.shadow(4.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val sub = MaterialTheme.colorScheme.onSurfaceVariant
-            val strike = MaterialTheme.colorScheme.error
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(vehicle.shortName, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                val wheelchair = wheelchairAccess(vehicle.vehicle)
-                val bikes = bikeAccess(vehicle.vehicle)
-                if (wheelchair != null || bikes != null) {
-                    Text("·", color = sub, style = MaterialTheme.typography.bodySmall)
-                    wheelchair?.let { ok ->
-                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = true, ok = ok, color = sub, strike = strike) }
-                    }
-                    bikes?.let { ok ->
-                        Canvas(Modifier.size(12.dp)) { accessibilityIcon(Offset.Zero, size.width, wheelchair = false, ok = ok, color = sub, strike = strike) }
-                    }
+            Column(Modifier.padding(end = 4.dp)) {
+                Text("${Math.round(reported)} km/h", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleSmall)
+                vehicle.vehicle.label.takeIf { it.isNotBlank() }?.let {
+                    Text("#$it", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             }
-            val number = vehicle.vehicle.label.takeIf { it.isNotBlank() }?.let { "#$it · " }.orEmpty()
-            Text("$number${Math.round(reported)} km/h", color = sub, style = MaterialTheme.typography.bodySmall)
+            wheelchairAccess(vehicle.vehicle)?.let { AccessIcon(Icons.Rounded.Accessible, it) }
+            bikeAccess(vehicle.vehicle)?.let { AccessIcon(Icons.Rounded.PedalBike, it) }
         }
+    }
+}
+
+@Composable
+private fun AccessIcon(icon: ImageVector, available: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier.size(28.dp).clip(CircleShape).background(if (available) colors.secondaryContainer else Color.Transparent),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (available) {
+            Icon(icon, null, Modifier.size(18.dp), tint = colors.onSecondaryContainer)
+            return@Box
+        }
+        val tint = colors.onSurface.copy(alpha = 0.38f)
+        Icon(
+            icon, null,
+            Modifier.size(18.dp).graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+                drawContent()
+                val reach = 10.dp.toPx() / sqrt(2f)
+                val from = center - Offset(reach, reach)
+                val to = center + Offset(reach, reach)
+                drawLine(Color.Black, from, to, 4.dp.toPx(), blendMode = BlendMode.Clear)
+                drawLine(tint, from, to, 2.dp.toPx(), cap = StrokeCap.Round)
+            },
+            tint = tint,
+        )
     }
 }

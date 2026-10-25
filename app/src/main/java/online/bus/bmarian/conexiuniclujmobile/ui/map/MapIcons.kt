@@ -3,10 +3,7 @@ package online.bus.bmarian.conexiuniclujmobile.ui.map
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -33,8 +30,6 @@ object Glyphs {
     }
     val directionArrow: Path by lazy { PathParser().parsePathString(DIRECTION_ARROW).toPath() }
     val pin: Path by lazy { PathParser().parsePathString(PIN).toPath() }
-    val wheelchairBody: Path by lazy { PathParser().parsePathString("M10 8v6h5l2 5").toPath() }
-    val bikeFrame: Path by lazy { PathParser().parsePathString("M12 17.5V13l-3-3 4-3 2 3h3").toPath() }
 }
 
 object MapColors {
@@ -100,27 +95,6 @@ fun DrawScope.pinMarker(tip: Offset, color: Color) {
             drawPath(Glyphs.pin, color)
             drawPath(Glyphs.pin, Color.White, style = Stroke(1.5f))
             drawCircle(Color.White.copy(alpha = 0.9f), 3.5f, Offset(10f, 10f))
-        }
-    }
-}
-
-fun DrawScope.accessibilityIcon(topLeft: Offset, size: Float, wheelchair: Boolean, ok: Boolean, color: Color, strike: Color) {
-    val alpha = if (ok) 1f else 0.4f
-    val stroke = Stroke(2.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-    translate(topLeft.x, topLeft.y) {
-        scale(size / 24f, size / 24f, pivot = Offset.Zero) {
-            val c = color.copy(alpha = alpha)
-            if (wheelchair) {
-                drawCircle(c, 2.5f, Offset(12f, 3.5f), style = Fill)
-                drawPath(Glyphs.wheelchairBody, c, style = stroke)
-                drawCircle(c, 3.5f, Offset(9f, 19.5f), style = stroke)
-            } else {
-                drawCircle(c, 3.5f, Offset(18.5f, 17.5f), style = stroke)
-                drawCircle(c, 3.5f, Offset(5.5f, 17.5f), style = stroke)
-                drawCircle(c, 2f, Offset(14f, 4.5f), style = Fill)
-                drawPath(Glyphs.bikeFrame, c, style = stroke)
-            }
-            if (!ok) drawLine(strike, Offset(2f, 2f), Offset(22f, 22f), 4f, cap = StrokeCap.Round)
         }
     }
 }

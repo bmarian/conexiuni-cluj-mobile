@@ -29,7 +29,7 @@ fun mercatorY(lat: Double): Double {
 fun lonOf(x: Double) = x * 360.0 - 180.0
 fun latOf(y: Double): Double = Math.toDegrees(atan(sinh(PI * (1 - 2 * y))))
 
-class MapCamera(val city: String, val center: LatLon, val zoom: Double, val bearing: Double) {
+class MapCamera(val city: String, val center: LatLon, val zoom: Double) {
     companion object {
         private const val PREFS = "map"
 
@@ -42,12 +42,11 @@ class MapCamera(val city: String, val center: LatLon, val zoom: Double, val bear
                 // Views saved by the old canvas map used Leaflet levels.
                 val zoom = if (prefs.contains("glZoom")) prefs.getFloat("glZoom", DEFAULT_ZOOM.toFloat()).toDouble()
                 else prefs.getFloat("zoom", DEFAULT_ZOOM.toFloat() + 1) - 1.0
-                val bearing = prefs.getFloat("bearing", 0f).toDouble()
                 if (lat.isFinite() && lon.isFinite() && Cities.contains(lat, lon, city)) {
-                    return MapCamera(city, LatLon(lat, lon), zoom.coerceIn(MIN_ZOOM, MAX_ZOOM), bearing)
+                    return MapCamera(city, LatLon(lat, lon), zoom.coerceIn(MIN_ZOOM, MAX_ZOOM))
                 }
             }
-            return MapCamera(city, Cities.info(city)?.let { LatLon(it.lat, it.lon) } ?: DEFAULT_CENTER, DEFAULT_ZOOM, 0.0)
+            return MapCamera(city, Cities.info(city)?.let { LatLon(it.lat, it.lon) } ?: DEFAULT_CENTER, DEFAULT_ZOOM)
         }
 
         fun save(context: Context, position: CameraPosition) {
@@ -59,7 +58,6 @@ class MapCamera(val city: String, val center: LatLon, val zoom: Double, val bear
                 putLong("lat", target.latitude.toRawBits())
                 putLong("lon", target.longitude.toRawBits())
                 putFloat("glZoom", position.zoom.toFloat())
-                putFloat("bearing", position.bearing.toFloat())
             }
         }
     }

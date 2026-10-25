@@ -645,7 +645,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val target = CameraPosition.Builder()
             .target(LatLng(camera.center.lat, camera.center.lon))
             .zoom(camera.zoom)
-            .bearing(camera.bearing)
+            .bearing(0.0)
             .build()
         map.animateCamera(CameraUpdateFactory.newCameraPosition(target), CITY_FLIGHT_MS, object : MapLibreMap.CancelableCallback {
             override fun onFinish() = landed()
@@ -1216,20 +1216,27 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private fun applyTracking() {
         val camera = tracking
         map.uiSettings.isTiltGesturesEnabled = camera != null
+        map.uiSettings.isRotateGesturesEnabled = camera != null
         val component = map.locationComponent
         if (!component.isLocationComponentActivated || !component.isLocationComponentEnabled) return
         if (camera == null) {
             trackingMove++
             settling = false
             tracked = null
-            if (component.cameraMode == CameraMode.NONE && component.renderMode == RenderMode.NORMAL) return
-            // Otherwise its own animations keep moving the camera.
-            component.cancelZoomWhileTrackingAnimation()
-            component.cancelTiltWhileTrackingAnimation()
-            component.cancelPaddingWhileTrackingAnimation()
-            component.cameraMode = CameraMode.NONE
-            component.renderMode = RenderMode.NORMAL
-            map.easeCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(map.cameraPosition).tilt(0.0).padding(0.0, 0.0, 0.0, 0.0).build()), 600)
+            val following = component.cameraMode != CameraMode.NONE || component.renderMode != RenderMode.NORMAL
+            if (following) {
+                // Otherwise its own animations keep moving the camera.
+                component.cancelZoomWhileTrackingAnimation()
+                component.cancelTiltWhileTrackingAnimation()
+                component.cancelPaddingWhileTrackingAnimation()
+                component.cameraMode = CameraMode.NONE
+                component.renderMode = RenderMode.NORMAL
+            }
+            val position = map.cameraPosition
+            if (!following && position.bearing == 0.0 && position.tilt == 0.0) return
+            val flat = CameraPosition.Builder(position).tilt(0.0).bearing(0.0)
+            if (following) flat.padding(0.0, 0.0, 0.0, 0.0)
+            map.easeCamera(CameraUpdateFactory.newCameraPosition(flat.build()), 600)
             return
         }
         // The bus badge keeps its number upright; the camera still turns with the ride.
