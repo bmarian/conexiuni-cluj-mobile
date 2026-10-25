@@ -67,6 +67,8 @@ import java.text.Normalizer
 
 private val DIACRITICS = Regex("\\p{Mn}+")
 
+const val RESULTS_PER_KIND = 3
+
 /** Port of norm(). */
 fun norm(s: String): String = Normalizer.normalize(s, Normalizer.Form.NFD).replace(DIACRITICS, "").lowercase()
 

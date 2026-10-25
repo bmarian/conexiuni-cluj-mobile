@@ -273,4 +273,5 @@
     <string name="w_dests_districts">Districts</string>
     <string name="w_dests_towns">Towns and villages</string>
     <string name="w_dest_counts">%1$d stops · %2$d lines</string>
+    <string name="w_dest_not_found">No area called “%1$s”</string>
 </resources>

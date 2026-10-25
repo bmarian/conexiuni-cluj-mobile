@@ -609,6 +609,8 @@ private fun openLink(navigator: Navigator, uri: Uri) {
             navigator.route(routeId, direction, change = uri.getQueryParameter("change")?.toLongOrNull())
         }
         "plan" -> navigator.plan(PlanQuery.fromUri(uri))
+        "to" -> segments.getOrNull(1)?.let(navigator::destination) ?: navigator.destinations()
+        "destinations" -> navigator.destinations()
         "journey", "nav" -> JourneyManager.openNavigation()
         "search" -> {
             navigator.home()
