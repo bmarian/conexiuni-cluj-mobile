@@ -164,6 +164,8 @@
                 <data android:pathPattern="/.*/route/.*" />
                 <data android:pathPattern="/.*/plan" />
                 <data android:pathPattern="/.*/settings" />
+                <data android:pathPattern="/.*/to/.*" />
+                <data android:pathPattern="/.*/destinations" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

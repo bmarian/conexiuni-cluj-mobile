@@ -75,14 +75,7 @@ fun DestinationsScreen() {
                     }
                     for ((label, group) in groups) {
                         item(key = "label-$label") { SectionLabel(stringResource(label)) }
-                        items(group, key = { "area-${it.slug}" }) { area ->
-                            ResultRow(
-                                icon = {},
-                                title = area.name,
-                                distance = null,
-                                subtitle = stringResource(R.string.w_dest_counts, area.stops, area.lines),
-                            ) { nav.destination(area.slug) }
-                        }
+                        items(group, key = { "area-${it.slug}" }) { area -> AreaRow(area) { nav.destination(area.slug) } }
                     }
                     item(key = "end") { Spacer(Modifier.height(24.dp)) }
                 }
@@ -90,6 +83,10 @@ fun DestinationsScreen() {
         }
     }
 }
+
+@Composable
+fun AreaRow(area: DestinationSummary, onClick: () -> Unit) =
+    ResultRow(icon = {}, title = area.name, distance = null, subtitle = stringResource(R.string.w_dest_counts, area.stops, area.lines), onClick = onClick)
 
 @Composable
 fun AllDestinationsRow(modifier: Modifier = Modifier) {

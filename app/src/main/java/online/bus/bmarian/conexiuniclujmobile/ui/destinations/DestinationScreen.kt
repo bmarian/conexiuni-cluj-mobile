@@ -36,10 +36,15 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.DestinationPage
+import online.bus.bmarian.conexiuniclujmobile.data.DestinationSummary
+import online.bus.bmarian.conexiuniclujmobile.data.HttpException
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.Ride
+import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.rideMinutes
+import online.bus.bmarian.conexiuniclujmobile.logic.NaturalOrder
+import online.bus.bmarian.conexiuniclujmobile.logic.stopMatchRank
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
@@ -54,11 +59,15 @@ import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.ui.SectionLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
+import online.bus.bmarian.conexiuniclujmobile.ui.home.RESULTS_PER_KIND
 import online.bus.bmarian.conexiuniclujmobile.ui.home.ResultRow
 import online.bus.bmarian.conexiuniclujmobile.ui.home.StationRow
+import online.bus.bmarian.conexiuniclujmobile.ui.home.norm
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 
 private const val RIDES_SHOWN = 3
+
+private class NamedLike(val areas: List<DestinationSummary>, val stops: List<Stop>)
 
 /** Port of views/DestinationView.vue. */
 @Composable
@@ -77,36 +86,75 @@ fun DestinationScreen(slug: String) {
         value = runCatching { Api.get<DestinationPage>("destinations/${Api.encode(slug)}") }
     }
     val page = loaded?.getOrNull()
+    val notFound = (loaded?.exceptionOrNull() as? HttpException)?.code == 404
+    val areas by produceState(emptyList<DestinationSummary>(), notFound) {
+        if (notFound) value = runCatching { Api.get<List<DestinationSummary>>("destinations") }.getOrDefault(emptyList())
+    }
+    val asked = slug.replace('-', ' ')
+    val similar = remember(asked, areas, index) { index?.let { namedLike(asked, areas, it) } }
     LaunchedEffect(page) { page?.let { map.flyTo(it.lat, it.lon) } }
     var opened by remember(slug) { mutableStateOf(emptySet<String>()) }
     val listState = rememberLazyListState()
     Column(Modifier.fillMaxSize()) {
-        SheetTopBar(page?.name, listState.pastHeader())
+        SheetTopBar(page?.name ?: asked.takeIf { notFound }, listState.pastHeader())
         LazyColumn(Modifier.weight(1f), state = listState) {
             val network = index
             when {
+                notFound -> notFound(asked, similar, network, nav)
                 loaded?.isFailure == true -> item { LoadFailed({ attempt++ }) }
                 page == null || network == null -> item { LoadingRow() }
-                else -> {
-                    destination(page, network, nav, opened) { opened = opened + it }
-                    item(key = "all") { AllDestinationsRow(Modifier.padding(top = 8.dp)) }
-                    item(key = "end") { Spacer(Modifier.height(24.dp)) }
-                }
+                else -> destination(page, network, nav, opened) { opened = opened + it }
             }
+            if (notFound || (page != null && network != null)) {
+                item(key = "all") { AllDestinationsRow(Modifier.padding(top = 8.dp)) }
+                item(key = "end") { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+}
+
+private fun namedLike(asked: String, areas: List<DestinationSummary>, index: NetworkIndex): NamedLike {
+    val q = norm(asked.trim())
+    fun <T> ranked(items: List<T>, name: (T) -> String) = items
+        .mapNotNull { item -> stopMatchRank(norm(name(item)), q).takeIf { it >= 0 }?.let { item to it } }
+        .sortedWith(compareBy<Pair<T, Int>> { it.second }.thenBy(NaturalOrder) { name(it.first) })
+        .map { it.first }
+    return NamedLike(
+        ranked(areas) { it.name }.take(RESULTS_PER_KIND),
+        index.oneStopPerStation(ranked(index.stops) { it.name }).take(RESULTS_PER_KIND),
+    )
+}
+
+@Composable
+private fun Header(title: String, kicker: String? = null) {
+    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) {
+        kicker?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun LazyListScope.notFound(asked: String, similar: NamedLike?, network: NetworkIndex?, nav: Navigator) {
+    item(key = "header") { Header(stringResource(R.string.w_dest_not_found, asked)) }
+    val areas = similar?.areas.orEmpty()
+    val stops = similar?.stops.orEmpty()
+    if (areas.isNotEmpty()) {
+        item(key = "like-areas") { SectionLabel(stringResource(R.string.w_destinations), Modifier.padding(top = 8.dp), icon = Icons.Rounded.Place) }
+        items(areas, key = { "area-${it.slug}" }) { area -> AreaRow(area) { nav.destination(area.slug) } }
+    }
+    if (stops.isNotEmpty()) {
+        item(key = "like-stops") { SectionLabel(stringResource(R.string.w_stops), Modifier.padding(top = 8.dp), icon = Icons.Rounded.DirectionsBus) }
+        items(stops, key = { "stop-${it.stopId}" }) { stop ->
+            StationRow(stop, network?.look(stop.stopId), distance = null) { nav.stop(stop.stopId) }
         }
     }
 }
 
 private fun LazyListScope.destination(page: DestinationPage, network: NetworkIndex, nav: Navigator, opened: Set<String>, open: (String) -> Unit) {
     item(key = "header") {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) {
-            Text(
-                stringResource(if (page.district) R.string.w_dest_kind_district else R.string.w_dest_kind_town),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(stringResource(R.string.w_dest_question, page.name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
+        Header(
+            stringResource(R.string.w_dest_question, page.name),
+            stringResource(if (page.district) R.string.w_dest_kind_district else R.string.w_dest_kind_town),
+        )
     }
     item(key = "actions") {
         ActionChips(

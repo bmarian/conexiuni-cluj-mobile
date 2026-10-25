@@ -273,4 +273,5 @@
     <string name="w_dests_districts">Cartiere</string>
     <string name="w_dests_towns">Localități</string>
     <string name="w_dest_counts">%1$d stații · %2$d linii</string>
+    <string name="w_dest_not_found">Nicio zonă numită „%1$s”</string>
 </resources>
