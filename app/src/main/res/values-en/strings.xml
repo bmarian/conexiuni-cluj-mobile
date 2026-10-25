@@ -144,7 +144,7 @@
     <string name="location_continue">Continue</string>
     <string name="location_not_now">Not now</string>
     <string name="locating">Timing your walk to the stop</string>
-    <string name="app_version">Version %1$s</string>
+    <string name="app_version">Open source · v%1$s</string>
     <string name="update_question">Do you want to update now?</string>
     <string name="watch_install_question">Do you want to install the app on your watch?</string>
     <string name="watch_install">Install</string>
