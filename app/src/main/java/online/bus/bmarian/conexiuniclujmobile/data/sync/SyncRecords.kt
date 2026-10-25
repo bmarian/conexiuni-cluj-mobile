@@ -12,6 +12,7 @@ import java.math.RoundingMode
 /** The record rules of protocol.md §4: a strict reader and the canonical writer. Port of utils/sync/records.ts. */
 object SyncRecords {
     const val CITY_CAP = 50
+    const val NEWS_CAP = 200
     const val DEVICE_CAP = 10
     private const val MAX_INT = Int.MAX_VALUE.toLong()
     val LAT = 43.6..48.3
@@ -24,6 +25,7 @@ object SyncRecords {
     data class City(val stops: List<Long>, val lines: List<Line>, val places: List<Place>, val followed: List<String>) {
         val isEmpty get() = stops.isEmpty() && lines.isEmpty() && places.isEmpty() && followed.isEmpty()
     }
+    data class News(val seen: List<Long>)
     data class Device(val id: String, val kind: String, val label: String, val pub: String)
     data class Devices(val devices: List<Device>)
     data class Settings(
@@ -178,6 +180,18 @@ object SyncRecords {
             ",\"followed\":" + joined(r.followed, ::quote) + "}"
 
     fun readCity(raw: String): Read<City> = read(raw, ::parseCity, ::writeCity)
+
+    val emptyNews = News(emptyList())
+
+    private fun parseNews(record: JsonElement): News {
+        val seen = list(obj(record, "v", "seen")["seen"], NEWS_CAP).map { integer(it, 1, MAX_INT) }
+        if (seen.zipWithNext().any { (a, b) -> b >= a }) refuse()
+        return News(seen)
+    }
+
+    fun writeNews(r: News): String = "{\"v\":1,\"seen\":" + joined(r.seen, ::stopId) + "}"
+
+    fun readNews(raw: String): Read<News> = read(raw, ::parseNews, ::writeNews)
 
     private val ID_TEXT = Regex("^[A-Za-z0-9_-]{21}[AQgw]$")
 

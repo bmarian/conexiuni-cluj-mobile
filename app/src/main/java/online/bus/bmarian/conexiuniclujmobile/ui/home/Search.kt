@@ -127,17 +127,17 @@ class SearchState {
 }
 
 @Composable
-fun SearchField(state: SearchState, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
+fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
     val focus = LocalFocusManager.current
     TextField(
-        value = state.query,
-        onValueChange = { state.query = it },
+        value = query,
+        onValueChange = onQuery,
         modifier = modifier.fillMaxWidth().then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-        placeholder = { Text(stringResource(R.string.w_search_placeholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = { Icon(Icons.Rounded.Search, null) },
-        trailingIcon = if (state.query.isNotEmpty()) {
+        trailingIcon = if (query.isNotEmpty()) {
             {
-                IconButton(onClick = { state.query = "" }) { Icon(Icons.Rounded.Close, contentDescription = null) }
+                IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, contentDescription = null) }
             }
         } else null,
         singleLine = true,

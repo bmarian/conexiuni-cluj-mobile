@@ -3,6 +3,7 @@ package online.bus.bmarian.conexiuniclujmobile.data.sync
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.City
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Device
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Line
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.News
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Place
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Settings
 
@@ -76,6 +77,9 @@ object SyncMerge {
             stops.dropped, lines.dropped, places.dropped, followed.dropped,
         )
     }
+
+    fun mergeNews(base: News, local: News, remote: News): News =
+        News(mergeList(base.seen, local.seen, remote.seen, SyncRecords::stopId, ::same, Int.MAX_VALUE).merged.sortedDescending().take(SyncRecords.NEWS_CAP))
 
     fun mergeSettings(base: Settings?, local: Settings, remote: Settings): Settings {
         if (base == null) return remote

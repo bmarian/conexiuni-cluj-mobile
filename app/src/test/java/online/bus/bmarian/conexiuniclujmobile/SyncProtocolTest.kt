@@ -86,6 +86,7 @@ class SyncProtocolTest {
 
     private fun outcome(kind: String, raw: String): String = when (val read = when (kind) {
         "city" -> SyncRecords.readCity(raw)
+        "news" -> SyncRecords.readNews(raw)
         "devices" -> SyncRecords.readDevices(raw)
         else -> SyncRecords.readSettings(raw)
     }) {
@@ -121,6 +122,14 @@ class SyncProtocolTest {
                     assertEquals(about, (dropped["stops"] as? JsonArray)?.map { it.jsonPrimitive.content.toLong() } ?: emptyList<Long>(), result.droppedStops)
                     assertEquals(about, dropped.keys.filter { it != "stops" }.isEmpty(), result.dropped == result.droppedStops.size)
                 }
+                "news" -> assertEquals(
+                    about, c.str("merged"),
+                    SyncRecords.writeNews(SyncMerge.mergeNews(
+                        c.textOrNull("base")?.let { value(SyncRecords.readNews(it)) } ?: SyncRecords.emptyNews,
+                        value(SyncRecords.readNews(c.str("local"))),
+                        value(SyncRecords.readNews(c.str("remote"))),
+                    )),
+                )
                 "settings" -> assertEquals(
                     about, c.str("merged"),
                     SyncRecords.writeSettings(SyncMerge.mergeSettings(

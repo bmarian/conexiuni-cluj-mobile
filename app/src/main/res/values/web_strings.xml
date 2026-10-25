@@ -191,6 +191,7 @@
     <string name="w_settings_all_settings">Toate setările</string>
     <string name="w_city_auto">Cel mai apropiat oraș</string>
     <string name="w_city">Oraș</string>
+    <string name="w_city_search">Caută un oraș</string>
     <string name="w_settings_map">Hartă</string>
     <string name="w_settings_notifications">Notificări</string>
     <string name="w_language_desc">Numele stațiilor și liniilor rămân în română.</string>

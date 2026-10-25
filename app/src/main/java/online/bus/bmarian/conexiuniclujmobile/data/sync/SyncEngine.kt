@@ -53,6 +53,15 @@ class SyncEngine(private val vault: SyncVault) {
         override fun empty(value: SyncRecords.City) = value.isEmpty
     }
 
+    private fun newsKind(slug: String) = object : Kind<SyncRecords.News> {
+        override fun read(raw: String) = SyncRecords.readNews(raw)
+        override fun write(value: SyncRecords.News) = SyncRecords.writeNews(value)
+        override fun local(base: SyncRecords.News?) = SyncLocal.newsFromLocal(slug)
+        override fun merge(base: SyncRecords.News?, local: SyncRecords.News, remote: SyncRecords.News) = SyncMerge.mergeNews(base ?: SyncRecords.emptyNews, local, remote)
+        override fun apply(value: SyncRecords.News) = SyncLocal.applyNews(slug, value)
+        override fun empty(value: SyncRecords.News) = value.seen.isEmpty()
+    }
+
     private val settingsKind = object : Kind<SyncRecords.Settings> {
         override fun read(raw: String) = SyncRecords.readSettings(raw)
         override fun write(value: SyncRecords.Settings) = SyncRecords.writeSettings(value)
@@ -187,7 +196,10 @@ class SyncEngine(private val vault: SyncVault) {
         try {
             step(DEVICES, devicesKind(run, label))
             if (withSettings) step(SETTINGS, settingsKind)
-            for (slug in SyncLocal.syncedCities()) step("city:$slug", cityKind(slug, run))
+            for (slug in SyncLocal.syncedCities()) {
+                step("city:$slug", cityKind(slug, run))
+                step("news:$slug", newsKind(slug))
+            }
         } finally {
             vault.saveBases(run.bases)
         }
@@ -222,7 +234,7 @@ class SyncEngine(private val vault: SyncVault) {
         val m = vault.membership() ?: throw Gone()
         val st = state(m)
         val keys = SyncCrypto.chainKeys(m.s)
-        val logicals = listOf(DEVICES, SETTINGS) + SyncLocal.syncedCities().map { "city:$it" }
+        val logicals = listOf(DEVICES, SETTINGS) + SyncLocal.syncedCities().flatMap { listOf("city:$it", "news:$it") }
         val byName = logicals.associateBy { SyncCrypto.recordName(keys.names, it) }
         val run = Run(m, keys, mutableMapOf())
         val texts = linkedMapOf<String, String>()
