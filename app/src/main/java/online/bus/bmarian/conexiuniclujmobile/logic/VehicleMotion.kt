@@ -91,9 +91,6 @@ fun pathThrough(lats: DoubleArray, lons: DoubleArray): RoutePath {
 
 fun pathOf(shape: List<ShapePoint>): RoutePath = pathThrough(DoubleArray(shape.size) { shape[it].lat }, DoubleArray(shape.size) { shape[it].lon })
 
-/** 0 for a point off the path. */
-fun RoutePath.shareAlong(lat: Double, lon: Double): Double = if (length > 0) locate(lat, lon)?.let { it.s / length } ?: 0.0 else 0.0
-
 class VehicleTrack(val path: RoutePath) {
     var s = 0.0
         private set

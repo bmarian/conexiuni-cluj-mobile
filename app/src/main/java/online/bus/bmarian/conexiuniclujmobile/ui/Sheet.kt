@@ -75,7 +75,7 @@ private val PEEK_CONTENT = 64.dp
 private val FlingThreshold = 400.dp
 private val ReverseSlop = 32.dp
 
-internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = 600f)
+internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = 795f)
 
 // Flings and drags leave isAnimationRunning false.
 val <T> AnchoredDraggableState<T>.moving: Boolean

@@ -139,8 +139,8 @@ private fun SettingsCog(onClick: () -> Unit) {
             return@LaunchedEffect
         }
         while (true) {
-            spin.animateTo(spin.value - 30f, tween(200))
-            spin.animateTo(spin.value + 390f, spring(dampingRatio = 0.45f, stiffness = 90f))
+            spin.animateTo(spin.value - 30f, tween(175))
+            spin.animateTo(spin.value + 390f, spring(dampingRatio = 0.45f, stiffness = 120f))
             delay(1600)
         }
     }

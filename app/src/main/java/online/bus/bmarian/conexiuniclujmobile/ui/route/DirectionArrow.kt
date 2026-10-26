@@ -27,14 +27,14 @@ import kotlin.math.sin
 // Port of utils/directionArrow.ts and components/ui/DirectionArrow.vue.
 
 private const val TAPS = 2
-private const val TAP_MS = 240
+private const val TAP_MS = 210
 private const val TAP_DP = 5f
-private const val ORBIT_MS = 1000
+private const val ORBIT_MS = 870
 private const val ORBIT_DP = 6.0
 const val ARROW_MS = TAPS * TAP_MS + ORBIT_MS
-private const val ARROW_BACK_MS = 320
+private const val ARROW_BACK_MS = 280
 // Waits out the page's slide-in.
-private const val ARROW_OPEN_DELAY_MS = 500L
+private const val ARROW_OPEN_DELAY_MS = 435L
 
 /** x and y in dp. */
 class ArrowPose(val x: Float, val y: Float, val heading: Double)

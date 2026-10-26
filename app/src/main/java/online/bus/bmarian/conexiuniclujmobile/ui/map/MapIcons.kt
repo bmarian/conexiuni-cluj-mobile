@@ -21,6 +21,9 @@ object Glyphs {
     const val DIRECTION_ARROW = "M12 3 L20 19 L12 15 L4 19 Z"
     const val PIN = "M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z"
 
+    // Material round "flag".
+    const val FLAG = "m14.4 6-.24-1.2c-.09-.46-.5-.8-.98-.8H6c-.55 0-1 .45-1 1v15c0 .55.45 1 1 1s1-.45 1-1v-6h5.6l.24 1.2c.09.47.5.8.98.8H19c.55 0 1-.45 1-1V7c0-.55-.45-1-1-1h-4.6z"
+
     val busStop: Path by lazy { PathParser().parsePathString(BUS_STOP).toPath() }
     val navArrow: Path by lazy { PathParser().parsePathString(NAV_ARROW).toPath() }
     val locationArrow: Path by lazy {
@@ -30,6 +33,7 @@ object Glyphs {
     }
     val directionArrow: Path by lazy { PathParser().parsePathString(DIRECTION_ARROW).toPath() }
     val pin: Path by lazy { PathParser().parsePathString(PIN).toPath() }
+    val flag: Path by lazy { PathParser().parsePathString(FLAG).toPath() }
 }
 
 object MapColors {
@@ -69,14 +73,18 @@ object MapColors {
     }
 }
 
-fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Float, shadow: Float = 1f, mode: Mode = Mode.BUS, heart: Boolean = false) {
+fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Float, shadow: Float = 1f, mode: Mode = Mode.BUS, heart: Boolean = false, path: Path? = null) {
     val r = diameter / 2
     drawCircle(Color.Black.copy(alpha = 0.18f * shadow), r + 1.dp.toPx(), center + Offset(0f, 1.dp.toPx()))
     drawCircle(Color.White, r, center)
     drawCircle(fill, r - 2.dp.toPx(), center)
     translate(center.x - glyph / 2, center.y - glyph / 2) {
         scale(glyph / 24f, glyph / 24f, pivot = Offset.Zero) {
-            if (heart) drawPath(ModeGlyphs.path(ModeGlyphs.HEART), Color.White) else drawModeGlyph(mode, Color.White)
+            when {
+                path != null -> drawPath(path, Color.White)
+                heart -> drawPath(ModeGlyphs.path(ModeGlyphs.HEART), Color.White)
+                else -> drawModeGlyph(mode, Color.White)
+            }
         }
     }
 }

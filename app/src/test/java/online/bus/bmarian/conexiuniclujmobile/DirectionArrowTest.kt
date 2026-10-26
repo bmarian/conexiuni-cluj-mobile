@@ -26,10 +26,10 @@ class DirectionArrowTest {
 
     @Test
     fun tapsTowardsTheNameTwiceBackOnItsSpotInBetween() {
-        assertTrue(arrowPose(270.0, 112.0, 70f).x < -4)
-        assertTrue(abs(arrowPose(270.0, 112.0, 239.9f).x) < 0.01)
-        assertTrue(arrowPose(270.0, 112.0, 310f).x < -4)
-        assertTrue(arrowPose(90.0, 292.0, 70f).x > 4)
+        assertTrue(arrowPose(270.0, 112.0, 61f).x < -4)
+        assertTrue(abs(arrowPose(270.0, 112.0, 209.9f).x) < 0.01)
+        assertTrue(arrowPose(270.0, 112.0, 270f).x < -4)
+        assertTrue(arrowPose(90.0, 292.0, 61f).x > 4)
     }
 
     @Test

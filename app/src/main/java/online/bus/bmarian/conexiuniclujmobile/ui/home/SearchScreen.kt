@@ -106,8 +106,8 @@ fun SearchOverlay(visible: Boolean, state: SearchState, docked: Boolean, modifie
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { -it / 16 },
-        exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { -it / 16 },
+        enter = fadeIn(tween(140)) + slideInVertically(tween(190)) { -it / 16 },
+        exit = fadeOut(tween(105)) + slideOutVertically(tween(140)) { -it / 16 },
     ) {
         SearchContent(state, docked, onClose)
     }

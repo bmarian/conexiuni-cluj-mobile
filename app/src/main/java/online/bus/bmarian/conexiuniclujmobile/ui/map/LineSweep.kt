@@ -3,7 +3,7 @@ package online.bus.bmarian.conexiuniclujmobile.ui.map
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 
 /** The web's SWEEP_MS, in step with the badge's heart. */
-const val SWEEP_MS = 1300L
+const val SWEEP_MS = 1130L
 
 /** The part of [points] between the shares [from] and [to] of its length. */
 fun partBetween(points: List<LatLon>, from: Float, to: Float): List<LatLon> {

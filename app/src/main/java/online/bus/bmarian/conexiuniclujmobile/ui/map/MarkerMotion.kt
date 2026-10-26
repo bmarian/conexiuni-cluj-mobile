@@ -11,13 +11,13 @@ import org.maplibre.geojson.Feature
 
 // Port of utils/markerMotion.ts and the marker animations in styles/map.css.
 
-const val ENTER_MS = 220L
-const val LEAVE_MS = 160L
-const val HIDE_MS = 160L
-const val PULSE_MS = 320L
-const val SPIDER_OPEN_MS = 320L
-const val SPIDER_STEP_MS = 30L
-const val SPIDER_CLOSE_MS = 180L
+const val ENTER_MS = 190L
+const val LEAVE_MS = 140L
+const val HIDE_MS = 140L
+const val PULSE_MS = 280L
+const val SPIDER_OPEN_MS = 280L
+const val SPIDER_STEP_MS = 26L
+const val SPIDER_CLOSE_MS = 155L
 
 const val ENTER_SCALE = 0.6f
 private const val PULSE_SCALE = 1.18f
@@ -25,7 +25,7 @@ private const val PULSE_PEAK = 0.4f
 
 val Snappy: Easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
 
-fun flightMs(distanceDp: Double, zoomDelta: Double): Int = (300 + distanceDp * 0.25 + abs(zoomDelta) * 180).coerceIn(350.0, 1100.0).toInt()
+fun flightMs(distanceDp: Double, zoomDelta: Double): Int = (260 + distanceDp * 0.22 + abs(zoomDelta) * 155).coerceIn(305.0, 955.0).toInt()
 
 fun pulseScale(t: Float): Float =
     if (t < PULSE_PEAK) 1 + (PULSE_SCALE - 1) * Snappy.transform(t / PULSE_PEAK)

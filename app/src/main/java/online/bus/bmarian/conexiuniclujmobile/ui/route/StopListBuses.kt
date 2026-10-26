@@ -171,7 +171,7 @@ fun StopListBuses(buses: ListBuses, list: LazyListState, keys: List<String>, tar
                         if (before < target && row >= target && mark != null) {
                             scope.launch {
                                 flash.snapTo(1f)
-                                flash.animateTo(0f, tween(1100))
+                                flash.animateTo(0f, tween(955))
                             }
                         }
                     }
