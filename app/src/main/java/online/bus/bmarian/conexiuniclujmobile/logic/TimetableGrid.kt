@@ -30,6 +30,10 @@ fun dayHasContent(d: DaySchedule): Boolean = d.entries.isNotEmpty() || d.inFrequ
 fun availableTabs(timetable: Timetable): List<TimetableTab> =
     TimetableTab.entries.filter { dayHasContent(timetable.scheduleFor(it)) }
 
+/** A line with no service on the picked day shows the next day that has some. */
+fun shownTab(picked: TimetableTab, tabs: List<TimetableTab>): TimetableTab =
+    if (tabs.isEmpty() || picked in tabs) picked else tabs.firstOrNull { it.ordinal > picked.ordinal } ?: tabs.first()
+
 fun isPastTab(tab: TimetableTab, today: TimetableTab) = tab.ordinal < today.ordinal
 
 fun activeFrequency(timetable: Timetable, tab: TimetableTab, outgoing: Boolean): Frequency? {
