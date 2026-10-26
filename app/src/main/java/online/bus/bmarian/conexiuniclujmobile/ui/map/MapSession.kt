@@ -709,13 +709,12 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             return
         }
         val bounds = LatLngBounds.from(maxLat, maxLon, minLat, minLon)
-        val bearing = map.cameraPosition.bearing
-        val fitted = map.getCameraForLatLngBounds(bounds, padding.ints(), bearing, 0.0) ?: return
+        val fitted = map.getCameraForLatLngBounds(bounds, padding.ints(), 0.0, 0.0) ?: return
         val center = LatLng(latOf((mercatorY(maxLat) + mercatorY(minLat)) / 2), lonOf((mercatorX(minLon) + mercatorX(maxLon)) / 2))
         val camera = CameraPosition.Builder()
             .target(center)
             .zoom(min(fitted.zoom, maxZoom).coerceIn(MIN_ZOOM, MAX_ZOOM))
-            .bearing(bearing)
+            .bearing(0.0)
             .tilt(0.0)
             .padding(padding.left.toDouble(), padding.top.toDouble(), padding.right.toDouble(), padding.bottom.toDouble())
             .build()
@@ -727,6 +726,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val camera = CameraPosition.Builder()
             .target(to)
             .zoom(zoom)
+            .bearing(0.0)
+            .tilt(0.0)
             .padding(padding.left.toDouble(), padding.top.toDouble(), padding.right.toDouble(), padding.bottom.toDouble())
             .build()
         val here = map.cameraPosition
