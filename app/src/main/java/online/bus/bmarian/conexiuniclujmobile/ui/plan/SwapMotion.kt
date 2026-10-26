@@ -17,7 +17,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.motionOn
 import kotlin.math.PI
 import kotlin.math.sin
 
-private const val TRAVEL_MS = 600
+private const val TRAVEL_MS = 520
 
 /** Port of useSwapMotion.ts. */
 @Stable

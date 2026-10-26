@@ -220,36 +220,33 @@ internal class MapImages(context: Context) {
         drawCircle(MapColors.InkDark, 3.dp.toPx(), dot)
     }
 
-    fun end(color: String, dark: Boolean) = draw(30f, 30f) {
-        val at = Offset(15.dp.toPx(), 14.dp.toPx())
-        val ring = if (dark) MapColors.InkDark else Color.White
-        drawCircle(Color.Black.copy(alpha = 0.18f), 13.dp.toPx(), at + Offset(0f, 2.dp.toPx()))
-        drawCircle(ring, 12.dp.toPx(), at)
-        drawCircle(if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color), 9.dp.toPx(), at)
-        val sq = 6.dp.toPx()
-        drawRoundRect(ring, Offset(at.x - sq / 2, at.y - sq / 2), Size(sq, sq), CornerRadius(2.dp.toPx()))
+    /** Port of lineEndIcon: a station marker in the line's colour. */
+    fun end(color: String) = draw(28f, 28f) {
+        stopMarker(center, 24.dp.toPx(), if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color), 14.dp.toPx(), path = Glyphs.flag)
     }
 
-    fun badge(routes: List<Pair<String, String>>, dark: Boolean): Bitmap {
+    /** Port of lineStartIcon: the app's line badges in the station markers' outline, centred on the start. */
+    fun badge(routes: List<Pair<String, String>>): Bitmap {
         val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White)
         val layouts = routes.map { measurer.measure(it.first, style) }
         val d = density.density
-        val h = 28f
+        val h = 24f
         val gap = 2f
-        val widths = layouts.map { max(h, it.size.width / d + 16f) }
+        val widths = layouts.map { max(32f, it.size.width / d + 16f) }
         val total = widths.sum() + gap * (widths.size - 1)
-        return draw(total + 2f, h + 3f) {
+        return draw(total + 2f, h + 4f) {
             var left = 1.dp.toPx()
+            val top = 2.dp.toPx()
             val hp = h.dp.toPx()
-            val ring = if (dark) MapColors.InkDark else Color.White
+            val border = 2.dp.toPx()
+            val corner = 7.dp.toPx()
             routes.forEachIndexed { i, (_, color) ->
                 val w = widths[i].dp.toPx()
-                drawRoundRect(Color.Black.copy(alpha = 0.18f), Offset(left, 2.dp.toPx()), Size(w, hp), CornerRadius(hp / 2))
-                drawRoundRect(ring, Offset(left, 0f), Size(w, hp), CornerRadius(hp / 2))
-                val inset = 3.dp.toPx()
-                drawRoundRect(routeColor(color), Offset(left + inset, inset), Size(w - inset * 2, hp - inset * 2), CornerRadius(hp / 2 - inset))
+                drawRoundRect(Color.Black.copy(alpha = 0.18f), Offset(left - 1.dp.toPx(), top), Size(w + 2.dp.toPx(), hp + 2.dp.toPx()), CornerRadius(corner + 1.dp.toPx()))
+                drawRoundRect(Color.White, Offset(left, top), Size(w, hp), CornerRadius(corner))
+                drawRoundRect(routeColor(color), Offset(left + border, top + border), Size(w - border * 2, hp - border * 2), CornerRadius(corner - border))
                 val layout = layouts[i]
-                drawText(layout, topLeft = Offset(left + (w - layout.size.width) / 2, (hp - layout.size.height) / 2))
+                drawText(layout, topLeft = Offset(left + (w - layout.size.width) / 2, top + (hp - layout.size.height) / 2))
                 left += w + gap.dp.toPx()
             }
         }

@@ -15,7 +15,6 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -237,7 +236,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     val navigating by JourneyManager.navigating.collectAsStateWithLifecycle()
     val journeyState by JourneyManager.state.collectAsStateWithLifecycle()
     val showNav = navigating && journeyState != null
-    val navShift by animateFloatAsState(if (showNav) 1f else 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "nav")
+    val navShift by animateFloatAsState(if (showNav) 1f else 0f, spring(stiffness = 530f), label = "nav")
     var navTop by remember { mutableFloatStateOf(0f) }
     var navBottom by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(showNav) { if (showNav) searchOpen = false }
@@ -290,7 +289,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 }
             }
             val chrome: @Composable (Modifier) -> Unit = { modifier ->
-                AnimatedVisibility(atHome && !showNav, modifier.statusBarsPadding(), enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
+                AnimatedVisibility(atHome && !showNav, modifier.statusBarsPadding(), enter = fadeIn(tween(175)), exit = fadeOut(tween(105))) {
                     HomeChrome(
                         query = search.query,
                         onSearch = { searchOpen = true },
@@ -376,8 +375,8 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
 
             AnimatedVisibility(
                 showNav,
-                enter = fadeIn(tween(250)) + slideInVertically(tween(300)) { -it / 10 },
-                exit = fadeOut(tween(150)),
+                enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { -it / 10 },
+                exit = fadeOut(tween(130)),
             ) {
                 NavigationScreen(
                     onClose = JourneyManager::closeNavigation,
@@ -438,10 +437,10 @@ private fun Modifier.besidePanel(panel: SideSheetState, endReserve: Dp = 0.dp, m
     layout(constraints.maxWidth, placeable.height) { placeable.place(left, 0) }
 }
 
-private val PAGE_IN = tween<Float>(210, delayMillis = 90, easing = LinearOutSlowInEasing)
+private val PAGE_IN = tween<Float>(185, delayMillis = 80, easing = LinearOutSlowInEasing)
 private val PAGE_OUT = tween<Float>(90, easing = FastOutLinearInEasing)
-private val PAGE_SLIDE = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold)
-private val PAGE_SCALE = spring<Float>(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow)
+private val PAGE_SLIDE = spring(dampingRatio = 0.72f, stiffness = 530f, visibilityThreshold = IntOffset.VisibilityThreshold)
+private val PAGE_SCALE = spring<Float>(dampingRatio = 0.62f, stiffness = 530f)
 
 @Composable
 private fun AnimatedContentScope.Page(content: @Composable () -> Unit) =

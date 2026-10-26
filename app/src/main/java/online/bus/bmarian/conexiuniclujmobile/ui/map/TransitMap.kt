@@ -329,16 +329,19 @@ fun TransitMap(
     val fitPad = with(density) { 24.dp.toPx() }
     val buttonsPad = with(density) { 56.dp.toPx() }
     suspend fun fit(points: List<LatLon>) {
-        val pad = restingPadding(fitPad)
-        session?.fit(points, pad.copy(right = pad.right + buttonsPad))
+        val s = session ?: return
+        s.aim {
+            val pad = restingPadding(fitPad)
+            s.fit(points, pad.copy(right = pad.right + buttonsPad))
+        }
     }
 
     fun content(): List<LatLon> =
         controller.shapes.flatMap { it.points } + controller.walkingPolylines.flatten() +
             listOfNotNull(controller.pinnedLocation, controller.customOrigin).map { LatLon(it.lat, it.lon) }
     suspend fun flyToVisible(target: LatLon, zoom: Double) {
-        val pad = restingPadding()
-        session?.flyTo(target, zoom, pad)
+        val s = session ?: return
+        s.aim { s.flyTo(target, zoom, restingPadding()) }
     }
 
     LaunchedEffect(session, dark) { session?.setDark(dark) }

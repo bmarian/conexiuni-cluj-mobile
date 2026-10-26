@@ -7,7 +7,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
@@ -86,14 +85,14 @@ import kotlinx.coroutines.launch
 val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
-const val RIPPLE_MS = 1000
+const val RIPPLE_MS = 870
 
 object Bouncy {
-    val fastSize = spring<IntSize>(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)
-    val press = spring<Float>(dampingRatio = 0.32f, stiffness = 650f)
-    val pop = spring<Float>(dampingRatio = 0.26f, stiffness = Spring.StiffnessMedium)
-    val slide = spring<Float>(dampingRatio = 0.58f, stiffness = 340f)
-    val land = spring<Float>(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow)
+    val fastSize = spring<IntSize>(dampingRatio = 0.6f, stiffness = 1980f)
+    val press = spring<Float>(dampingRatio = 0.32f, stiffness = 860f)
+    val pop = spring<Float>(dampingRatio = 0.26f, stiffness = 1980f)
+    val slide = spring<Float>(dampingRatio = 0.58f, stiffness = 450f)
+    val land = spring<Float>(dampingRatio = 0.55f, stiffness = 530f)
 }
 
 class Pop {
@@ -181,7 +180,7 @@ private fun Modifier.cascadeIn(key: Any?, turn: () -> Int?, settle: () -> Unit =
         played = tag
         if (beat == null) return@LaunchedEffect progress.snapTo(1f)
         progress.snapTo(0f)
-        delay(beat * 28L)
+        delay(beat * 24L)
         progress.animateTo(1f, Bouncy.land)
     }
     graphicsLayer {
@@ -212,7 +211,7 @@ fun PopIcon(
             burst.snapTo(0f)
             pop.snapTo(0.25f)
             coroutineScope {
-                launch { burst.animateTo(1f, tween(520)) }
+                launch { burst.animateTo(1f, tween(450)) }
                 pop.animateTo(1f, Bouncy.pop)
             }
         } else {
@@ -252,9 +251,9 @@ fun RisingArrow(modifier: Modifier = Modifier, tint: Color = LocalContentColor.c
     LaunchedEffect(Unit) {
         while (true) {
             delay(900)
-            lift.animateTo(-1f, tween(240, easing = FastOutLinearInEasing))
+            lift.animateTo(-1f, tween(210, easing = FastOutLinearInEasing))
             lift.snapTo(1f)
-            lift.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 420f))
+            lift.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 555f))
         }
     }
     Icon(Icons.Rounded.ArrowUpward, null, modifier.graphicsLayer { translationY = lift.value * size.height }, tint = tint)
@@ -267,12 +266,12 @@ fun Modifier.buzz(): Modifier = composed {
         while (true) {
             delay(1800)
             angle.animateTo(0f, keyframes {
-                durationMillis = 520
-                14f at 60
-                -14f at 160
-                10f at 260
-                -8f at 360
-                4f at 440
+                durationMillis = 450
+                14f at 52
+                -14f at 139
+                10f at 226
+                -8f at 313
+                4f at 383
             })
         }
     }
@@ -307,8 +306,8 @@ fun Ticker(
         modifier,
         contentKey = { it.replace(DIGITS, "#") },
         transitionSpec = {
-            (slideInVertically(spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow)) { it } + fadeIn()) togetherWith
-                (slideOutVertically(spring(stiffness = Spring.StiffnessMediumLow)) { -it } + fadeOut()) using SizeTransform(clip = false)
+            (slideInVertically(spring(dampingRatio = 0.5f, stiffness = 530f)) { it } + fadeIn()) togetherWith
+                (slideOutVertically(spring(stiffness = 530f)) { -it } + fadeOut()) using SizeTransform(clip = false)
         },
         label = "ticker",
     ) { value ->
@@ -327,8 +326,8 @@ fun Ticker(
                                 digit,
                                 transitionSpec = {
                                     val from = if (down) -1 else 1
-                                    (slideInVertically(spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow)) { it * from } + fadeIn()) togetherWith
-                                        (slideOutVertically(spring(stiffness = Spring.StiffnessMediumLow)) { -it * from } + fadeOut()) using SizeTransform(clip = true)
+                                    (slideInVertically(spring(dampingRatio = 0.5f, stiffness = 530f)) { it * from } + fadeIn()) togetherWith
+                                        (slideOutVertically(spring(stiffness = 530f)) { -it * from } + fadeOut()) using SizeTransform(clip = true)
                                 },
                                 label = "digit",
                             ) { d ->

@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -245,7 +244,7 @@ private fun Prompt(
     val state = remember { MutableTransitionState(false) }.apply { targetState = visible }
     AnimatedVisibility(
         state,
-        enter = expandVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
+        enter = expandVertically(spring(dampingRatio = 0.8f, stiffness = 530f)) + fadeIn(),
         exit = shrinkVertically() + fadeOut(),
     ) {
         val colors = MaterialTheme.colorScheme

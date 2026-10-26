@@ -457,7 +457,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir), Cities.current.value)
                 Box(
                     Modifier
-                        .animateItem(fadeInSpec = null, placementSpec = spring(Bouncy.slide.dampingRatio, Bouncy.slide.stiffness, IntOffset.VisibilityThreshold), fadeOutSpec = tween(160))
+                        .animateItem(fadeInSpec = null, placementSpec = spring(Bouncy.slide.dampingRatio, Bouncy.slide.stiffness, IntOffset.VisibilityThreshold), fadeOutSpec = tween(140))
                         .then(if (stopKeys[idx] in stayingKeys) Modifier else Modifier.cascade(cascade)),
                 ) {
                     StopLine(

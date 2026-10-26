@@ -45,10 +45,10 @@ import online.bus.bmarian.conexiuniclujmobile.logic.fixMs
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import online.bus.bmarian.conexiuniclujmobile.logic.pathThrough
 import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
-import online.bus.bmarian.conexiuniclujmobile.logic.shareAlong
 import online.bus.bmarian.conexiuniclujmobile.ui.RIPPLE_MS
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdate
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -123,7 +123,7 @@ private const val LAYER_SPIDER = "ct-spider"
 private const val LAYER_SELECTED = "ct-selected"
 private const val LAYER_VEHICLES = "ct-vehicles"
 private const val LAYER_PINS = "ct-pins"
-private const val RIPPLE_GAP_MS = 240L
+private const val RIPPLE_GAP_MS = 210L
 private const val SELECTED_RADIUS_DP = 16f
 
 private val HEADING_OFFSET = 12.0 to 12.0
@@ -142,8 +142,9 @@ private const val MAX_IDLE_MS = 250L
 private data class ClusterKey(val anchor: Int?, val skip: Set<Int>)
 
 private val PLAIN = ClusterKey(null, emptySet())
-private const val CITY_FLIGHT_MS = 2_500
-private const val GLIDE_MS = 1400L
+private const val CITY_FLIGHT_MS = 2_175
+private const val FIT_MS = 565
+private const val GLIDE_MS = 1220L
 
 /** In px. */
 data class MapPadding(val left: Float, val top: Float, val right: Float, val bottom: Float) {
@@ -209,6 +210,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var ripple: ValueAnimator? = null
     private val bounces = HashMap<String, ValueAnimator>()
     private var drawnFavorites = emptySet<String>()
+    private val reveal = LineReveal()
+    private var revealDirty = false
+    private var pendingGrow: (() -> Unit)? = null
+    private var aiming = 0
+    private var dragging = false
     private var tracking: NavCamera? = null
     private var tracked: NavCamera? = null
     private var trackingMove = 0
@@ -228,7 +234,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 pushVehicles()
             }
         }
+        map.addOnCameraMoveStartedListener { reason -> if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) dragging = true }
         map.addOnCameraIdleListener {
+            dragging = false
+            growWhenStill()
             MapCamera.save(context, map.cameraPosition)
             refreshStops()
         }
@@ -285,7 +294,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         drop?.cancel()
         if (stop != null) {
             drop = ValueAnimator.ofFloat(-18f, 0f).apply {
-                duration = 450
+                duration = 390
                 interpolator = OvershootInterpolator(2.5f)
                 addUpdateListener { a ->
                     style?.getLayerAs<SymbolLayer>(LAYER_SELECTED)?.setProperties(iconTranslate(arrayOf(0f, a.animatedValue as Float)))
@@ -309,6 +318,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         scene = value
         drawnFavorites = favorites
         recolor?.cancel()
+        pendingGrow = null
+        reveal.end(System.nanoTime())
         applyScene()
         recolorLines(before, value, saved)
         growLines(before, value)
@@ -334,25 +345,69 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 applyLines()
                 paintSweep(emptyList())
                 recolor = null
+                reveal.end(System.nanoTime())
+                revealDirty = true
+                motion.start()
             }
             start()
         }
     }
 
-    /** Port of growLine. */
+    /** Port of growLine: from the first stop, once the camera has settled where the lines are. */
     private fun growLines(before: MapScene, after: MapScene) {
         if (!motionOn() || recolor != null) return
         val known = before.lines.map { it.points }.toSet()
         val fresh = after.lines.indices.filter { after.lines[it].points !in known && after.lines[it].dash == 0 && after.lines[it].points.size >= 2 }
         if (fresh.isEmpty()) return
-        val origin = selected
-        val grows = fresh.map { i ->
-            val line = after.lines[i]
-            val path = pathThrough(line.points.map { it.lat }.toDoubleArray(), line.points.map { it.lon }.toDoubleArray())
-            Triple(line.points, origin?.let { path.shareAlong(it.lat, it.lon).toFloat() } ?: 0f, lineArgb(line.color))
-        }
+        val grows = fresh.map { after.lines[it].points to lineArgb(after.lines[it].color) }
         applyLines(hidden = fresh.toSet())
-        sweep { done -> paintSweep(grows.map { (points, from, color) -> partBetween(points, from * (1 - done), from + (1 - from) * done) to color }) }
+        reveal.grow(grows.map { (points, _) -> pathThrough(points.map { it.lat }.toDoubleArray(), points.map { it.lon }.toDoubleArray()) })
+        applyHighlights()
+        applyMarks()
+        pushVehicles()
+        pendingGrow = {
+            sweep { done ->
+                reveal.draw(done)
+                motion.start()
+                paintSweep(grows.map { (points, color) -> partBetween(points, 0f, done) to color })
+            }
+        }
+        // Posted, so a fit asked for in the same update is already aiming.
+        scope.launch { growWhenStill() }
+    }
+
+    private fun growWhenStill() {
+        if (aiming > 0 || dragging && tracking == null) return
+        val grow = pendingGrow ?: return
+        pendingGrow = null
+        grow()
+    }
+
+    /** Lines wait to grow until the camera moves of [block] are over. */
+    suspend fun aim(block: suspend () -> Unit) {
+        aiming++
+        try {
+            block()
+        } finally {
+            aiming--
+            growWhenStill()
+        }
+    }
+
+    private fun moveCamera(update: CameraUpdate, ms: Int, ease: Boolean) {
+        aiming++
+        val done = object : MapLibreMap.CancelableCallback {
+            override fun onFinish() {
+                aiming--
+                growWhenStill()
+            }
+
+            override fun onCancel() {
+                aiming--
+                growWhenStill()
+            }
+        }
+        if (ease) map.easeCamera(update, ms, done) else map.animateCamera(update, ms, done)
     }
 
     fun ripple(color: String, vehicleId: String?) {
@@ -385,7 +440,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val id = vehicleId ?: return
         bounces.remove(id)?.cancel()
         bounces[id] = ValueAnimator.ofFloat(1.2f, 1f).apply {
-            duration = 450
+            duration = 390
             interpolator = OvershootInterpolator(2.5f)
             addUpdateListener { pushVehicles() }
             doOnEnd {
@@ -664,7 +719,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .tilt(0.0)
             .padding(padding.left.toDouble(), padding.top.toDouble(), padding.right.toDouble(), padding.bottom.toDouble())
             .build()
-        map.easeCamera(CameraUpdateFactory.newCameraPosition(camera), 650)
+        moveCamera(CameraUpdateFactory.newCameraPosition(camera), FIT_MS, ease = true)
     }
 
     fun flyTo(target: LatLon, zoom: Double, padding: MapPadding) {
@@ -678,7 +733,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val from = here.target?.let(map.projection::toScreenLocation)
         val there = map.projection.toScreenLocation(to)
         val distance = if (from == null) 0.0 else hypot(there.x - from.x, there.y - from.y) / context.resources.displayMetrics.density.toDouble()
-        map.animateCamera(CameraUpdateFactory.newCameraPosition(camera), flightMs(distance, zoom - here.zoom))
+        moveCamera(CameraUpdateFactory.newCameraPosition(camera), flightMs(distance, zoom - here.zoom), ease = false)
     }
 
     fun cancelCamera() = map.cancelTransitions()
@@ -695,7 +750,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .zoom(view.zoom)
             .bearing(view.bearing)
         view.padding?.let { camera.padding(it) }
-        map.easeCamera(CameraUpdateFactory.newCameraPosition(camera.build()), 650)
+        moveCamera(CameraUpdateFactory.newCameraPosition(camera.build()), FIT_MS, ease = true)
     }
 
     private var cityFlight = 0
@@ -800,13 +855,14 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             symbolSortKey(get("z")),
         )
         over(animated(LAYER_STOPS, SRC_STOPS))
-        over(SymbolLayer(LAYER_HIGHLIGHTS, SRC_HIGHLIGHTS).withProperties(iconImage(get("img")), symbolSortKey(get("z"))))
+        over(SymbolLayer(LAYER_HIGHLIGHTS, SRC_HIGHLIGHTS).withProperties(iconImage(get("img")), iconSize(get("size")), symbolSortKey(get("z"))))
         over(animated(LAYER_SPIDER, SRC_SPIDER))
-        over(SymbolLayer("ct-ends", SRC_ENDS).withProperties(iconImage(get("img"))))
-        over(SymbolLayer("ct-badges", SRC_BADGES).withProperties(iconImage(get("img"))))
+        over(SymbolLayer("ct-ends", SRC_ENDS).withProperties(iconImage(get("img")), iconSize(get("size"))))
+        over(SymbolLayer("ct-badges", SRC_BADGES).withProperties(iconImage(get("img")), iconSize(get("size"))))
         over(
             SymbolLayer("ct-arrow-bubble", SRC_ARROWS).withProperties(
                 iconImage("arrow-bubble"),
+                iconSize(get("size")),
                 iconAnchor(Property.ICON_ANCHOR_BOTTOM),
                 iconTranslate(arrayOf(0f, -16f)),
                 iconTranslateAnchor(Property.ICON_TRANSLATE_ANCHOR_VIEWPORT),
@@ -815,6 +871,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         over(
             SymbolLayer("ct-arrow-glyph", SRC_ARROWS).withProperties(
                 iconImage("arrow-glyph"),
+                iconSize(get("size")),
                 iconRotate(get("bearing")),
                 iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
                 iconTranslate(arrayOf(0f, -33f)),
@@ -1098,7 +1155,14 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         folded.forEach(::dropSpiderImages)
         if (spiderDirty || spiderMoving || folding.isNotEmpty() || folded.isNotEmpty()) pushSpider(now)
         spiderDirty = false
-        return stopsMoving || spiderMoving || folding.isNotEmpty()
+        val revealing = reveal.moving(now)
+        if (revealDirty || revealing) {
+            applyHighlights(now)
+            applyMarks(now)
+            pushVehicles()
+        }
+        revealDirty = false
+        return stopsMoving || spiderMoving || folding.isNotEmpty() || revealing
     }
 
     private fun pushStops(now: Long) {
@@ -1135,7 +1199,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         )
     }
 
-    private fun applyHighlights() {
+    private fun applyHighlights(now: Long = System.nanoTime()) {
         val src = source(SRC_HIGHLIGHTS) ?: return
         src.setGeoJson(
             FeatureCollection.fromFeatures(
@@ -1143,6 +1207,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                     Feature.fromGeometry(point(LatLon(stop.lat, stop.lon))).apply {
                         addNumberProperty("id", stop.stopId)
                         addStringProperty("img", "hl-${h.name}")
+                        addNumberProperty("size", reveal.stop(LatLon(stop.lat, stop.lon), now))
                         // Green over purple over amber over red over gray; further south on top.
                         addNumberProperty("z", MapColors.zIndex(h) - stop.lat)
                     }
@@ -1169,14 +1234,21 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun applyScene() {
-        val dark = dark ?: return
-        if (!applyLines()) return
+        if (dark == null || !applyLines()) return
+        applyMarks()
+    }
+
+    /** The lines' starts, ends and arrows, popping in with the lines like their stops. */
+    private fun applyMarks(now: Long = System.nanoTime()) {
         source(SRC_ENDS)?.setGeoJson(
             FeatureCollection.fromFeatures(
                 scene.ends.map { end ->
                     val name = "end-${end.color}"
-                    image(name) { images.end(end.color, dark) }
-                    Feature.fromGeometry(point(end.at)).apply { addStringProperty("img", name) }
+                    image(name) { images.end(end.color) }
+                    Feature.fromGeometry(point(end.at)).apply {
+                        addStringProperty("img", name)
+                        addNumberProperty("size", reveal.stop(end.at, now))
+                    }
                 },
             ),
         )
@@ -1184,14 +1256,22 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             FeatureCollection.fromFeatures(
                 scene.badges.map { badge ->
                     val name = "badge-" + badge.routes.joinToString(",") { "${it.first}:${it.second}" }
-                    image(name) { images.badge(badge.routes, dark) }
-                    Feature.fromGeometry(point(badge.at)).apply { addStringProperty("img", name) }
+                    image(name) { images.badge(badge.routes) }
+                    Feature.fromGeometry(point(badge.at)).apply {
+                        addStringProperty("img", name)
+                        addNumberProperty("size", reveal.stop(badge.at, now))
+                    }
                 },
             ),
         )
         source(SRC_ARROWS)?.setGeoJson(
             FeatureCollection.fromFeatures(
-                scene.arrows.map { arrow -> Feature.fromGeometry(point(arrow.at)).apply { addNumberProperty("bearing", arrow.bearing) } },
+                scene.arrows.map { arrow ->
+                    Feature.fromGeometry(point(arrow.at)).apply {
+                        addNumberProperty("bearing", arrow.bearing)
+                        addNumberProperty("size", reveal.stop(arrow.at, now))
+                    }
+                },
             ),
         )
     }
@@ -1220,6 +1300,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private fun pushVehicles() {
         val src = source(SRC_VEHICLES)
         if (src != null) {
+            val now = System.nanoTime()
             val ordered = glide.all().sortedWith(compareBy<ShownVehicle>({ it.vehicle.id == selectedVehicleId }, { !it.vehicle.faded }, { -it.at.lat }))
             src.setGeoJson(
                 FeatureCollection.fromFeatures(
@@ -1231,8 +1312,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                         val r = Math.toRadians(rot)
                         val (ox, oy) = HEADING_OFFSET
                         listOf(
-                            vehicleFeature(shown, name, z = 2 * i, rot = 0.0, off = 0.0 to 0.0),
-                            vehicleFeature(shown, "heading", z = 2 * i + 1, rot = rot, off = (ox * cos(r) + oy * sin(r)) to (oy * cos(r) - ox * sin(r))),
+                            vehicleFeature(shown, name, z = 2 * i, rot = 0.0, off = 0.0 to 0.0, now = now),
+                            vehicleFeature(shown, "heading", z = 2 * i + 1, rot = rot, off = (ox * cos(r) + oy * sin(r)) to (oy * cos(r) - ox * sin(r)), now = now),
                         )
                     },
                 ),
@@ -1241,7 +1322,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         frame.intValue++
     }
 
-    private fun vehicleFeature(shown: ShownVehicle, img: String, z: Int, rot: Double, off: Pair<Double, Double>): Feature {
+    private fun vehicleFeature(shown: ShownVehicle, img: String, z: Int, rot: Double, off: Pair<Double, Double>, now: Long): Feature {
         val faded = shown.vehicle.faded && shown.vehicle.id != selectedVehicleId
         return Feature.fromGeometry(point(shown.at)).apply {
             addStringProperty("id", shown.vehicle.id)
@@ -1249,7 +1330,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
             addNumberProperty("opacity", (if (faded) FADED_VEHICLE_OPACITY else 1f) * shown.opacity)
-            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * ((bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f))
+            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * ((bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f) * reveal.vehicle(now))
             if (shown.leaving) addBooleanProperty("gone", true)
             addProperty("off", JsonArray().apply { add(off.first); add(off.second) })
         }
@@ -1325,7 +1406,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             if (!following && position.bearing == 0.0 && position.tilt == 0.0) return
             val flat = CameraPosition.Builder(position).tilt(0.0).bearing(0.0)
             if (following) flat.padding(0.0, 0.0, 0.0, 0.0)
-            map.easeCamera(CameraUpdateFactory.newCameraPosition(flat.build()), 600)
+            map.easeCamera(CameraUpdateFactory.newCameraPosition(flat.build()), 520)
             return
         }
         // The bus badge keeps its number upright; the camera still turns with the ride.
@@ -1334,9 +1415,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         if (component.cameraMode == CameraMode.TRACKING_GPS) {
             if (camera == tracked) return
             tracked = camera
-            component.zoomWhileTracking(camera.zoom, 800L)
-            component.tiltWhileTracking(camera.tilt, 800L)
-            component.paddingWhileTracking(doubleArrayOf(0.0, camera.top.toDouble(), 0.0, camera.bottom.toDouble()), 800L)
+            component.zoomWhileTracking(camera.zoom, 695L)
+            component.tiltWhileTracking(camera.tilt, 695L)
+            component.paddingWhileTracking(doubleArrayOf(0.0, camera.top.toDouble(), 0.0, camera.bottom.toDouble()), 695L)
             return
         }
         val fix = component.lastKnownLocation ?: return
@@ -1352,7 +1433,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .build()
         map.animateCamera(
             CameraUpdateFactory.newCameraPosition(target),
-            800,
+            695,
             object : MapLibreMap.CancelableCallback {
                 override fun onFinish() {
                     if (move != trackingMove) return

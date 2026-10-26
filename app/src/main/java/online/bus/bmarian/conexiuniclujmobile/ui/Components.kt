@@ -135,8 +135,8 @@ fun RealtimeIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 12.dp) 
         parts.forEach { it.snapTo(0.2f) }
         parts.forEachIndexed { i, part ->
             launch {
-                delay(140L + i * 110L)
-                part.animateTo(1f, tween(240, easing = LinearEasing))
+                delay(120L + i * 95L)
+                part.animateTo(1f, tween(210, easing = LinearEasing))
             }
         }
     }
@@ -253,7 +253,7 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
             extra -> Color.Transparent
             else -> MaterialTheme.colorScheme.surfaceContainerHighest
         },
-        if (solid) tween(220, delayMillis = 560, easing = LinearEasing) else snap(),
+        if (solid) tween(190, delayMillis = 485, easing = LinearEasing) else snap(),
         label = "pill",
     )
     val content by animateColorAsState(
@@ -262,7 +262,7 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
             live -> colors.onContainer
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
-        if (solid) tween(220, delayMillis = 560, easing = LinearEasing) else snap(),
+        if (solid) tween(190, delayMillis = 485, easing = LinearEasing) else snap(),
         label = "pillText",
     )
     val pill = rememberPop()
@@ -276,14 +276,14 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
         if (!solid || wasDue || !wasLive) return@LaunchedEffect arrive.snapTo(1f)
         arrive.snapTo(0f)
         launch {
-            delay(80)
-            arrive.animateTo(1f, tween(620, easing = EmphasizedDecelerate))
+            delay(70)
+            arrive.animateTo(1f, tween(540, easing = EmphasizedDecelerate))
         }
         launch {
-            delay(620)
+            delay(540)
             pill.from(0.86f)
         }
-        delay(700)
+        delay(610)
         vehicle.squash()
     }
     Row(
@@ -297,7 +297,7 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
     ) {
         if (live) {
             Box(Modifier.size(10.dp), contentAlignment = Alignment.Center) {
-                androidx.compose.animation.AnimatedVisibility(!solid, enter = fadeIn(), exit = scaleOut(tween(160)) + fadeOut(tween(160))) {
+                androidx.compose.animation.AnimatedVisibility(!solid, enter = fadeIn(), exit = scaleOut(tween(140)) + fadeOut(tween(140))) {
                     RealtimeIcon(content, size = 10.dp)
                 }
                 if (solid) {

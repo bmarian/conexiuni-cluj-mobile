@@ -25,9 +25,9 @@ class MarkerMotionTest {
 
     @Test
     fun fliesShortHopsQuicklyAndCapsLongOnes() {
-        assertEquals(350, flightMs(0.0, 0.0))
-        assertEquals(660, flightMs(0.0, 2.0))
-        assertEquals(1100, flightMs(4000.0, 3.0))
+        assertEquals(305, flightMs(0.0, 0.0))
+        assertEquals(570, flightMs(0.0, 2.0))
+        assertEquals(955, flightMs(4000.0, 3.0))
         assertTrue(flightMs(800.0, 1.0) > flightMs(200.0, 1.0))
     }
 }
