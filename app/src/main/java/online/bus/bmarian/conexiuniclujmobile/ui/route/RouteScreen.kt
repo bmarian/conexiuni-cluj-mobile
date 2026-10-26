@@ -134,6 +134,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.isPastTab
 import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.pathOf
 import online.bus.bmarian.conexiuniclujmobile.logic.plainTodayTab
+import online.bus.bmarian.conexiuniclujmobile.logic.shownTab
 import online.bus.bmarian.conexiuniclujmobile.logic.specialDayOn
 import online.bus.bmarian.conexiuniclujmobile.logic.stopsAlong
 import online.bus.bmarian.conexiuniclujmobile.logic.stopsForDirection
@@ -239,7 +240,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val today = now?.let { todayTab(it, calendar) } ?: TimetableTab.Weekdays
     val plainToday = now?.let(::plainTodayTab) ?: TimetableTab.Weekdays
     val special = now?.let { specialDayOn(it.toLocalDate(), calendar) }
-    val selectedTab = tab ?: today
+    val tabs = remember(info) { info?.let { availableTabs(it.timetable) }.orEmpty() }
+    val selectedTab = shownTab(tab ?: today, tabs)
     var selectedTime by rememberSaveable(dir, selectedTab) { mutableStateOf<String?>(null) }
     LaunchedEffect(info?.shortName, selectedTab) {
         val name = info?.shortName ?: return@LaunchedEffect
@@ -318,7 +320,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val outgoing = dir == "0"
     val tripId = tripIdFor(routeId, dir)
     val hourlyTrip = remember(hourly, stops, tripId) { tripHourlyOffsets(hourly, tripId, stops) }
-    val tabs = remember(route) { availableTabs(route.timetable) }
     val chips = remember(route, selectedTab, outgoing, hourlyTrip, stops, now, calendar) {
         if (now == null) emptyList() else chipsForDay(route.timetable, selectedTab, outgoing, hourlyTrip, stops, now, calendar)
     }
