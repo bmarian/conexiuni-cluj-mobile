@@ -330,7 +330,9 @@ fun PlanScreen(query: PlanQuery) {
                 val startable = selectedPlan?.takeIf { !calculating && mode == TimeMode.Now && it.rides.isNotEmpty() && it.runs.isNotEmpty() }
                 val remindable = selectedPlan?.takeIf { !calculating && mode != TimeMode.Now }
                 val draft = remember(remindable, clockMs) { remindable?.let(vm::reminderFor)?.takeIf { it.next(clockMs) != null } }
-                val existing = draft?.let { d -> reminders.firstOrNull { it.journey?.planPath == d.journey?.planPath && it.date == d.date && it.time == d.time } }
+                val existing = draft?.let { d ->
+                    reminders.firstOrNull { it.journey?.planPath == d.journey?.planPath && it.date == d.date && it.time == d.time }
+                }
                 ActionChips(
                     listOfNotNull(
                         startable?.let { plan ->
@@ -378,7 +380,8 @@ fun PlanScreen(query: PlanQuery) {
                         top = null,
                         bottom = if (selectedPlan != null) Rail.Walk else null,
                         label = stringResource(R.string.w_plan_from),
-                        value = origin?.name ?: if (me != null) stringResource(R.string.w_plan_origin_current_location) else stringResource(R.string.w_plan_origin_unknown),
+                        value = origin?.name
+                            ?: stringResource(if (me != null) R.string.w_plan_origin_current_location else R.string.w_plan_origin_unknown),
                         enabled = true,
                         searching = activeSearch == SearchField.Origin,
                         valueModifier = with(swapMotion) { Modifier.fromLabel() },
@@ -410,7 +413,12 @@ fun PlanScreen(query: PlanQuery) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
-                Text(stringResource(R.string.w_plan_routes_label), Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.w_plan_routes_label),
+                    Modifier.padding(start = 8.dp),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         item {
@@ -468,7 +476,12 @@ private fun NotFound(onHome: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Icon(Icons.Rounded.DirectionsBus, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outlineVariant)
         Text(stringResource(R.string.w_not_found), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(stringResource(R.string.w_not_found_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        Text(
+            stringResource(R.string.w_not_found_desc),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
         Button(shapes = ButtonDefaults.shapes(), onClick = onHome) { Text(stringResource(R.string.w_home)) }
     }
 }
@@ -497,8 +510,10 @@ private fun TripSummary(plan: PlanOption, mode: TimeMode, clockMs: Long) {
             }
             plan.firstRide?.let { first ->
                 stats += {
+                    val depart =
+                        if (mode == TimeMode.Now) formatMinutesFromNow(minutesUntil(first.depart, clockMs), now, nowLabel) else clock(first.depart * 1000)
                     Stat(
-                        (if (first.live) "" else "~ ") + (if (mode == TimeMode.Now) formatMinutesFromNow(minutesUntil(first.depart, clockMs), now, nowLabel) else clock(first.depart * 1000)),
+                        (if (first.live) "" else "~ ") + depart,
                         stringResource(if (mode == TimeMode.Last) R.string.w_plan_last_departure else R.string.w_plan_next_departures),
                         live = first.live,
                     )
@@ -534,7 +549,17 @@ private fun Stat(value: String, label: String, live: Boolean = false) {
 }
 
 @Composable
-private fun EndpointRow(dot: Color, top: Rail?, bottom: Rail?, label: String, value: String, enabled: Boolean, searching: Boolean, valueModifier: Modifier = Modifier, onOpen: () -> Unit) {
+private fun EndpointRow(
+    dot: Color,
+    top: Rail?,
+    bottom: Rail?,
+    label: String,
+    value: String,
+    enabled: Boolean,
+    searching: Boolean,
+    valueModifier: Modifier = Modifier,
+    onOpen: () -> Unit,
+) {
     if (searching) return
     TimelineRow(
         top = top,
@@ -566,7 +591,8 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = { IconButton(onClick = vm::closeSearch) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.w_cancel)) } },
             placeholder = {
-                Text(stringResource(if (field == SearchField.Origin) R.string.w_plan_search_placeholder else R.string.w_plan_dest_search_placeholder), maxLines = 1)
+                val hint = if (field == SearchField.Origin) R.string.w_plan_search_placeholder else R.string.w_plan_dest_search_placeholder
+                Text(stringResource(hint), maxLines = 1)
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { vm.searchNow() }),
@@ -590,7 +616,9 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
             }
         }
         if (field == SearchField.Destination && online && results.isEmpty() && query.trim().length >= 3) {
-            SearchResultRow(Icons.Rounded.PushPin, stringResource(R.string.w_drop_pin), MaterialTheme.colorScheme.onSurfaceVariant) { vm.dropPinAsDestination() }
+            SearchResultRow(Icons.Rounded.PushPin, stringResource(R.string.w_drop_pin), MaterialTheme.colorScheme.onSurfaceVariant) {
+                vm.dropPinAsDestination()
+            }
         }
     }
 }
@@ -614,7 +642,11 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
     val rides = plan.rides
     if (rides.isEmpty()) {
         TimelineRow(top = Rail.Walk, bottom = Rail.Walk, dot = TimelineDot.None, color = MaterialTheme.colorScheme.outline) {
-            Text(stringResource(R.string.w_plan_walk).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                stringResource(R.string.w_plan_walk).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Text(formatDuration(plan.minutes), style = MaterialTheme.typography.bodyMedium)
         }
         return
@@ -630,7 +662,12 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
         val open = key in expanded
         TimelineRow(top = Rail.Walk, bottom = Rail.Ride(color), dot = TimelineDot.Station, color = color) {
             FlowRow(verticalArrangement = Arrangement.Center) {
-                Text("${stringResource(R.string.w_plan_boarding).uppercase()} ", style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
+                Text(
+                    "${stringResource(R.string.w_plan_boarding).uppercase()} ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                    fontWeight = FontWeight.Bold,
+                )
                 val shown = if (open) leg.lines else leg.lines.take(4)
                 shown.forEachIndexed { rIdx, routeId ->
                     Text(
@@ -651,7 +688,13 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
                     )
                 }
                 val rideMin = max(0, Math.round(leg.seconds / 60.0).toInt())
-                if (rideMin > 0) Text(" · $rideMin min ${stringResource(R.string.w_plan_ride_time)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (rideMin > 0) {
+                    Text(
+                        " · $rideMin min ${stringResource(R.string.w_plan_ride_time)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             StopLink(vm.stopName(leg.from), bold = true) { nav.stop(leg.from) }
         }
@@ -661,7 +704,12 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
             }
         }
         TimelineRow(top = Rail.Ride(color), bottom = Rail.Walk, dot = TimelineDot.Station, color = color) {
-            Text(stringResource(R.string.w_plan_alighting).uppercase(), style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.w_plan_alighting).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                fontWeight = FontWeight.Bold,
+            )
             StopLink(vm.stopName(leg.to), bold = true) { nav.stop(leg.to) }
         }
         if (legIdx != rides.lastIndex) {
@@ -675,7 +723,8 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
                     Icon(Icons.AutoMirrored.Rounded.DirectionsWalk, null, Modifier.size(18.dp), tint = Palette.Amber)
                     Text(stringResource(R.string.w_plan_transfer), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        if (walk != null) "${Math.round(walk.meters)} m ${stringResource(R.string.w_plan_transfer_walk)}" else stringResource(R.string.w_plan_transfer_same_stop),
+                        if (walk != null) "${Math.round(walk.meters)} m ${stringResource(R.string.w_plan_transfer_walk)}"
+                        else stringResource(R.string.w_plan_transfer_same_stop),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -777,7 +826,12 @@ private fun PlanCard(
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                FlowRow(
+                    Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (rides.isEmpty()) {
                         Chip(stringResource(R.string.w_plan_walk), MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurface)
                     }
@@ -794,7 +848,9 @@ private fun PlanCard(
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        if (lIdx < rides.lastIndex) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                        if (lIdx < rides.lastIndex) {
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                        }
                     }
                 }
                 if (plan.runs.isNotEmpty()) {
@@ -803,7 +859,12 @@ private fun PlanCard(
                             val color = if (first.live) liveColor() else MaterialTheme.colorScheme.onSurface
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 if (first.live) LiveDot()
-                                Text(relativeDeparture(first, mode, clockMs), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = color)
+                                Text(
+                                    relativeDeparture(first, mode, clockMs),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = color,
+                                )
                             }
                         }
                         Text(arrivalTime(plan), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -818,10 +879,15 @@ private fun PlanCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
                 StatChip(Icons.Rounded.Schedule, formatDuration(Math.round(plan.minutes).toDouble()))
                 if (plan.transfers > 0) {
-                    StatChip(Icons.Rounded.SwapVert, "${plan.transfers} ${stringResource(if (plan.transfers == 1) R.string.w_plan_change else R.string.w_plan_changes)}")
+                    val changes = stringResource(if (plan.transfers == 1) R.string.w_plan_change else R.string.w_plan_changes)
+                    StatChip(Icons.Rounded.SwapVert, "${plan.transfers} $changes")
                 }
                 if (first?.live == true) {
                     Row(
@@ -830,14 +896,21 @@ private fun PlanCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         LiveDot()
-                        Text(stringResource(R.string.w_live), style = MaterialTheme.typography.labelSmall, color = LocalLiveColors.current.onContainer, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.w_live),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LocalLiveColors.current.onContainer,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
                 val later = plan.laterRides
                 if (later.isNotEmpty()) {
                     Text(
                         stringResource(if (mode == TimeMode.Last) R.string.w_plan_earlier else R.string.w_plan_then) + " " + later.joinToString("  ") {
-                            (if (it.live) "" else "~ ") + (if (mode == TimeMode.Now) formatMinutesFromNow(minutesUntil(it.depart, clockMs), now, nowLabel) else clock(it.depart * 1000))
+                            val depart =
+                                if (mode == TimeMode.Now) formatMinutesFromNow(minutesUntil(it.depart, clockMs), now, nowLabel) else clock(it.depart * 1000)
+                            (if (it.live) "" else "~ ") + depart
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

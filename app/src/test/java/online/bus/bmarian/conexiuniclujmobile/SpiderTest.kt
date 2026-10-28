@@ -1,13 +1,13 @@
 package online.bus.bmarian.conexiuniclujmobile
 
-import online.bus.bmarian.conexiuniclujmobile.ui.map.ClusterBox
-import online.bus.bmarian.conexiuniclujmobile.ui.map.Rect
-import online.bus.bmarian.conexiuniclujmobile.ui.map.SpiderLeg
-import online.bus.bmarian.conexiuniclujmobile.ui.map.SpiderPlace
-import online.bus.bmarian.conexiuniclujmobile.ui.map.spiderLegs
-import online.bus.bmarian.conexiuniclujmobile.ui.map.spiderLegsClear
-import online.bus.bmarian.conexiuniclujmobile.ui.map.spiderLegsToward
-import online.bus.bmarian.conexiuniclujmobile.ui.map.spiderRadius
+import online.bus.bmarian.conexiuniclujmobile.logic.ClusterBox
+import online.bus.bmarian.conexiuniclujmobile.logic.Rect
+import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
+import online.bus.bmarian.conexiuniclujmobile.logic.SpiderPlace
+import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegs
+import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsClear
+import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsToward
+import online.bus.bmarian.conexiuniclujmobile.logic.spiderRadius
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

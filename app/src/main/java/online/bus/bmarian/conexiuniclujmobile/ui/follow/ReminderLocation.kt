@@ -102,7 +102,9 @@ fun ReminderLocationDialog() {
             }) { Text(stringResource(R.string.location_continue)) }
         },
         dismissButton = {
-            TextButton(shapes = ButtonDefaults.shapes(), onClick = { ReminderLocation.asking.value = false }) { Text(stringResource(R.string.location_not_now)) }
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = { ReminderLocation.asking.value = false }) {
+                Text(stringResource(R.string.location_not_now))
+            }
         },
     )
 }

@@ -2,6 +2,8 @@ package online.bus.bmarian.conexiuniclujmobile.ui.map
 
 import androidx.compose.animation.core.EaseIn
 import com.google.gson.JsonArray
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
+import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.Point
 

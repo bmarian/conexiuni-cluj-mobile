@@ -177,10 +177,6 @@ object Services {
         locationInterval.value = if (on) 1_000L else LOCATION_UPDATE_MS
     }
 
-    fun tick() {
-        _clock.value = System.currentTimeMillis()
-    }
-
     private fun watchConnectivity(context: Context) {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return
         _online.value = manager.activeNetwork?.let { manager.getNetworkCapabilities(it) }

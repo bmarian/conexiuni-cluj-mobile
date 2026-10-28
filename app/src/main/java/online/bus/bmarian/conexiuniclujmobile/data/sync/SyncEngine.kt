@@ -57,7 +57,8 @@ class SyncEngine(private val vault: SyncVault) {
         override fun read(raw: String) = SyncRecords.readNews(raw)
         override fun write(value: SyncRecords.News) = SyncRecords.writeNews(value)
         override fun local(base: SyncRecords.News?) = SyncLocal.newsFromLocal(slug)
-        override fun merge(base: SyncRecords.News?, local: SyncRecords.News, remote: SyncRecords.News) = SyncMerge.mergeNews(base ?: SyncRecords.emptyNews, local, remote)
+        override fun merge(base: SyncRecords.News?, local: SyncRecords.News, remote: SyncRecords.News) =
+            SyncMerge.mergeNews(base ?: SyncRecords.emptyNews, local, remote)
         override fun apply(value: SyncRecords.News) = SyncLocal.applyNews(slug, value)
         override fun empty(value: SyncRecords.News) = value.seen.isEmpty()
     }
@@ -66,7 +67,8 @@ class SyncEngine(private val vault: SyncVault) {
         override fun read(raw: String) = SyncRecords.readSettings(raw)
         override fun write(value: SyncRecords.Settings) = SyncRecords.writeSettings(value)
         override fun local(base: SyncRecords.Settings?) = SyncLocal.settingsFromLocal()
-        override fun merge(base: SyncRecords.Settings?, local: SyncRecords.Settings, remote: SyncRecords.Settings) = SyncMerge.mergeSettings(base, local, remote)
+        override fun merge(base: SyncRecords.Settings?, local: SyncRecords.Settings, remote: SyncRecords.Settings) =
+            SyncMerge.mergeSettings(base, local, remote)
         override fun apply(value: SyncRecords.Settings) = SyncLocal.applySettings(value)
     }
 
@@ -91,7 +93,8 @@ class SyncEngine(private val vault: SyncVault) {
 
     private fun sealRecord(keys: SyncCrypto.ChainKeys, chain: String, epoch: Long, name: String, rev: Long, text: String): String {
         val plain = text.toByteArray(Charsets.UTF_8)
-        return SyncCrypto.toB64(SyncCrypto.seal(keys.data, SyncCrypto.pad(plain, SyncCrypto.bucketFor(plain.size)), SyncCrypto.recordAAD(chain, epoch, name, rev)))
+        val padded = SyncCrypto.pad(plain, SyncCrypto.bucketFor(plain.size))
+        return SyncCrypto.toB64(SyncCrypto.seal(keys.data, padded, SyncCrypto.recordAAD(chain, epoch, name, rev)))
     }
 
     private suspend fun <T> syncRecord(run: Run, kind: Kind<T>, logical: String, name: String, remoteRev: Long) {
@@ -161,7 +164,8 @@ class SyncEngine(private val vault: SyncVault) {
     /** After another device removed someone: this device's new secret waits for it, sealed to its own key. */
     private suspend fun catchUp(m: Membership, epoch: Long): Membership {
         val (wrapEpoch, body) = SyncApi.readWrap(m.member)
-        val s = SyncCrypto.fromB64(body)?.takeIf { wrapEpoch == epoch }?.let { SyncCrypto.unwrapSecret(m.deviceKey, it, SyncCrypto.wrapInfo(m.chain, epoch, m.device)) }
+        val s = SyncCrypto.fromB64(body)?.takeIf { wrapEpoch == epoch }
+            ?.let { SyncCrypto.unwrapSecret(m.deviceKey, it, SyncCrypto.wrapInfo(m.chain, epoch, m.device)) }
             ?: throw conflict()
         val next = Membership(m.chain, epoch, m.device, m.token, s, m.deviceKey, m.devicePub)
         vault.save(next)
@@ -212,7 +216,12 @@ class SyncEngine(private val vault: SyncVault) {
         val device = SyncCrypto.newKeyPair()
         val registered = send(SyncCrypto.toB64(keys.join))
         vault.forget()
-        vault.save(Membership(registered.chain ?: chain!!, registered.epoch, registered.device, registered.token, s, device.private, SyncCrypto.toB64(device.spki)))
+        vault.save(
+            Membership(
+                registered.chain ?: chain!!, registered.epoch, registered.device, registered.token,
+                s, device.private, SyncCrypto.toB64(device.spki),
+            ),
+        )
     }
 
     /** Starts a chain with this device alone in it; the secret it returns goes to the other device. */

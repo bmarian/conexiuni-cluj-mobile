@@ -134,7 +134,8 @@ fun LineBadges(routes: List<NetworkRoute>, modifier: Modifier = Modifier) {
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (route in routes) {
             Box(
-                Modifier.widthIn(min = 28.dp).clip(RoundedCornerShape(5.dp)).background(lineColor(route.shortName, route.color)).padding(horizontal = 5.dp, vertical = 1.dp),
+                Modifier.widthIn(min = 28.dp).clip(RoundedCornerShape(5.dp))
+                    .background(lineColor(route.shortName, route.color)).padding(horizontal = 5.dp, vertical = 1.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(route.shortName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)

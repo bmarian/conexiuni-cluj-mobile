@@ -1,7 +1,5 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
-import online.bus.bmarian.conexiuniclujmobile.Services
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PointF
@@ -34,8 +32,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,17 +50,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -69,13 +64,22 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
+import online.bus.bmarian.conexiuniclujmobile.logic.Area
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
+import online.bus.bmarian.conexiuniclujmobile.logic.StopGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.bikeAccess
 import online.bus.bmarian.conexiuniclujmobile.logic.pathOf
 import online.bus.bmarian.conexiuniclujmobile.logic.wheelchairAccess
@@ -90,7 +94,6 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import java.text.Collator
-import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -610,10 +613,13 @@ private fun MapTooltip(session: MapSession, tip: Tooltip) {
                 is Tooltip.Group -> if (tip.stations.size <= CLUSTER_STATIONS_MAX) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { tip.stations.forEach { (name, look) -> station(name, look) } }
                 } else {
-                    val names = tip.stations.map { it.first }.distinct().sortedWith(Collator.getInstance(Locale.getDefault()))
+                    val locale = LocalConfiguration.current.locales[0]
+                    val names = tip.stations.map { it.first }.distinct().sortedWith(Collator.getInstance(locale))
                     Column {
                         names.take(CLUSTER_NAMES_MAX).forEach { Text(it, color = fg, style = type.bodyMedium, maxLines = 1) }
-                        if (names.size > CLUSTER_NAMES_MAX) Text(stringResource(R.string.map_more_stations, names.size - CLUSTER_NAMES_MAX), color = sub, style = type.bodySmall)
+                        if (names.size > CLUSTER_NAMES_MAX) {
+                            Text(stringResource(R.string.map_more_stations, names.size - CLUSTER_NAMES_MAX), color = sub, style = type.bodySmall)
+                        }
                     }
                 }
                 is Tooltip.Pin -> {

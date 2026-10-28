@@ -46,7 +46,11 @@ fun StopsScreen(stopIds: List<Int>) {
     LazyColumn(Modifier.fillMaxSize()) {
         item { SheetTopBar(title = null, showTitle = false) }
         items(stations, key = { it.first.stopId }) { (stop, destinations) ->
-            StationRow(stop, index?.look(stop.stopId), distance = null, favorite = index.favoritePlatform(stop.stopId, favoriteStops) != null, lines = { Towards(destinations) }) { nav.mapStop(stop.stopId) }
+            StationRow(
+                stop, index?.look(stop.stopId), distance = null,
+                favorite = index.favoritePlatform(stop.stopId, favoriteStops) != null,
+                lines = { Towards(destinations) },
+            ) { nav.mapStop(stop.stopId) }
         }
     }
 }

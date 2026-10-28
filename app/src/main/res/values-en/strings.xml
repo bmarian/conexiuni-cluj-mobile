@@ -1,9 +1,8 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="load_failed">Couldn\'t load. Check your connection.</string>
     <string name="retry">Try again</string>
     <string name="push_line">Line %1$s · %2$s</string>
     <string name="scan_code">Scan code</string>
-    <string name="push_denied_body">Turn them on in the app\'s settings.</string>
     <string name="following">Following</string>
     <string name="stop_following">Stop</string>
     <string name="follow_channel">Followed buses</string>
@@ -148,6 +147,6 @@
     <string name="update_question">Do you want to update now?</string>
     <string name="watch_install_question">Do you want to install the app on your watch?</string>
     <string name="watch_install">Install</string>
-    <string name="map_more_stations">and %d more</string>
+    <string name="map_more_stations" tools:ignore="PluralsCandidate">and %d more</string>
     <string name="line_ends_here">last stop</string>
 </resources>

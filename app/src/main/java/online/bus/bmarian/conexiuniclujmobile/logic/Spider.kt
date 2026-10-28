@@ -1,4 +1,4 @@
-package online.bus.bmarian.conexiuniclujmobile.ui.map
+package online.bus.bmarian.conexiuniclujmobile.logic
 
 import kotlin.math.PI
 import kotlin.math.atan2

@@ -7,12 +7,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 
 enum class StopHighlight { Green, Purple, Red, Gray, Amber, Favorite }
 
 class MapShape(val tripId: String, val shortName: String, val color: String, val points: List<LatLon>)
-
-data class LatLon(val lat: Double, val lon: Double)
 
 class MapVehicle(
     val id: String,

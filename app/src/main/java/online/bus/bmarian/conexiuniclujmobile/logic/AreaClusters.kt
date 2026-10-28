@@ -1,4 +1,4 @@
-package online.bus.bmarian.conexiuniclujmobile.ui.map
+package online.bus.bmarian.conexiuniclujmobile.logic
 
 import kotlinx.serialization.Serializable
 import java.util.concurrent.ConcurrentHashMap

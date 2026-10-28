@@ -42,7 +42,6 @@
     <string name="w_frequency_every">La fiecare %1$s min</string>
     <string name="w_frequency_every_other">La fiecare %1$s de min</string>
     <string name="w_frequency_window">între %1$s și %2$s</string>
-    <string name="w_bus_stop">Stație</string>
     <string name="w_stop_kind_bus">Stație de autobuz</string>
     <string name="w_stop_kind_trolleybus">Stație de troleibuz</string>
     <string name="w_stop_kind_tram">Stație de tramvai</string>
@@ -60,7 +59,6 @@
     <string name="w_all_routes_at_stop">Linii în această stație</string>
     <string name="w_live">LIVE</string>
     <string name="w_home">Acasă</string>
-    <string name="w_favorites">Preferate</string>
     <string name="w_favorite_routes">Linii preferate</string>
     <string name="w_favorite_stops">Stații preferate</string>
     <string name="w_favorite_plans">Destinații preferate</string>
@@ -74,7 +72,6 @@
     <string name="w_no_results">Niciun rezultat</string>
     <string name="w_drop_pin">Alege pe hartă</string>
     <string name="w_dropped_pin">Indicator plasat</string>
-    <string name="w_add_to_favorites">Adaugă la preferate</string>
     <string name="w_remove_from_favorites">Șterge din preferate</string>
     <string name="w_service_suspended">Serviciu suspendat</string>
     <string name="w_trip_at">Plecare la %1$s</string>
@@ -84,7 +81,6 @@
     <string name="w_offline_short">Offline</string>
     <string name="w_toggle_drawer">Afișează / ascunde panoul</string>
     <string name="w_settings">Setări</string>
-    <string name="w_theme">Temă</string>
     <string name="w_theme_light">Luminoasă</string>
     <string name="w_theme_dark">Întunecată</string>
     <string name="w_theme_system">Sistem</string>
@@ -99,14 +95,12 @@
     <string name="w_plan_origin_current_location">Locația ta</string>
     <string name="w_plan_origin_unknown">Locație necunoscută</string>
     <string name="w_plan_routes_label">Călătorii</string>
-    <string name="w_plan_nearby_stops">Stații din apropiere</string>
     <string name="w_plan_boarding">Urcare</string>
     <string name="w_plan_alighting">Coborâre</string>
     <string name="w_plan_walk">Pe jos</string>
     <string name="w_plan_locating">Te căutăm…</string>
     <string name="w_plan_calculating">Căutăm călătorii…</string>
     <string name="w_loading_route">Se încarcă linia…</string>
-    <string name="w_loading_stop">Se încarcă stația…</string>
     <string name="w_plan_changes">schimbări</string>
     <string name="w_plan_change">schimbare</string>
     <string name="w_plan_then">apoi</string>
@@ -116,7 +110,6 @@
     <string name="w_plan_transfer_same_stop">aceeași stație</string>
     <string name="w_plan_refresh">Reîmprospătează</string>
     <string name="w_plan_swap">Inversează punctul de pornire și destinația</string>
-    <string name="w_plan_time_filter_label">Ora</string>
     <string name="w_plan_time_leave_now">Plecare acum</string>
     <string name="w_plan_time_leave_at">Plecare la</string>
     <string name="w_plan_time_arrive_by">Sosire la</string>
@@ -155,9 +148,6 @@
     <string name="w_news_error">Nu s-a încărcat</string>
     <string name="w_news_today">Azi</string>
     <string name="w_news_yesterday">Ieri</string>
-    <string name="w_news_new">Nou</string>
-    <string name="w_follow_line">Urmărește linia %1$s</string>
-    <string name="w_unfollow_line">Nu mai urmări linia %1$s</string>
     <string name="w_follow_line_toast">Urmărești linia %1$s</string>
     <string name="w_follow_line_toast_body">Schimbările ei apar pe pagina de Noutăți.</string>
     <string name="w_unfollow_line_toast">Nu mai urmărești linia %1$s</string>
@@ -193,9 +183,6 @@
     <string name="w_route_change_kind_trips_removed">Plecări anulate</string>
     <string name="w_route_change_kind_stops_added">Stații noi</string>
     <string name="w_route_change_kind_stops_removed">Stații eliminate</string>
-    <string name="w_share_url">Trimite</string>
-    <string name="w_url_copied">Link copiat!</string>
-    <string name="w_settings_all_settings">Toate setările</string>
     <string name="w_city_auto">Cel mai apropiat oraș</string>
     <string name="w_city">Oraș</string>
     <string name="w_city_search">Caută un oraș</string>
@@ -206,7 +193,6 @@
     <string name="w_colorful_lines_desc">Fiecare linie are culoarea ei.</string>
     <string name="w_auto_center_on_me_desc">Centrează harta pe tine când se deschide.</string>
     <string name="w_auto_fit_map_desc">Arată toată linia când o deschizi.</string>
-    <string name="w_beta">Beta</string>
     <string name="w_followed_lines">Linii urmărite</string>
     <string name="w_yes">Da</string>
     <string name="w_no">Nu</string>
@@ -256,9 +242,7 @@
     <string name="w_sync_problem_over_cap">O listă are peste %1$s elemente și nu se sincronizează. Șterge câteva.</string>
     <string name="w_sync_problem_full">Nu s-a putut salva tot. Încearcă mai târziu.</string>
     <string name="w_sync_removed">Acest dispozitiv nu se mai sincronizează. A fost eliminat sau sincronizarea a fost oprită de pe alt dispozitiv.</string>
-    <string name="w_sync_needs_https">Sincronizarea are nevoie de o conexiune sigură (https).</string>
     <string name="w_sync_dropped">%1$s preferate de pe acest dispozitiv nu au încăput și rămân doar aici.</string>
-    <string name="w_sync_device_label">%1$s pe %2$s</string>
     <string name="w_sync_web_device">Browser web</string>
     <string name="w_limit_reached">Cel mult %1$s deodată</string>
     <string name="w_destinations">Destinații</string>

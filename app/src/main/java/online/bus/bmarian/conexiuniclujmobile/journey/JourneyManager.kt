@@ -3,15 +3,15 @@ package online.bus.bmarian.conexiuniclujmobile.journey
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import online.bus.bmarian.conexiuniclujmobile.data.Cities
-import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
-import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
+import java.util.UUID
 
 @Serializable
 data class JourneyStop(val id: Int, val name: String, val lat: Double, val lon: Double)

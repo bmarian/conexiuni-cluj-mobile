@@ -73,6 +73,10 @@ android {
         compose = true
         buildConfig = true
     }
+    bundle {
+        // The in-app language on Android 12 and older needs every language's strings installed.
+        language { enableSplit = false }
+    }
 }
 
 val mapLibreSymbols = tasks.register<MapLibreSymbols>("mapLibreSymbols") {

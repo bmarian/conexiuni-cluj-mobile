@@ -1,7 +1,5 @@
-package online.bus.bmarian.conexiuniclujmobile.ui.map
+package online.bus.bmarian.conexiuniclujmobile.logic
 
-import online.bus.bmarian.conexiuniclujmobile.logic.Mode
-import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
 import java.text.Collator
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap

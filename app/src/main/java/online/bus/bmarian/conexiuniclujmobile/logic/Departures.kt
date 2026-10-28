@@ -66,7 +66,8 @@ fun directionShape(shape: List<ShapePoint>): DirectionShape? = if (shape.isEmpty
 
 private fun scheduledRow(shapeInfo: ShapeInfo, stop: IndexedStop, outgoing: Boolean, now: LocalDateTime): List<Arrival> {
     val departures = departureMinutes(daySchedule(shapeInfo.timetable, now), outgoing)
-    return nextArrivals(scheduledArrivals(departures, stop.secondsFromStart, exactMinutesOfDay(now), SCHEDULE_HORIZON_MIN, shapeInfo.lateGraceMin), DEPARTURES_SHOWN)
+    val scheduled = scheduledArrivals(departures, stop.secondsFromStart, exactMinutesOfDay(now), SCHEDULE_HORIZON_MIN, shapeInfo.lateGraceMin)
+    return nextArrivals(scheduled, DEPARTURES_SHOWN)
 }
 
 /** The route's stop list: the server's rows where the live feed has them, the timetable otherwise. */

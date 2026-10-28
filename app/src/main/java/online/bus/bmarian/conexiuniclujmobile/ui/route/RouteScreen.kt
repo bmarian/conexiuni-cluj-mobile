@@ -51,12 +51,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -82,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -112,6 +111,7 @@ import online.bus.bmarian.conexiuniclujmobile.journey.ridePath
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
 import online.bus.bmarian.conexiuniclujmobile.logic.HourGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedStop
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.ScheduleDays
 import online.bus.bmarian.conexiuniclujmobile.logic.SpecialDay
 import online.bus.bmarian.conexiuniclujmobile.logic.TimetableTab
@@ -158,7 +158,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
-import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
@@ -198,6 +197,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val activeChange by vm.activeChange.collectAsStateWithLifecycle()
     val hourly by vm.hourlyOffsets.collectAsStateWithLifecycle()
     val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
+    val city by Cities.current.collectAsStateWithLifecycle()
     val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
     val followed by Services.routeUpdates.followed.collectAsStateWithLifecycle()
     val isFavorite = favoriteRoutes.any { it.routeId == routeId && it.direction == dir }
@@ -276,7 +276,9 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 },
             )
         }
-        if (watch) add(MenuAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/route/$routeId/$dir") } })
+        if (watch) {
+            add(MenuAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/route/$routeId/$dir") } })
+        }
         add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
     }
     val barTitle = info?.let { "${it.shortName} · ${it.timetable.routeLongName.ifEmpty { it.shortName }}" }
@@ -358,7 +360,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             path = simplifyPath(path.map { LatLon(it.lat, it.lon) }),
         )
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-        JourneyManager.start(context, Journey(JourneyManager.newId(), js(ride.last()), listOf(leg), planPath = "/route/$routeId/$dir", city = Cities.current.value))
+        val journey = Journey(JourneyManager.newId(), js(ride.last()), listOf(leg), planPath = "/route/$routeId/$dir", city = Cities.current.value)
+        JourneyManager.start(context, journey)
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -388,9 +391,17 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         fontWeight = FontWeight.Bold,
                     )
                     fromStopName?.let {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) {
                             Box(Modifier.size(6.dp).clip(CircleShape).background(Palette.Emerald))
-                            Text(stringResource(R.string.w_from, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(R.string.w_from, it),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
@@ -408,7 +419,9 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleRoute(routeId, dir)
                     },
-                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, Services.repository.network.index.value.linePath(routeId, dir)) },
+                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) {
+                        share(context, Services.repository.network.index.value.linePath(routeId, dir))
+                    },
                 ),
                 Modifier.padding(bottom = 12.dp),
             )
@@ -454,10 +467,14 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 val arrivals = current?.arrivals?.getOrNull(idx).orEmpty()
                 val name = stop.stop.headsign.ifEmpty { "Stop ${idx + 1}" }
                 val alerting = follows.firstOrNull { it.matches(stop.stop.stopId, routeId, tripId) }
-                val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir), Cities.current.value)
+                val followed = Followed(stop.stop.stopId, name, routeId, tripId, route.shortName, route.color, vm.terminal(dir), city)
                 Box(
                     Modifier
-                        .animateItem(fadeInSpec = null, placementSpec = spring(Bouncy.slide.dampingRatio, Bouncy.slide.stiffness, IntOffset.VisibilityThreshold), fadeOutSpec = tween(140))
+                        .animateItem(
+                            fadeInSpec = null,
+                            placementSpec = spring(Bouncy.slide.dampingRatio, Bouncy.slide.stiffness, IntOffset.VisibilityThreshold),
+                            fadeOutSpec = tween(140),
+                        )
                         .then(if (stopKeys[idx] in stayingKeys) Modifier else Modifier.cascade(cascade)),
                 ) {
                     StopLine(
@@ -517,7 +534,11 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.w_timetable), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.weight(1f).padding(horizontal = 8.dp))
-                    Text(stringResource(R.string.w_timetable_click_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        stringResource(R.string.w_timetable_click_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
                 }
             }
             item {
@@ -566,7 +587,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                                 val last = if (isRange || frequency.minMinutes == 0) frequency.maxMinutes else frequency.minMinutes
                                 val withDe = PluralRules.forLocale(LocalConfiguration.current.locales[0]).select(last.toDouble()) == "other"
                                 val label = if (isRange) {
-                                    stringResource(if (withDe) R.string.w_frequency_every_range_other else R.string.w_frequency_every_range, "${frequency.minMinutes}", "${frequency.maxMinutes}")
+                                    val id = if (withDe) R.string.w_frequency_every_range_other else R.string.w_frequency_every_range
+                                    stringResource(id, "${frequency.minMinutes}", "${frequency.maxMinutes}")
                                 } else {
                                     stringResource(if (withDe) R.string.w_frequency_every_other else R.string.w_frequency_every, "$last")
                                 }
@@ -694,9 +716,9 @@ private fun StopLine(
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                 val x = size.width / 2
                 val w = 2.dp.toPx()
-                drawLine(rail, androidx.compose.ui.geometry.Offset(x, if (first) size.height / 2 else 0f), androidx.compose.ui.geometry.Offset(x, if (last) size.height / 2 else size.height), w)
+                drawLine(rail, Offset(x, if (first) size.height / 2 else 0f), Offset(x, if (last) size.height / 2 else size.height), w)
                 paint?.invoke()?.let { part ->
-                    drawLine(paintColor, androidx.compose.ui.geometry.Offset(x, part.start * size.height), androidx.compose.ui.geometry.Offset(x, part.endInclusive * size.height), 4.dp.toPx())
+                    drawLine(paintColor, Offset(x, part.start * size.height), Offset(x, part.endInclusive * size.height), 4.dp.toPx())
                 }
             }
             val color = when (mark) {
@@ -828,7 +850,11 @@ fun RouteChangeBanner(change: RouteChange, onDismiss: () -> Unit) {
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Row {
                     Text(changeTitle(change, context), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text(" · ${formatChangeDate(change.detectedAt, locale, withYear = false)}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        " · ${formatChangeDate(change.detectedAt, locale, withYear = false)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Text(changeSummary(change, context), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (showMore) {
@@ -858,7 +884,12 @@ fun RouteChangeBanner(change: RouteChange, onDismiss: () -> Unit) {
                                 val entries = if (key in openRows) row.entries else row.entries.take(ENTRY_LIMIT)
                                 val hidden = row.entries.size - entries.size
                                 val names = row.kind == "stops_added" || row.kind == "stops_removed"
-                                Text(row.label, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    row.label,
+                                    Modifier.padding(top = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(if (names) 6.dp else 14.dp)) {
                                     entries.forEachIndexed { i, entry ->
                                         Row {

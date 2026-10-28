@@ -272,7 +272,8 @@ class JourneyService : Service() {
                 val leg = journey.legs[phase.leg]
                 when {
                     skip -> Phase.Wait(phase.leg)
-                    fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) -> Phase.Wait(phase.leg).also { atStopAt = nowMs }
+                    fix != null && distanceTo(fix, leg.boarding) <= max(AT_STOP_M, fix.accuracyMeters.toDouble()) ->
+                        Phase.Wait(phase.leg).also { atStopAt = nowMs }
                     fix != null && leftOnBus(fix, leg) && motion.riding(fix, nowMs, ridePace(leg)) -> Phase.Ride(phase.leg)
                     fix == null && busLeft(departure) -> Phase.Ride(phase.leg)
                     else -> phase
@@ -492,7 +493,9 @@ class JourneyService : Service() {
             Phase.WalkEnd -> base.copy(
                 stepType = StepType.WALK_END,
                 step = getString(R.string.journey_walk_to, journey.destination.name),
-                detail = fix?.let { getString(R.string.journey_walk_minutes, (distanceTo(it, journey.destination) / WALK_SPEED).roundToInt().coerceAtLeast(1)) },
+                detail = fix?.let {
+                    getString(R.string.journey_walk_minutes, (distanceTo(it, journey.destination) / WALK_SPEED).roundToInt().coerceAtLeast(1))
+                },
             )
             Phase.Done -> base.copy(stepType = StepType.ARRIVED, step = getString(R.string.journey_arrived))
         }
@@ -524,7 +527,10 @@ class JourneyService : Service() {
         ended = true
         JourneyManager.publish(
             this,
-            JourneySync(journey.id, journey.destination.name, getString(R.string.journey_arrived), stepIndex = stepIndex + 1, end = true, stepType = StepType.ARRIVED, progress = 1f),
+            JourneySync(
+                journey.id, journey.destination.name, getString(R.string.journey_arrived),
+                stepIndex = stepIndex + 1, end = true, stepType = StepType.ARRIVED, progress = 1f,
+            ),
         )
         JourneyNotifications.arrived(this, journey)
         if (JourneyManager.state.value?.id == journey.id) {

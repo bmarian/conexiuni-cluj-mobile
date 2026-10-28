@@ -12,13 +12,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material3.ButtonDefaults
-import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +43,7 @@ import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.SubdirectoryArrowRight
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
@@ -90,10 +88,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import online.bus.bmarian.conexiuniclujmobile.ui.rememberCredits
-import java.time.Instant
-import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,19 +107,23 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyProgress
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
+import online.bus.bmarian.conexiuniclujmobile.journey.NavFollow
+import online.bus.bmarian.conexiuniclujmobile.journey.Progress
+import online.bus.bmarian.conexiuniclujmobile.journey.RouteLine
 import online.bus.bmarian.conexiuniclujmobile.journey.StepType
+import online.bus.bmarian.conexiuniclujmobile.journey.rideRoute
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.findClosestShapeIdx
+import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.Rail
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetState
-import online.bus.bmarian.conexiuniclujmobile.ui.rememberSheetGestures
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineRow
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
-import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapColors
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapPin
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
@@ -133,13 +131,14 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavCamera
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavScene
 import online.bus.bmarian.conexiuniclujmobile.ui.map.RideAs
-import online.bus.bmarian.conexiuniclujmobile.journey.NavFollow
-import online.bus.bmarian.conexiuniclujmobile.journey.Progress
-import online.bus.bmarian.conexiuniclujmobile.journey.RouteLine
-import online.bus.bmarian.conexiuniclujmobile.journey.rideRoute
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberCredits
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberSheetGestures
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.ridesApart
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 class NavigationViewModel : ViewModel() {
     private val _vehicles = MutableStateFlow<List<MapVehicle>>(emptyList())
@@ -279,7 +278,8 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
         val trip = journey
         val leg = trip?.legs?.getOrNull(state?.legIndex ?: -1)
         map.rideAs = if (riding && leg != null) {
-            RideAs(looks.hex(state?.line ?: leg.lines.first(), state?.color ?: leg.colors.first(), ridesApart(trip.legs.map { it.lines })) ?: leg.colors.first())
+            val hex = looks.hex(state?.line ?: leg.lines.first(), state?.color ?: leg.colors.first(), ridesApart(trip.legs.map { it.lines }))
+            RideAs(hex ?: leg.colors.first())
         } else null
     }
     LaunchedEffect(bannerBottom, panelHeight) { onInsets(bannerBottom, panelHeight) }
@@ -321,7 +321,13 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     ) {
                         Icon(stepIcon(sync.stepType), null, Modifier.size(40.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(step, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                step,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                         }
                         sync.line?.let { LineBadge(it, sync.color ?: "#64748b", height = 32.dp, minWidth = 44.dp, corner = 8.dp) }
@@ -337,7 +343,11 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     shadowElevation = 3.dp,
                     modifier = Modifier.padding(top = 6.dp, start = 12.dp),
                 ) {
-                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Icon(Icons.Rounded.SubdirectoryArrowRight, null, Modifier.size(18.dp))
                         Text(then.orEmpty(), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -455,7 +465,9 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { JourneyManager.next(context) }) { Text(stringResource(R.string.journey_next)) }
+                        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { JourneyManager.next(context) }) {
+                            Text(stringResource(R.string.journey_next))
+                        }
                     }
                     if (trip != null) TripProgress(trip, sync.progress ?: 0f)
                 }
@@ -558,7 +570,11 @@ private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifie
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (row.lines.isNotEmpty()) {
-                    FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FlowRow(
+                        Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         row.lines.forEach { (line, color) -> LineBadge(line, color, height = 22.dp, minWidth = 30.dp, corner = 6.dp) }
                     }
                 }

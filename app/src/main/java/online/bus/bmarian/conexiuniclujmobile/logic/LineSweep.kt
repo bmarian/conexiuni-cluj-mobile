@@ -1,6 +1,4 @@
-package online.bus.bmarian.conexiuniclujmobile.ui.map
-
-import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+package online.bus.bmarian.conexiuniclujmobile.logic
 
 /** The web's SWEEP_MS, in step with the badge's heart. */
 const val SWEEP_MS = 1130L

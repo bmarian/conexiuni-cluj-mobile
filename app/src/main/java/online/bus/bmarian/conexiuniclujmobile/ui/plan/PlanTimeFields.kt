@@ -71,7 +71,11 @@ fun PlanTimeFields(value: String, minMs: Long, onValue: (String) -> Unit) {
             readOnly = true,
             singleLine = true,
             label = { Text(stringResource(R.string.w_plan_time)) },
-            trailingIcon = { IconButton(onClick = { picking = Picking.Time }) { Icon(Icons.Rounded.Schedule, contentDescription = stringResource(R.string.w_time_picker_title)) } },
+            trailingIcon = {
+                IconButton(onClick = { picking = Picking.Time }) {
+                    Icon(Icons.Rounded.Schedule, contentDescription = stringResource(R.string.w_time_picker_title))
+                }
+            },
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(14.dp),
             interactionSource = press,
@@ -112,7 +116,9 @@ private fun TimeDialog(current: LocalDateTime, onDismiss: () -> Unit, onPick: (I
     var mode by remember { mutableStateOf(TimePickerDisplayMode.Picker) }
     TimePickerDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { onPick(state.hour, state.minute) }) { Text(stringResource(android.R.string.ok)) } },
+        confirmButton = {
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = { onPick(state.hour, state.minute) }) { Text(stringResource(android.R.string.ok)) }
+        },
         title = { Text(stringResource(R.string.w_time_picker_title)) },
         modeToggleButton = {
             TimePickerDialogDefaults.DisplayModeToggle(

@@ -167,7 +167,11 @@ private fun AlarmScreen(alarm: AlarmInfo, onStop: () -> Unit, onOpen: () -> Unit
     }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(Modifier.padding(start = 8.dp, top = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.padding(start = 8.dp, top = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Icon(Icons.Rounded.Alarm, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(stringResource(R.string.alarm_label), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             }

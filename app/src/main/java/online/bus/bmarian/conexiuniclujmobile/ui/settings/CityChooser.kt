@@ -85,12 +85,17 @@ fun CityChooser() {
         trailingContent = { Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(turn)) },
     )
     AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-        Surface(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Surface(
+            Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
             Column(Modifier.padding(vertical = 8.dp)) {
                 SearchField(query, { query = it }, stringResource(R.string.w_city_search), Modifier.padding(start = 8.dp, end = 8.dp, bottom = 4.dp))
                 if (located && folded.isEmpty()) CityOption(stringResource(R.string.w_city_auto), null, null, automatic) { choose(null) }
                 // verticalScroll needs a bounded height inside the settings' scroll.
-                val fit = if (rowHeight > 0) Modifier.heightIn(max = with(density) { (rowHeight * CITY_ROWS_SHOWN).toDp() }).verticalScroll(scroll) else Modifier
+                val fit =
+                    if (rowHeight > 0) Modifier.heightIn(max = with(density) { (rowHeight * CITY_ROWS_SHOWN).toDp() }).verticalScroll(scroll) else Modifier
                 Column(fit) {
                     shown.forEachIndexed { i, option ->
                         val measure = if (i == 0) Modifier.onSizeChanged { rowHeight = it.height } else Modifier
@@ -125,4 +130,3 @@ private fun CityOption(name: String, operator: String?, realtime: Boolean?, sele
         },
     )
 }
-

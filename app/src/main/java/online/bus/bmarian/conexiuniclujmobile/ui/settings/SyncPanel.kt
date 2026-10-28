@@ -156,7 +156,10 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(shapes = ButtonDefaults.shapes(), onClick = ::show, modifier = Modifier.weight(1f)) {
                     Icon(if (status == Sync.Status.On) Icons.Rounded.Add else Icons.Rounded.QrCode2, null, Modifier.size(18.dp))
-                    Text(stringResource(if (status == Sync.Status.On) R.string.w_sync_add_device else R.string.w_sync_show_code), Modifier.padding(start = 8.dp))
+                    Text(
+                        stringResource(if (status == Sync.Status.On) R.string.w_sync_add_device else R.string.w_sync_show_code),
+                        Modifier.padding(start = 8.dp),
+                    )
                 }
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {
                     lastAction = "enter"
@@ -204,7 +207,10 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
                         ) {
                             Text(stringResource(when (current) {
                                 is Ask.Remove -> R.string.w_sync_remove
@@ -212,7 +218,9 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
                                 Ask.Everywhere -> R.string.w_sync_delete
                             }))
                         }
-                        OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { ask = null }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_cancel)) }
+                        OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { ask = null }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.w_cancel))
+                        }
                     }
                 }
             }
@@ -353,12 +361,22 @@ private fun PairingPanel(vm: SyncPairingViewModel, entering: Boolean, onConnect:
                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp)).padding(10.dp),
                     ) { QrCode(url, Modifier.fillMaxSize()) }
                     Text(spaced(code), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
-                    Text(stringResource(R.string.w_sync_show_hint), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.w_sync_show_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 phase == PairPhase.Confirm && peer != null -> {
                     Text(stringResource(R.string.w_sync_confirm_title, peer!!.label), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
                     Text(spaced(check), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp)
-                    Text(stringResource(R.string.w_sync_confirm_check), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.w_sync_confirm_check),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 phase == PairPhase.Done -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
@@ -368,7 +386,12 @@ private fun PairingPanel(vm: SyncPairingViewModel, entering: Boolean, onConnect:
                     Text(stringResource(failureText(failure), SyncRecords.CITY_CAP.toString()), textAlign = TextAlign.Center)
                     if (failure == PairFailure.OverCap) {
                         for (item in overCap) {
-                            Text(stringResource(R.string.w_sync_over_cap_item, stringResource(listName(item.list)), Cities.name(item.city), item.count.toString()), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                stringResource(
+                                    R.string.w_sync_over_cap_item, stringResource(listName(item.list)), Cities.name(item.city), item.count.toString(),
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                         }
                     }
                 }
@@ -384,14 +407,21 @@ private fun PairingPanel(vm: SyncPairingViewModel, entering: Boolean, onConnect:
             if (phase != PairPhase.Done) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when {
-                        entering -> Button(shapes = ButtonDefaults.shapes(), onClick = { onConnect(digits, null) }, enabled = digits.length == 6, modifier = Modifier.weight(1f)) {
+                        entering -> Button(
+                            shapes = ButtonDefaults.shapes(),
+                            onClick = { onConnect(digits, null) },
+                            enabled = digits.length == 6,
+                            modifier = Modifier.weight(1f),
+                        ) {
                             Text(stringResource(R.string.w_sync_connect))
                         }
                         phase == PairPhase.Confirm -> Button(shapes = ButtonDefaults.shapes(), onClick = vm::confirm, modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.w_sync_confirm))
                         }
                         phase == PairPhase.Failed && failure != PairFailure.OverCap && failure != PairFailure.Both ->
-                            Button(shapes = ButtonDefaults.shapes(), onClick = onRetry, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.w_sync_try_again)) }
+                            Button(shapes = ButtonDefaults.shapes(), onClick = onRetry, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.w_sync_try_again))
+                            }
                     }
                     TextButton(shapes = ButtonDefaults.shapes(), onClick = onClose, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Rounded.Close, null, Modifier.size(16.dp))
