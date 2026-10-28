@@ -68,9 +68,11 @@ import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.StopInfo
+import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminder
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
+import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
 import online.bus.bmarian.conexiuniclujmobile.follow.nextBus
 import online.bus.bmarian.conexiuniclujmobile.follow.reminderTimes
 import online.bus.bmarian.conexiuniclujmobile.follow.resolveSlots
@@ -79,6 +81,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.TimetableTab
 import online.bus.bmarian.conexiuniclujmobile.logic.dayTypeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.formatAbsoluteMinutes
 import online.bus.bmarian.conexiuniclujmobile.logic.minutesOfDay
+import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
@@ -354,6 +357,19 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                         val reminder = draft ?: return@Button
                         withNotifications {
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                            // A one-off bus already due is followed live, like the stop's Remind button does.
+                            val stop = info
+                            val at = next
+                            if (reminder.once && stop != null && at != null) {
+                                val walk = Services.location.value?.let { walkMinutes(it.lat, it.lon, stop.lat, stop.lon) }
+                                if (justNotify(walk, ((at - System.currentTimeMillis()) / 60_000L).toInt())) {
+                                    existing?.let { Reminders.remove(context, it.id) }
+                                    FollowManager.start(context, followed)
+                                    Services.settings.showToast(resources.getString(R.string.following), "${followed.shortName} → ${followed.destination}")
+                                    onDismiss()
+                                    return@withNotifications
+                                }
+                            }
                             Reminders.put(context, reminder)
                             ReminderLocation.offer(context)
                             Services.settings.showToast(resources.getString(R.string.remind_saved), next?.let { reminderWhen(resources, it, locale) })

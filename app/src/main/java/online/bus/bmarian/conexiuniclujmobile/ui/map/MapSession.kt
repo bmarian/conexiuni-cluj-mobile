@@ -314,8 +314,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         refreshStops()
     }
 
-    /** [favorites] by line name, so a line unsaved sweeps back from its last stop. */
-    fun setScene(value: MapScene, favorites: Set<String> = emptySet()) {
+    /** [favorites] by line name, so a line unsaved sweeps back from its last stop; [grow] false redraws lines cut behind a traveller as they are. */
+    fun setScene(value: MapScene, favorites: Set<String> = emptySet(), grow: Boolean = true) {
         val before = scene
         val saved = drawnFavorites
         scene = value
@@ -325,7 +325,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         reveal.end(System.nanoTime(), value.lines.map { it.name }.toSet())
         // One write per line, for the same reason as sweepLeft.
         when {
-            growLines(before, value) -> Unit
+            grow && growLines(before, value) -> Unit
             recolorLines(before, value, saved) -> applyMarks()
             else -> applyScene()
         }
