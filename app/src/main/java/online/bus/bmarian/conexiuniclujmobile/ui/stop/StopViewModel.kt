@@ -47,7 +47,9 @@ class StopViewModel(val stopId: Int) : ViewModel() {
 
     private val _info = MutableStateFlow<StopInfo?>(null)
     val info: StateFlow<StopInfo?> = _info
-    private val shapes = MutableStateFlow<Map<String, List<ShapePoint>>>(emptyMap())
+    private val shapes = MutableStateFlow<Map<String, List<ShapePoint>>?>(null)
+    // Drawn lines stay while their departures are listed, so a bus missing from one update doesn't redraw them.
+    private val drawn = HashSet<String>()
     private val live = MutableStateFlow<LiveState?>(null)
     val beat: StateFlow<Long?> = live.map { it?.asOfMs }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -64,19 +66,25 @@ class StopViewModel(val stopId: Int) : ViewModel() {
         StopUi(stationDepartures(infos, live, now, nowMs), now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val mapLayer: StateFlow<StopMapLayer> = combine(ui, shapes, live, Services.favorites.routes) { ui, shapes, live, _ ->
-        if (ui == null || live == null) return@combine StopMapLayer(emptyList(), emptyList())
+    /** Null until known, so the map keeps what it shows meanwhile. */
+    val mapLayer: StateFlow<StopMapLayer?> = combine(ui, shapes, live, Services.favorites.routes) { ui, shapes, live, _ ->
+        if (ui == null) return@combine null
+        val favorites = ui.departures.filter(::isDepartureFavorite)
+        if (favorites.isEmpty()) return@combine StopMapLayer(emptyList(), emptyList())
+        if (shapes == null || live == null) return@combine null
+        drawn.retainAll(favorites.map { it.tripId }.toSet())
         val lines = mutableListOf<MapShape>()
         val buses = mutableListOf<MapVehicle>()
-        for (departure in ui.departures.filter(::isDepartureFavorite)) {
+        for (departure in favorites) {
             val shape = shapes[departure.tripId].orEmpty()
             val vehicles = live.vehicles(departure.tripId)
-            if (shape.isEmpty() || vehicles.isEmpty()) continue
+            if (shape.isEmpty() || vehicles.isEmpty() && departure.tripId !in drawn) continue
+            drawn += departure.tripId
             lines += MapShape(departure.tripId, departure.shortName, departure.color, shape.map { LatLon(it.lat, it.lon) })
             vehicles.mapTo(buses) { MapVehicle("${it.id}", it, departure.shortName, departure.color, it.heading) }
         }
         StopMapLayer(lines, buses)
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, StopMapLayer(emptyList(), emptyList()))
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val routesHere: StateFlow<List<ShapeInfo>> = combine(infos, Services.favorites.routes) { infos, _ ->
         infos.flatMap { it.shapesInfo }.distinctBy { it.routeId }.filter { hasTimetableEntries(it.timetable) }.sortedWith(

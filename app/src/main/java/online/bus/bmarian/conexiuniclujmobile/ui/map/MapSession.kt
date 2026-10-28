@@ -213,6 +213,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private val reveal = LineReveal()
     private var revealDirty = false
     private var pendingGrow: (() -> Unit)? = null
+    private var linesVersion = 0
+    // Sources update asynchronously, so a finished sweep stays until the lines source draws what it swept.
+    private var sweepLeft = false
     private var aiming = 0
     private var dragging = false
     private var tracking: NavCamera? = null
@@ -317,13 +320,39 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val saved = drawnFavorites
         scene = value
         drawnFavorites = favorites
-        recolor?.cancel()
+        stopSweep()
         pendingGrow = null
-        reveal.end(System.nanoTime())
-        applyScene()
-        recolorLines(before, value, saved)
-        growLines(before, value)
+        reveal.end(System.nanoTime(), value.lines.map { it.name }.toSet())
+        // One write per line, for the same reason as sweepLeft.
+        when {
+            growLines(before, value) -> Unit
+            recolorLines(before, value, saved) -> applyMarks()
+            else -> applyScene()
+        }
+        sweepWaiting()
         refreshStops()
+    }
+
+    /** Without the end callback, which would draw the new scene's lines in full. */
+    private fun stopSweep() {
+        val running = recolor ?: return
+        recolor = null
+        running.removeAllListeners()
+        running.cancel()
+        sweepLeft = true
+        revealDirty = true
+        motion.start()
+    }
+
+    private fun sweepWaiting(): Boolean {
+        if (!sweepLeft) return false
+        val view = map.projection.visibleRegion.latLngBounds
+        val onScreen = scene.lines.any { line -> line.points.any { view.contains(LatLng(it.lat, it.lon)) } }
+        val drawn = source(SRC_LINES)?.querySourceFeatures(eq(get("v"), literal(linesVersion)))?.isNotEmpty() ?: true
+        if (onScreen && !drawn) return true
+        sweepLeft = false
+        paintSweep(emptyList())
+        return false
     }
 
     private fun paintSweep(parts: List<Pair<List<LatLon>, Int>>) = source(SRC_SWEEP)?.setGeoJson(
@@ -343,7 +372,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addUpdateListener { a -> paint(a.animatedValue as Float) }
             doOnEnd {
                 applyLines()
-                paintSweep(emptyList())
+                sweepLeft = true
                 recolor = null
                 reveal.end(System.nanoTime())
                 revealDirty = true
@@ -354,14 +383,19 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     /** Port of growLine: from the first stop, once the camera has settled where the lines are. */
-    private fun growLines(before: MapScene, after: MapScene) {
-        if (!motionOn() || recolor != null) return
+    private fun growLines(before: MapScene, after: MapScene): Boolean {
+        if (!motionOn()) return false
         val known = before.lines.map { it.points }.toSet()
         val fresh = after.lines.indices.filter { after.lines[it].points !in known && after.lines[it].dash == 0 && after.lines[it].points.size >= 2 }
-        if (fresh.isEmpty()) return
+        if (fresh.isEmpty()) return false
         val grows = fresh.map { after.lines[it].points to lineArgb(after.lines[it].color) }
         applyLines(hidden = fresh.toSet())
-        reveal.grow(grows.map { (points, _) -> pathThrough(points.map { it.lat }.toDoubleArray(), points.map { it.lon }.toDoubleArray()) })
+        sweepLeft = false
+        paintSweep(emptyList())
+        reveal.grow(
+            grows.map { (points, _) -> pathThrough(points.map { it.lat }.toDoubleArray(), points.map { it.lon }.toDoubleArray()) },
+            fresh.map { after.lines[it].name }.toSet(),
+        )
         applyHighlights()
         applyMarks()
         pushVehicles()
@@ -374,6 +408,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
         // Posted, so a fit asked for in the same update is already aiming.
         scope.launch { growWhenStill() }
+        return true
     }
 
     private fun growWhenStill() {
@@ -451,17 +486,19 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
     }
 
-    private fun recolorLines(before: MapScene, after: MapScene, saved: Set<String>) {
+    private fun recolorLines(before: MapScene, after: MapScene, saved: Set<String>): Boolean {
         val same = before.lines.size == after.lines.size &&
             before.lines.zip(after.lines).all { (a, b) -> a.points === b.points && a.dash == b.dash }
-        if (!same) return
+        if (!same) return false
         val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 }
-        if (changed.isEmpty()) return
+        if (changed.isEmpty()) return false
         val sweeps = changed.map { i -> Triple(after.lines[i], after.lines[i].name in saved && after.lines[i].name !in drawnFavorites, lineArgb(after.lines[i].color)) }
         applyLines(after.lines.indices.map { lineArgb((if (it in changed) before else after).lines[it].color) })
+        sweepLeft = false
         sweep { done ->
             paintSweep(sweeps.map { (line, backwards, color) -> partBetween(line.points, if (backwards) 1 - done else 0f, if (backwards) 1f else done) to color })
         }
+        return true
     }
 
     fun setWalks(list: List<List<LatLon>>) {
@@ -1163,7 +1200,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             pushVehicles()
         }
         revealDirty = false
-        return stopsMoving || spiderMoving || folding.isNotEmpty() || revealing
+        val sweeping = sweepWaiting()
+        return stopsMoving || spiderMoving || folding.isNotEmpty() || revealing || sweeping
     }
 
     private fun pushStops(now: Long) {
@@ -1221,12 +1259,14 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     private fun applyLines(colors: List<Int> = scene.lines.map { lineArgb(it.color) }, hidden: Set<Int> = emptySet()): Boolean {
         val src = source(SRC_LINES) ?: return false
+        linesVersion++
         src.setGeoJson(
             FeatureCollection.fromFeatures(
                 scene.lines.zip(colors).filterIndexed { i, (line, _) -> line.points.size >= 2 && i !in hidden }.map { (line, color) ->
                     Feature.fromGeometry(LineString.fromLngLats(line.points.map(::point))).apply {
                         addStringProperty("color", "#%06X".format(0xFFFFFF and color))
                         addNumberProperty("dash", line.dash)
+                        addNumberProperty("v", linesVersion)
                     }
                 },
             ),
@@ -1331,7 +1371,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
             addNumberProperty("opacity", (if (faded) FADED_VEHICLE_OPACITY else 1f) * shown.opacity)
-            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * ((bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f) * reveal.vehicle(now))
+            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * ((bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f) * reveal.vehicle(now, shown.vehicle.shortName))
             if (shown.leaving) addBooleanProperty("gone", true)
             addProperty("off", JsonArray().apply { add(off.first); add(off.second) })
         }

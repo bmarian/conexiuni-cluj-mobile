@@ -228,6 +228,7 @@ fun StationRow(
     look: StationLook?,
     distance: String?,
     iconSize: Dp = 36.dp,
+    favorite: Boolean = false,
     lines: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
@@ -236,7 +237,7 @@ fun StationRow(
         verticalAlignment = if (lines == null) Alignment.CenterVertically else Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        StationIcon(look, size = iconSize)
+        StationIcon(look, size = iconSize, heart = favorite)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stop.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (lines != null) lines() else StationLines(look)

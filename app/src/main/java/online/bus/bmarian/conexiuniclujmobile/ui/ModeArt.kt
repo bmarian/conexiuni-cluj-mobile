@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +39,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 
@@ -106,11 +109,12 @@ fun StationIcon(
     size: Dp = 36.dp,
     shape: androidx.compose.ui.graphics.Shape = CircleShape,
     favorite: Boolean? = null,
+    heart: Boolean = false,
 ) {
-    val container = look?.let { routeColor(it.color) } ?: MaterialTheme.colorScheme.secondaryContainer
-    val tint = if (look != null) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
+    val container = if (heart) Palette.Rose else look?.let { routeColor(it.color) } ?: MaterialTheme.colorScheme.secondaryContainer
+    val tint = if (look != null || heart) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
     FavoriteMorph(rememberMorph(null, container, favorite), shape, modifier.size(size)) {
-        Icon(ModeGlyphs.vector(look?.mode ?: Mode.BUS), null, Modifier.size(size * 0.5f), tint = tint)
+        Icon(if (heart) Icons.Rounded.Favorite else ModeGlyphs.vector(look?.mode ?: Mode.BUS), null, Modifier.size(size * 0.5f), tint = tint)
     }
 }
 

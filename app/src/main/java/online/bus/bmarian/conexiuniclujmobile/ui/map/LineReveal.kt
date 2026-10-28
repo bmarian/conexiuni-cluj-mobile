@@ -19,18 +19,22 @@ private fun popScale(start: Long, now: Long): Float {
 
 /**
  * Port of utils/lineReveal.ts, on the sweep's own progress: stops on the growing lines pop in as its front passes them,
- * buses once the lines are drawn. Until [draw] is first called, they stay hidden.
+ * their buses once they are drawn. Until [draw] is first called, they stay hidden.
  */
 internal class LineReveal {
     private var paths: List<RoutePath> = emptyList()
+    private var names: Set<String> = emptySet()
+    private var gone: Set<String> = emptySet()
     private var drawn: Float? = null
     private var growing = false
     private var ended: Long? = null
     private val shares = HashMap<LatLon, Float?>()
     private val pops = HashMap<LatLon, Long>()
 
-    fun grow(lines: List<RoutePath>) {
+    fun grow(lines: List<RoutePath>, lineNames: Set<String>) {
         paths = lines
+        names = lineNames
+        gone = emptySet()
         drawn = null
         growing = true
         ended = null
@@ -42,11 +46,13 @@ internal class LineReveal {
         if (growing) drawn = done
     }
 
-    fun end(now: Long) {
+    /** Buses of growing lines not in [staying] were never shown, so they stay hidden while they leave. */
+    fun end(now: Long, staying: Set<String>? = null) {
         if (!growing) return
         growing = false
         drawn = 1f
         ended = now
+        if (staying != null) gone = names - staying
     }
 
     private fun share(at: LatLon): Float? {
@@ -65,7 +71,12 @@ internal class LineReveal {
         return popScale(start, now)
     }
 
-    fun vehicle(now: Long): Float = if (growing) 0f else ended?.let { popScale(it, now) } ?: 1f
+    fun vehicle(now: Long, line: String): Float = when {
+        line in gone -> 0f
+        line !in names -> 1f
+        growing -> 0f
+        else -> ended?.let { popScale(it, now) } ?: 1f
+    }
 
     /** Whether this frame still changes a scale; once nothing does, every marker is back to full size for good. */
     fun moving(now: Long): Boolean {
@@ -73,6 +84,8 @@ internal class LineReveal {
         if (growing && drawn != null || playing) return true
         if (!growing) {
             paths = emptyList()
+            names = emptySet()
+            gone = emptySet()
             pops.clear()
             ended = null
         }

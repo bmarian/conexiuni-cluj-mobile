@@ -251,3 +251,7 @@ class Favorites(private val context: Context) {
         }
     }
 }
+
+/** Port of favoritePlatform in stores/favorites.ts. */
+fun NetworkIndex?.favoritePlatform(stopId: Int, favorites: Collection<Int>): Int? =
+    (this?.platforms(stopId)?.map { it.stopId }?.ifEmpty { null } ?: listOf(stopId)).firstOrNull { it in favorites }

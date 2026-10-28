@@ -58,12 +58,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -131,6 +126,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalTimelineDraw
 import online.bus.bmarian.conexiuniclujmobile.ui.Rail
+import online.bus.bmarian.conexiuniclujmobile.ui.SelectField
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDot
 import online.bus.bmarian.conexiuniclujmobile.ui.TimelineDraw
@@ -719,7 +715,6 @@ private fun TimeFilter(
     onSwap: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    var open by remember { mutableStateOf(false) }
     val labels = mapOf(
         TimeMode.Now to stringResource(R.string.w_plan_time_leave_now),
         TimeMode.Leave to stringResource(R.string.w_plan_time_leave_at),
@@ -728,26 +723,7 @@ private fun TimeFilter(
     )
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.weight(1f)) {
-                OutlinedTextField(
-                    value = labels.getValue(mode),
-                    onValueChange = {},
-                    readOnly = true,
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.w_plan_time_filter_label)) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                )
-                ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                    for (m in TimeMode.entries) {
-                        DropdownMenuItem(text = { Text(labels.getValue(m)) }, onClick = {
-                            open = false
-                            onMode(m)
-                        })
-                    }
-                }
-            }
+            SelectField(null, labels.getValue(mode), TimeMode.entries.map { it to labels.getValue(it) }, Modifier.weight(1f), onMode)
             if (mode == TimeMode.Leave || mode == TimeMode.Arrive) {
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onSearch, enabled = !calculating && value.isNotEmpty() && hasOrigin) {
                     Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.w_plan_time_search_aria), Modifier.size(18.dp))
@@ -767,7 +743,7 @@ private fun TimeFilter(
             }
         }
         if (mode == TimeMode.Leave || mode == TimeMode.Arrive) {
-            DateTimeField(value, minMs, if (mode == TimeMode.Arrive) labels.getValue(TimeMode.Arrive) else labels.getValue(TimeMode.Leave), onValue)
+            PlanTimeFields(value, minMs, onValue)
         }
     }
 }
