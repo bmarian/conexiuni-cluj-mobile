@@ -178,17 +178,6 @@ fun LazyListScope.searchResults(
     if (loading) {
         item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) }
     }
-    if (places.isNotEmpty()) {
-        item { SubLabel(stringResource(R.string.w_search_results_places), Modifier.padding(top = 8.dp)) }
-        items(places, key = { "place-${it.id}" }) { place ->
-            ResultRow(
-                icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
-                title = place.label,
-                distance = place.latitude?.let { lat -> place.longitude?.let { lon -> distanceFrom(me, lat, lon) } },
-                onClick = { onPlace(place) },
-            )
-        }
-    }
     if (routeResults.isNotEmpty()) {
         item { SubLabel(stringResource(R.string.w_search_results_routes), Modifier.padding(top = 8.dp)) }
         items(routeResults, key = { "route-${it.routeId}" }) { route ->
@@ -199,6 +188,17 @@ fun LazyListScope.searchResults(
         item { SubLabel(stringResource(R.string.w_search_results_stops), Modifier.padding(top = 8.dp)) }
         items(stopResults, key = { "stop-${it.stopId}" }) { stop ->
             StationRow(stop, index?.look(stop.stopId), distanceFrom(me, stop.lat, stop.lon)) { onStop(stop) }
+        }
+    }
+    if (places.isNotEmpty()) {
+        item { SubLabel(stringResource(R.string.w_search_results_places), Modifier.padding(top = 8.dp)) }
+        items(places, key = { "place-${it.id}" }) { place ->
+            ResultRow(
+                icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
+                title = place.label,
+                distance = place.latitude?.let { lat -> place.longitude?.let { lon -> distanceFrom(me, lat, lon) } },
+                onClick = { onPlace(place) },
+            )
         }
     }
     if (!loading && places.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()) {
