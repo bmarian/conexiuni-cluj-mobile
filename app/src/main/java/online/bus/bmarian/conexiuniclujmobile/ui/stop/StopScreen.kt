@@ -95,6 +95,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
 import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
 import online.bus.bmarian.conexiuniclujmobile.data.directionFromTripId
+import online.bus.bmarian.conexiuniclujmobile.data.favoritePlatform
 import online.bus.bmarian.conexiuniclujmobile.data.stopPath
 import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
@@ -189,7 +190,7 @@ fun StopScreen(stopId: Int) {
     val infos by vm.infos.collectAsStateWithLifecycle()
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val look = remember(index, stopId) { index?.look(stopId) }
-    val favoritePlatform = (infos.map { it.stopId }.ifEmpty { listOf(stopId) }).firstOrNull { it in favoriteStops }
+    val favoritePlatform = index.favoritePlatform(stopId, favoriteStops)
     val isFavorite = favoritePlatform != null
     val follows by FollowManager.follows.collectAsStateWithLifecycle()
     val reminders by Reminders.all.collectAsStateWithLifecycle()
@@ -199,7 +200,7 @@ fun StopScreen(stopId: Int) {
 
     val owner = remember { Any() }
     DisposableEffect(owner) {
-        map.claim(owner)
+        map.claim(owner, keepLines = true)
         map.selectedStopId = stopId
         map.fitNewShapes = false
         onDispose { map.release(owner) }
@@ -211,7 +212,7 @@ fun StopScreen(stopId: Int) {
         val routes = if (!Services.settings.autoFitMap.value) null else withTimeoutOrNull(FRAME_WAIT_MS) {
             val ui = vm.ui.filterNotNull().first()
             if (ui.departures.none(vm::isDepartureFavorite)) null
-            else vm.mapLayer.first { it.shapes.isNotEmpty() }.shapes
+            else vm.mapLayer.filterNotNull().first { it.shapes.isNotEmpty() }.shapes
         }
         centred = true
         if (routes.isNullOrEmpty()) {
@@ -222,8 +223,9 @@ fun StopScreen(stopId: Int) {
         }
     }
     LaunchedEffect(layer) {
-        map.showShapes(layer.shapes)
-        map.vehicles = layer.vehicles
+        val known = layer ?: return@LaunchedEffect
+        map.showShapes(known.shapes)
+        map.vehicles = known.vehicles
     }
     val looks = LocalLineLooks.current
     val dueArrivals = remember { DueArrivals() }

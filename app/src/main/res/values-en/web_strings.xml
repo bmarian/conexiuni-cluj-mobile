@@ -123,6 +123,12 @@
     <string name="w_plan_time_last">Last available</string>
     <string name="w_plan_time_search">Search</string>
     <string name="w_plan_time_search_aria">Search trips at this time</string>
+    <string name="w_plan_day">Day</string>
+    <string name="w_plan_today">Today</string>
+    <string name="w_plan_time">Time</string>
+    <string name="w_plan_tomorrow">Tomorrow</string>
+    <string name="w_plan_other_day">Another day…</string>
+    <string name="w_time_picker_title">Select time</string>
     <string name="w_plan_trip_total">Total trip</string>
     <string name="w_plan_next_departures">next</string>
     <string name="w_plan_last_departure">last</string>

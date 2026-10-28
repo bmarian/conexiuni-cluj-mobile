@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.favoritePlatform
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
@@ -32,6 +33,7 @@ fun StopsScreen(stopIds: List<Int>) {
     val map = LocalMap.current
     val stops by Services.repository.stops.collectAsStateWithLifecycle()
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
+    val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
     val owner = remember { Any() }
     DisposableEffect(owner) {
         map.claim(owner)
@@ -44,7 +46,7 @@ fun StopsScreen(stopIds: List<Int>) {
     LazyColumn(Modifier.fillMaxSize()) {
         item { SheetTopBar(title = null, showTitle = false) }
         items(stations, key = { it.first.stopId }) { (stop, destinations) ->
-            StationRow(stop, index?.look(stop.stopId), distance = null, lines = { Towards(destinations) }) { nav.mapStop(stop.stopId) }
+            StationRow(stop, index?.look(stop.stopId), distance = null, favorite = index.favoritePlatform(stop.stopId, favoriteStops) != null, lines = { Towards(destinations) }) { nav.mapStop(stop.stopId) }
         }
     }
 }

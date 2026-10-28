@@ -123,6 +123,12 @@
     <string name="w_plan_time_last">Ultima cursă disponibilă</string>
     <string name="w_plan_time_search">Caută</string>
     <string name="w_plan_time_search_aria">Caută călătorii la această oră</string>
+    <string name="w_plan_day">Ziua</string>
+    <string name="w_plan_today">Astăzi</string>
+    <string name="w_plan_time">Ora</string>
+    <string name="w_plan_tomorrow">Mâine</string>
+    <string name="w_plan_other_day">Altă zi…</string>
+    <string name="w_time_picker_title">Alege ora</string>
     <string name="w_plan_trip_total">Durata totală</string>
     <string name="w_plan_next_departures">următoarele</string>
     <string name="w_plan_last_departure">ultima</string>

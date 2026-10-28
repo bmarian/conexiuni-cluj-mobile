@@ -102,15 +102,17 @@ class MapController {
 
     private var shapesKey = ""
     private var owner: Any? = null
+    private var ownerKeepsLines = false
     /** Screens still shown under the owner, with what they had on the map. */
     private val covered = ArrayList<Pair<Any, Owned>>()
 
-    /** The next screen can take the map before the last one leaves, so only the owner clears it. */
-    fun claim(owner: Any) {
+    /** The next screen can take the map before the last one leaves, so only the owner clears it; two [keepLines] owners in a row share lines and buses. */
+    fun claim(owner: Any, keepLines: Boolean = false) {
         if (this.owner == owner) return
         this.owner?.let { covered += it to save() }
+        clear(lines = !(keepLines && ownerKeepsLines))
         this.owner = owner
-        clear()
+        ownerKeepsLines = keepLines
     }
 
     fun release(owner: Any) {
@@ -119,6 +121,7 @@ class MapController {
         // A cancelled back gesture removes the page behind first.
         val (back, owned) = covered.removeLastOrNull() ?: run {
             this.owner = null
+            ownerKeepsLines = false
             clear()
             return
         }
@@ -140,11 +143,12 @@ class MapController {
         val onPinDragged: ((LatLon) -> Unit)?,
         val onOriginDragged: ((LatLon) -> Unit)?,
         val camera: CameraView?,
+        val keepsLines: Boolean,
     )
 
     private fun save() = Owned(
         shapes, vehicles, highlightedStops, selectedStopId, walkingPolylines, fitWalking, fitNewShapes,
-        directionArrowAtStart, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting,
+        directionArrowAtStart, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
     )
 
     private fun restore(owned: Owned) {
@@ -163,11 +167,14 @@ class MapController {
         customOrigin = owned.customOrigin
         onPinDragged = owned.onPinDragged
         onOriginDragged = owned.onOriginDragged
+        ownerKeepsLines = owned.keepsLines
     }
 
-    private fun clear() {
-        showShapes(emptyList())
-        vehicles = emptyList()
+    private fun clear(lines: Boolean = true) {
+        if (lines) {
+            showShapes(emptyList())
+            vehicles = emptyList()
+        }
         highlightedStops = emptyMap()
         selectedStopId = null
         walkingPolylines = emptyList()
