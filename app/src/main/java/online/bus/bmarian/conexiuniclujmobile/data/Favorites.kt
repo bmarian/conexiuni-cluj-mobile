@@ -115,13 +115,8 @@ class Favorites(private val context: Context) {
         return true
     }
 
-    fun isStopFavorite(stopId: Int) = stopId in _stops.value
-
     fun isRouteFavorite(routeId: Int, direction: String? = null) =
         _routes.value.any { it.routeId == routeId && (direction == null || it.direction == direction) }
-
-    fun isPlanFavorite(lat: Double, lon: Double, originLat: Double?, originLon: Double?) =
-        _plans.value.any { it.sameAs(lat, lon, originLat, originLon) }
 
     fun toggleStop(stopId: Int) {
         if (stopId !in _stops.value && atCap(_stops.value)) return

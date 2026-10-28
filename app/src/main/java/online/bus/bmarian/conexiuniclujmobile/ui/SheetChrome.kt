@@ -20,13 +20,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -46,10 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Links
 
@@ -91,7 +89,7 @@ data class PlanQuery(
     fun encode(): String = pairs().joinToString("&") { (k, v) -> "$k=${Uri.encode(v)}" }
 
     companion object {
-        fun decode(query: String): PlanQuery = fromUri(Uri.parse("x://plan?$query"))
+        fun decode(query: String): PlanQuery = fromUri("x://plan?$query".toUri())
 
         fun fromUri(uri: Uri) = PlanQuery(
             lat = uri.getQueryParameter("lat"),
@@ -177,14 +175,6 @@ fun SheetTopBar(
 fun LazyListState.pastHeader(): Boolean {
     val past by remember(this) { derivedStateOf { firstVisibleItemIndex > 0 || firstVisibleItemScrollOffset > 120 } }
     return past
-}
-
-@Composable
-fun ShareButton(path: String) {
-    val context = LocalContext.current
-    IconButton(onClick = { share(context, path) }) {
-        Icon(Icons.Rounded.Share, contentDescription = stringResource(R.string.w_share_url))
-    }
 }
 
 fun share(context: Context, path: String) {

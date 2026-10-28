@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
@@ -54,7 +53,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -323,11 +321,6 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
     }
 }
 
-@Composable
-fun TruncatedText(text: String, modifier: Modifier = Modifier, style: TextStyle = MaterialTheme.typography.bodyLarge, color: Color = Color.Unspecified, maxLines: Int = 1) {
-    Text(text, modifier = modifier, style = style, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
-}
-
 /** Lazy list keys must be unique: repeats get a suffix. */
 fun <T> withUniqueKeys(items: List<T>, key: (T) -> String): List<Pair<String, T>> {
     val seen = HashMap<String, Int>()
@@ -337,9 +330,3 @@ fun <T> withUniqueKeys(items: List<T>, key: (T) -> String): List<Pair<String, T>
         (if (n == 1) k else "$k#$n") to item
     }
 }
-
-@Composable
-fun VSpace(height: Dp) = Spacer(Modifier.height(height))
-
-@Composable
-fun HSpace(width: Dp) = Spacer(Modifier.width(width))

@@ -23,9 +23,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Map
-import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +32,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -251,14 +248,23 @@ fun HomeScreen() {
             }
         }
         if (online && favoritePlans.isNotEmpty()) {
-            item(key = "plans-label") { SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = if (chips.isEmpty() && favoriteStops.isEmpty()) 12.dp else 8.dp)) }
+            item(key = "plans-label") {
+                SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = if (chips.isEmpty() && favoriteStops.isEmpty()) 12.dp else 8.dp))
+            }
             item(key = "plans") {
                 Column {
                     for (plan in favoritePlans) key(planKey(plan)) {
                         val key = planKey(plan)
                         FavoriteRow(
                             modifier = Modifier.reorderItem(planReorder, key).longPressDrag(planReorder, key),
-                            icon = { RowIcon(Icons.Rounded.Map, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, size = 30.dp) },
+                            icon = {
+                                RowIcon(
+                                    Icons.Rounded.Map,
+                                    MaterialTheme.colorScheme.tertiaryContainer,
+                                    MaterialTheme.colorScheme.onTertiaryContainer,
+                                    size = 30.dp,
+                                )
+                            },
                             title = plan.label ?: plan.name,
                             titlePrefix = if (plan.label == null && plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
                             kicker = if (plan.label == null) plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" } else null,
@@ -275,7 +281,14 @@ fun HomeScreen() {
             items(recents, key = { "recent-${planKey(it)}" }) { plan ->
                 FavoriteRow(
                     modifier = Modifier.animateItem(),
-                    icon = { RowIcon(Icons.Rounded.Schedule, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, size = 30.dp) },
+                    icon = {
+                        RowIcon(
+                            Icons.Rounded.Schedule,
+                            MaterialTheme.colorScheme.surfaceContainerHighest,
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                            size = 30.dp,
+                        )
+                    },
                     title = plan.name,
                     titlePrefix = if (plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
                     kicker = plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" },
@@ -329,7 +342,12 @@ private fun FavoriteRouteChip(
                 overflow = TextOverflow.Ellipsis,
             )
             IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.w_remove_from_favorites), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.w_remove_from_favorites),
+                    Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.outline,
+                )
             }
         }
     }

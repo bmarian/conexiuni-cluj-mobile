@@ -53,6 +53,7 @@ object MapColors {
     val MeAccuracy = Color(0xFF3B82F6)
     val Ink = Color(0xFF0F172B)
     val InkDark = Color(0xFF0F172A)
+    val InkSoft = Color(0xFF1E293B)
     val Paper = Color(0xFFF1F5F9)
     val ShapeFallback = Color(0xFF94A3B8)
 
@@ -73,7 +74,16 @@ object MapColors {
     }
 }
 
-fun DrawScope.stopMarker(center: Offset, diameter: Float, fill: Color, glyph: Float, shadow: Float = 1f, mode: Mode = Mode.BUS, heart: Boolean = false, path: Path? = null) {
+fun DrawScope.stopMarker(
+    center: Offset,
+    diameter: Float,
+    fill: Color,
+    glyph: Float,
+    shadow: Float = 1f,
+    mode: Mode = Mode.BUS,
+    heart: Boolean = false,
+    path: Path? = null,
+) {
     val r = diameter / 2
     drawCircle(Color.Black.copy(alpha = 0.18f * shadow), r + 1.dp.toPx(), center + Offset(0f, 1.dp.toPx()))
     drawCircle(Color.White, r, center)

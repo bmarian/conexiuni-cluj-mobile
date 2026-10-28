@@ -5,8 +5,8 @@ import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 import online.bus.bmarian.conexiuniclujmobile.journey.StepType
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
-import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

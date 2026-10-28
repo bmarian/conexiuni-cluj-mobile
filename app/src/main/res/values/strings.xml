@@ -4,7 +4,6 @@
     <string name="retry">Încearcă din nou</string>
     <string name="push_line">Linia %1$s · %2$s</string>
     <string name="scan_code">Scanează codul</string>
-    <string name="push_denied_body">Pornește-le din setările aplicației.</string>
     <string name="following">Urmărești</string>
     <string name="stop_following">Oprește</string>
     <string name="follow_channel">Autobuze urmărite</string>

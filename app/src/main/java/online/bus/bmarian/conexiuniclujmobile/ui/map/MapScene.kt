@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.bearingDegrees
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import kotlin.math.min

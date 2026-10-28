@@ -84,7 +84,10 @@ internal fun speechParts(text: String): List<Pair<String, Boolean>> = buildList 
 }.filter { (part, _) -> part.any(Char::isLetterOrDigit) }
 
 private val UNITS = listOf("zero", "unu", "două", "trei", "patru", "cinci", "șase", "șapte", "opt", "nouă")
-private val TEENS = listOf("zece", "unsprezece", "douăsprezece", "treisprezece", "paisprezece", "cincisprezece", "șaisprezece", "șaptesprezece", "optsprezece", "nouăsprezece")
+private val TEENS = listOf(
+    "zece", "unsprezece", "douăsprezece", "treisprezece", "paisprezece",
+    "cincisprezece", "șaisprezece", "șaptesprezece", "optsprezece", "nouăsprezece",
+)
 private val TENS = listOf("", "", "douăzeci", "treizeci", "patruzeci", "cincizeci", "șaizeci", "șaptezeci", "optzeci", "nouăzeci")
 
 /** A count of stops or minutes in Romanian words: "două", "douăsprezece", "douăzeci și una". */

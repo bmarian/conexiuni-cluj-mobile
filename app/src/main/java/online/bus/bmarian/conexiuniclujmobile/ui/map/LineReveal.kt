@@ -1,27 +1,24 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
-import android.animation.ValueAnimator
+import android.content.Context
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.VectorConverter
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
+import online.bus.bmarian.conexiuniclujmobile.ui.animatorDurationScale
 
 private val POP = Bouncy.pop.vectorize(Float.VectorConverter)
 private val ZERO = AnimationVector1D(0f)
 private val ONE = AnimationVector1D(1f)
 private val POP_NANOS = POP.getDurationNanos(ZERO, ONE, ZERO)
 
-/** Bouncy.pop from nothing, on the animator duration scale the sweep runs on. */
-private fun popScale(start: Long, now: Long): Float {
-    val played = ((now - start) / ValueAnimator.getDurationScale()).toLong()
-    return if (played >= POP_NANOS) 1f else POP.getValueFromNanos(played, ZERO, ONE, ZERO).value
-}
-
 /**
  * Port of utils/lineReveal.ts, on the sweep's own progress: stops on the growing lines pop in as its front passes them,
  * their buses once they are drawn. Until [draw] is first called, they stay hidden.
  */
-internal class LineReveal {
+internal class LineReveal(private val context: Context) {
+    private var scale = 1f
     private var paths: List<RoutePath> = emptyList()
     private var names: Set<String> = emptySet()
     private var gone: Set<String> = emptySet()
@@ -32,6 +29,7 @@ internal class LineReveal {
     private val pops = HashMap<LatLon, Long>()
 
     fun grow(lines: List<RoutePath>, lineNames: Set<String>) {
+        scale = animatorDurationScale(context)
         paths = lines
         names = lineNames
         gone = emptySet()
@@ -53,6 +51,12 @@ internal class LineReveal {
         drawn = 1f
         ended = now
         if (staying != null) gone = names - staying
+    }
+
+    /** Bouncy.pop from nothing, on the animator duration scale the sweep runs on. */
+    private fun popScale(start: Long, now: Long): Float {
+        val played = ((now - start) / scale).toLong()
+        return if (played >= POP_NANOS) 1f else POP.getValueFromNanos(played, ZERO, ONE, ZERO).value
     }
 
     private fun share(at: LatLon): Float? {
@@ -80,7 +84,7 @@ internal class LineReveal {
 
     /** Whether this frame still changes a scale; once nothing does, every marker is back to full size for good. */
     fun moving(now: Long): Boolean {
-        val playing = (pops.values + listOfNotNull(ended)).any { (now - it) / ValueAnimator.getDurationScale() < POP_NANOS }
+        val playing = (pops.values + listOfNotNull(ended)).any { (now - it) / scale < POP_NANOS }
         if (growing && drawn != null || playing) return true
         if (!growing) {
             paths = emptyList()

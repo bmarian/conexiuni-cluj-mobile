@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -83,7 +84,7 @@ class RouteChangeWorker(context: Context, params: WorkerParameters) : CoroutineW
         val target = if (change.routeId != 0) "/route/${change.routeId}/${changeDirection(change)}?change=${change.id}" else "/"
         val open = Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
-            .setData(android.net.Uri.parse(Links.web(target, city)))
+            .setData(Links.web(target, city).toUri())
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pending = PendingIntent.getActivity(
             context, "$city/${change.id}".hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

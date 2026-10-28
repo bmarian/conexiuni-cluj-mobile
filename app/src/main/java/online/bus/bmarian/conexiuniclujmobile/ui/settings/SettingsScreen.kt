@@ -58,7 +58,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -114,7 +113,6 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
     val sheet = LocalSheet.current
     val scope = rememberCoroutineScope()
     val updateFlow = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
-
 
     val notifications = context.getSystemService(NotificationManager::class.java)
     fun fullScreenAllowed() = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || notifications.canUseFullScreenIntent()
@@ -174,11 +172,20 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
 
             Section(stringResource(R.string.w_display))
             ThemeRow(theme, settings::setTheme)
-            Toggle(Icons.Rounded.Palette, stringResource(R.string.w_colorful_lines), stringResource(R.string.w_colorful_lines_desc), colorful, onChange = settings::setColorfulLines)
+            Toggle(
+                Icons.Rounded.Palette, stringResource(R.string.w_colorful_lines), stringResource(R.string.w_colorful_lines_desc), colorful,
+                onChange = settings::setColorfulLines,
+            )
 
             Section(stringResource(R.string.w_settings_map))
-            Toggle(Icons.Rounded.MyLocation, stringResource(R.string.w_auto_center_on_me), stringResource(R.string.w_auto_center_on_me_desc), center, onChange = settings::setAutoCenterOnMe)
-            Toggle(Icons.Rounded.CropFree, stringResource(R.string.w_auto_fit_map), stringResource(R.string.w_auto_fit_map_desc), fit, onChange = settings::setAutoFitMap)
+            Toggle(
+                Icons.Rounded.MyLocation, stringResource(R.string.w_auto_center_on_me), stringResource(R.string.w_auto_center_on_me_desc), center,
+                onChange = settings::setAutoCenterOnMe,
+            )
+            Toggle(
+                Icons.Rounded.CropFree, stringResource(R.string.w_auto_fit_map), stringResource(R.string.w_auto_fit_map_desc), fit,
+                onChange = settings::setAutoFitMap,
+            )
 
             Section(stringResource(R.string.w_city))
             CityChooser()

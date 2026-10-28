@@ -2,10 +2,10 @@ package online.bus.bmarian.conexiuniclujmobile.follow
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.util.Base64
 import android.util.Log
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
@@ -136,7 +136,7 @@ object WearLink {
         scope.launch {
             val intent = Intent(Intent.ACTION_VIEW)
                 .addCategory(Intent.CATEGORY_BROWSABLE)
-                .setData(Uri.parse("market://details?id=${app.packageName}"))
+                .setData("market://details?id=${app.packageName}".toUri())
             val helper = RemoteActivityHelper(app)
             for (node in watchesWithoutApp(app)) {
                 runCatching { withContext(Dispatchers.IO) { helper.startRemoteActivity(intent, node.id).get() } }
@@ -191,7 +191,7 @@ object WearLink {
         if (nodes.isEmpty()) return false
         val intent = Intent(Intent.ACTION_VIEW)
             .addCategory(Intent.CATEGORY_BROWSABLE)
-            .setData(Uri.parse("${Links.SCHEME}://${Links.HOST}$path"))
+            .setData("${Links.SCHEME}://${Links.HOST}$path".toUri())
         val helper = RemoteActivityHelper(context)
         var asked = false
         for (node in nodes) {
@@ -308,7 +308,7 @@ object WearLink {
     private suspend fun catchUpFavorites(context: Context) {
         runCatching {
             val local = Wearable.getNodeClient(context).localNode.await().id
-            val items = Wearable.getDataClient(context).getDataItems(Uri.parse("wear://*$PATH_FAVORITES"), DataClient.FILTER_PREFIX).await()
+            val items = Wearable.getDataClient(context).getDataItems("wear://*$PATH_FAVORITES".toUri(), DataClient.FILTER_PREFIX).await()
             val newest = items.use { buffer ->
                 buffer.filter { it.uri.host != local }.mapNotNull { item ->
                     val city = favoritesCity(item.uri.path) ?: return@mapNotNull null

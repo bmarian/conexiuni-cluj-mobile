@@ -34,10 +34,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.dp
-import kotlin.math.min
 import kotlinx.coroutines.launch
-import online.bus.bmarian.conexiuniclujmobile.ui.map.SWEEP_MS
+import online.bus.bmarian.conexiuniclujmobile.logic.SWEEP_MS
 import online.bus.bmarian.conexiuniclujmobile.ui.map.motionOn
+import kotlin.math.min
 
 sealed interface Rail {
     data class Ride(val color: Color) : Rail

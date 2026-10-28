@@ -19,14 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.animation.doOnEnd
 import com.google.gson.JsonArray
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -38,13 +30,35 @@ import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
+import online.bus.bmarian.conexiuniclujmobile.logic.Area
+import online.bus.bmarian.conexiuniclujmobile.logic.AreaClusters
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
+import online.bus.bmarian.conexiuniclujmobile.logic.MapClusters
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
+import online.bus.bmarian.conexiuniclujmobile.logic.SWEEP_MS
+import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
+import online.bus.bmarian.conexiuniclujmobile.logic.SpiderPlace
+import online.bus.bmarian.conexiuniclujmobile.logic.StopClusters
+import online.bus.bmarian.conexiuniclujmobile.logic.StopGroup
+import online.bus.bmarian.conexiuniclujmobile.logic.StopPoint
 import online.bus.bmarian.conexiuniclujmobile.logic.VehicleTrack
 import online.bus.bmarian.conexiuniclujmobile.logic.fixMs
+import online.bus.bmarian.conexiuniclujmobile.logic.groupName
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import online.bus.bmarian.conexiuniclujmobile.logic.latOf
+import online.bus.bmarian.conexiuniclujmobile.logic.lonOf
+import online.bus.bmarian.conexiuniclujmobile.logic.lonPerDp
+import online.bus.bmarian.conexiuniclujmobile.logic.mercatorX
+import online.bus.bmarian.conexiuniclujmobile.logic.mercatorY
+import online.bus.bmarian.conexiuniclujmobile.logic.modeMask
+import online.bus.bmarian.conexiuniclujmobile.logic.modesIn
+import online.bus.bmarian.conexiuniclujmobile.logic.partBetween
 import online.bus.bmarian.conexiuniclujmobile.logic.pathThrough
 import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
+import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsClear
+import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsToward
+import online.bus.bmarian.conexiuniclujmobile.logic.stationRank
 import online.bus.bmarian.conexiuniclujmobile.ui.RIPPLE_MS
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import org.maplibre.android.camera.CameraPosition
@@ -101,6 +115,14 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import org.maplibre.geojson.Polygon
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
 
 private const val SRC_LINES = "ct-lines"
 private const val SRC_WALKS = "ct-walks"
@@ -210,7 +232,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var ripple: ValueAnimator? = null
     private val bounces = HashMap<String, ValueAnimator>()
     private var drawnFavorites = emptySet<String>()
-    private val reveal = LineReveal()
+    private val reveal = LineReveal(context)
     private var revealDirty = false
     private var pendingGrow: (() -> Unit)? = null
     private var linesVersion = 0
@@ -492,11 +514,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         if (!same) return false
         val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 }
         if (changed.isEmpty()) return false
-        val sweeps = changed.map { i -> Triple(after.lines[i], after.lines[i].name in saved && after.lines[i].name !in drawnFavorites, lineArgb(after.lines[i].color)) }
+        val sweeps = changed.map { i ->
+            val line = after.lines[i]
+            Triple(line, line.name in saved && line.name !in drawnFavorites, lineArgb(line.color))
+        }
         applyLines(after.lines.indices.map { lineArgb((if (it in changed) before else after).lines[it].color) })
         sweepLeft = false
         sweep { done ->
-            paintSweep(sweeps.map { (line, backwards, color) -> partBetween(line.points, if (backwards) 1 - done else 0f, if (backwards) 1f else done) to color })
+            paintSweep(
+                sweeps.map { (line, backwards, color) -> partBetween(line.points, if (backwards) 1 - done else 0f, if (backwards) 1f else done) to color },
+            )
         }
         return true
     }
@@ -827,8 +854,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     private fun addLayers(style: Style, dark: Boolean) {
-        listOf(SRC_LINES, SRC_SWEEP, SRC_RIPPLE, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED, SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER)
-            .forEach { style.addSource(GeoJsonSource(it)) }
+        listOf(
+            SRC_LINES, SRC_SWEEP, SRC_RIPPLE, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED,
+            SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER,
+        ).forEach { style.addSource(GeoJsonSource(it)) }
         addBaseImages(style, dark)
 
         // Under the basemap's labels.
@@ -1162,7 +1191,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             block()
         }
         if (single) {
-            return listOf(feature(if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false), 0f) { addNumberProperty("id", leader.id) })
+            val image = if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false)
+            return listOf(feature(image, 0f) { addNumberProperty("id", leader.id) })
         }
         val label = groupLabel(clusters, index, group)
         val icons = groupIcons(group)
@@ -1218,7 +1248,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         src.setGeoJson(FeatureCollection.fromFeatures(fades.leaving(now) + live))    }
 
     private fun pushSpider(now: Long) {
-        source(SRC_SPIDER)?.setGeoJson(FeatureCollection.fromFeatures(folding.flatMap { it.features(now) } + listOfNotNull(around, spider).flatMap { it.features(now) }))
+        val features = folding.flatMap { it.features(now) } + listOfNotNull(around, spider).flatMap { it.features(now) }
+        source(SRC_SPIDER)?.setGeoJson(FeatureCollection.fromFeatures(features))
     }
 
     private fun applySelected() {
@@ -1354,7 +1385,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                         val (ox, oy) = HEADING_OFFSET
                         listOf(
                             vehicleFeature(shown, name, z = 2 * i, rot = 0.0, off = 0.0 to 0.0, now = now),
-                            vehicleFeature(shown, "heading", z = 2 * i + 1, rot = rot, off = (ox * cos(r) + oy * sin(r)) to (oy * cos(r) - ox * sin(r)), now = now),
+                            vehicleFeature(
+                                shown, "heading", z = 2 * i + 1, rot = rot,
+                                off = (ox * cos(r) + oy * sin(r)) to (oy * cos(r) - ox * sin(r)), now = now,
+                            ),
                         )
                     },
                 ),
@@ -1371,7 +1405,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
             addNumberProperty("opacity", (if (faded) FADED_VEHICLE_OPACITY else 1f) * shown.opacity)
-            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * ((bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f) * reveal.vehicle(now, shown.vehicle.shortName))
+            val bounce = (bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f
+            addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * bounce * reveal.vehicle(now, shown.vehicle.shortName))
             if (shown.leaving) addBooleanProperty("gone", true)
             addProperty("off", JsonArray().apply { add(off.first); add(off.second) })
         }
@@ -1522,7 +1557,15 @@ private object MapStyles {
 }
 
 private class VehicleGlide(private val metersPerPixel: () -> Double, private val onFrame: () -> Unit) : Choreographer.FrameCallback {
-    private class Track(var vehicle: MapVehicle, var from: LatLon, var to: LatLon, var fromHeading: Double, var toHeading: Double, var at: LatLon, var heading: Double) {
+    private class Track(
+        var vehicle: MapVehicle,
+        var from: LatLon,
+        var to: LatLon,
+        var fromHeading: Double,
+        var toHeading: Double,
+        var at: LatLon,
+        var heading: Double,
+    ) {
         var born: Long? = null
         var gone: Long? = null
         var follow: VehicleTrack? = null

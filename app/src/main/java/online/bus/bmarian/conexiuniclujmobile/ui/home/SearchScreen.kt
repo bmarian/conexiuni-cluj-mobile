@@ -229,7 +229,9 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                     item { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = 8.dp)) }
                     items(recents, key = { "recent-${it.lat}-${it.lon}-${it.originLat}" }) { plan ->
                         ResultRow(
-                            icon = { RowIcon(Icons.Rounded.Schedule, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant) },
+                            icon = {
+                                RowIcon(Icons.Rounded.Schedule, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
                             title = plan.name,
                             distance = null,
                             subtitle = plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" },
@@ -251,7 +253,14 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
 
                 item {
                     CollapseRow(
-                        icon = { RowIcon(Icons.Rounded.Map, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, size = 32.dp) },
+                        icon = {
+                            RowIcon(
+                                Icons.Rounded.Map,
+                                MaterialTheme.colorScheme.surfaceContainerHighest,
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                size = 32.dp,
+                            )
+                        },
                         title = stringResource(R.string.w_all_routes),
                         count = sortedAll.size,
                         open = showAllRoutes,
@@ -269,7 +278,14 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                 }
                 item {
                     CollapseRow(
-                        icon = { RowIcon(Icons.Rounded.DirectionsBus, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, size = 32.dp) },
+                        icon = {
+                            RowIcon(
+                                Icons.Rounded.DirectionsBus,
+                                MaterialTheme.colorScheme.secondaryContainer,
+                                MaterialTheme.colorScheme.onSecondaryContainer,
+                                size = 32.dp,
+                            )
+                        },
                         title = stringResource(R.string.w_all_stops),
                         count = sortedStops.size,
                         open = showAllStops,

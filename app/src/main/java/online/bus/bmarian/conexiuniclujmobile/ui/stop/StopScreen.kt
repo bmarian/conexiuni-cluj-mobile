@@ -6,7 +6,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -35,7 +34,6 @@ import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.AlarmOn
 import androidx.compose.material.icons.rounded.Directions
-import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Map
@@ -187,6 +185,7 @@ fun StopScreen(stopId: Int) {
     val layer by vm.mapLayer.collectAsStateWithLifecycle()
     val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
     val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
+    val city by Cities.current.collectAsStateWithLifecycle()
     val infos by vm.infos.collectAsStateWithLifecycle()
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val look = remember(index, stopId) { index?.look(stopId) }
@@ -360,7 +359,9 @@ fun StopScreen(stopId: Int) {
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleStop(favoritePlatform ?: stopId)
                     },
-                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, Services.repository.network.index.value.stopPath(stopId)) },
+                    ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) {
+                        share(context, Services.repository.network.index.value.stopPath(stopId))
+                    },
                 ),
                 Modifier.padding(bottom = 8.dp),
             )
@@ -373,11 +374,15 @@ fun StopScreen(stopId: Int) {
                 when {
                     departures == null -> items(3) { DepartureSkeleton() }
                     departures.isEmpty() -> item { MessageText(stringResource(R.string.w_no_schedule)) }
-                    else -> itemsIndexed(keyedDepartures.orEmpty(), key = { _, keyed -> keyed.first }, contentType = { _, _ -> "departure" }) { index, (key, departure) ->
+                    else -> itemsIndexed(
+                        keyedDepartures.orEmpty(),
+                        key = { _, keyed -> keyed.first },
+                        contentType = { _, _ -> "departure" },
+                    ) { index, (key, departure) ->
                         val platform = platformOf(departure)
                         val followed = Followed(
                             platform, name.orEmpty(), departure.routeId, departure.tripId,
-                            departure.shortName, departure.color, routeDestination(departure.longName), Cities.current.value,
+                            departure.shortName, departure.color, routeDestination(departure.longName), city,
                         )
                         // A follow from the watch may name the station's other platform.
                         val platforms = infos.map { it.stopId }.ifEmpty { listOf(platform) }

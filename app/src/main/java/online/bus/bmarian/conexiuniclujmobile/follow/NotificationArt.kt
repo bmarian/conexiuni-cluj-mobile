@@ -1,7 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.follow
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -11,6 +10,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.util.LruCache
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.createBitmap
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import kotlin.math.roundToInt
@@ -25,7 +25,7 @@ internal object NotificationArt {
     /** The app's line badge, for the large icon. */
     fun badge(context: Context, shortName: String, color: String?): Icon = cached("badge|$shortName|$color") {
         val size = context.resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(size, size)
         val canvas = Canvas(bitmap)
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = routeColor(color).toArgb() }
         canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), size * 0.22f, size * 0.22f, fill)
@@ -47,7 +47,7 @@ internal object NotificationArt {
         val d = context.resources.displayMetrics.density
         val w = (40 * d).roundToInt().toFloat()
         val h = (20 * d).roundToInt().toFloat()
-        val bitmap = Bitmap.createBitmap(w.toInt(), h.toInt(), Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(w.toInt(), h.toInt())
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val body = routeColor(color).toArgb()
@@ -94,7 +94,7 @@ internal object NotificationArt {
 
     private fun sign(context: Context, glyph: Int): Icon {
         val size = (20 * context.resources.displayMetrics.density).roundToInt()
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(size, size)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = APP_GREEN }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)

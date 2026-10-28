@@ -81,7 +81,11 @@ fun Onboarding(onDone: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.onboard_welcome_title), style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.onboard_welcome_body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.onboard_welcome_body),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.height(28.dp))
                 Text(stringResource(R.string.w_language), style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))

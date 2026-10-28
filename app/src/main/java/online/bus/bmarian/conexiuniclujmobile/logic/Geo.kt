@@ -1,11 +1,27 @@
 package online.bus.bmarian.conexiuniclujmobile.logic
 
+import kotlin.math.PI
+import kotlin.math.atan
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.ln
 import kotlin.math.sin
+import kotlin.math.sinh
 import kotlin.math.sqrt
+import kotlin.math.tan
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
+
+data class LatLon(val lat: Double, val lon: Double)
+
+fun mercatorX(lon: Double) = (lon + 180.0) / 360.0
+fun mercatorY(lat: Double): Double {
+    val rad = Math.toRadians(lat)
+    return (1.0 - ln(tan(rad) + 1.0 / cos(rad)) / PI) / 2.0
+}
+
+fun lonOf(x: Double) = x * 360.0 - 180.0
+fun latOf(y: Double): Double = Math.toDegrees(atan(sinh(PI * (1 - 2 * y))))
 
 fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
     val dLat = Math.toRadians(lat2 - lat1)

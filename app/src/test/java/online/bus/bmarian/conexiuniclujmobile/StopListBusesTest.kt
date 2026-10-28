@@ -4,14 +4,14 @@ import online.bus.bmarian.conexiuniclujmobile.data.StopTime
 import online.bus.bmarian.conexiuniclujmobile.logic.Arrival
 import online.bus.bmarian.conexiuniclujmobile.logic.DueArrivals
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedStop
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.directionKeys
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import online.bus.bmarian.conexiuniclujmobile.logic.partBetween
 import online.bus.bmarian.conexiuniclujmobile.logic.pathThrough
 import online.bus.bmarian.conexiuniclujmobile.logic.rowAlong
 import online.bus.bmarian.conexiuniclujmobile.logic.stopsAlong
-import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
-import online.bus.bmarian.conexiuniclujmobile.ui.map.partBetween
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

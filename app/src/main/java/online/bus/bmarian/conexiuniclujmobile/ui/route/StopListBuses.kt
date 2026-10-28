@@ -38,11 +38,11 @@ import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
+import online.bus.bmarian.conexiuniclujmobile.logic.SWEEP_MS
 import online.bus.bmarian.conexiuniclujmobile.logic.VehicleTrack
 import online.bus.bmarian.conexiuniclujmobile.logic.fixMs
 import online.bus.bmarian.conexiuniclujmobile.logic.rowAlong
 import online.bus.bmarian.conexiuniclujmobile.ui.ModeGlyphs
-import online.bus.bmarian.conexiuniclujmobile.ui.map.SWEEP_MS
 import online.bus.bmarian.conexiuniclujmobile.ui.map.motionOn
 import online.bus.bmarian.conexiuniclujmobile.ui.popped
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberPop
@@ -147,7 +147,16 @@ private fun LazyListState.rowCenter(keys: List<String>, row: Float): Float? {
 }
 
 @Composable
-fun StopListBuses(buses: ListBuses, list: LazyListState, keys: List<String>, target: Int, mark: Color?, color: Color, mode: Mode, modifier: Modifier = Modifier) {
+fun StopListBuses(
+    buses: ListBuses,
+    list: LazyListState,
+    keys: List<String>,
+    target: Int,
+    mark: Color?,
+    color: Color,
+    mode: Mode,
+    modifier: Modifier = Modifier,
+) {
     val flash = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     Box(

@@ -10,13 +10,13 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
@@ -28,7 +28,11 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import online.bus.bmarian.conexiuniclujmobile.logic.ClusterBox
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.logic.SPIDER_LABEL_GAP_DP
+import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
+import online.bus.bmarian.conexiuniclujmobile.logic.spiderRadius
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import kotlin.math.ceil
 import kotlin.math.max
@@ -77,7 +81,8 @@ internal class MapImages(context: Context) {
     }
 
     fun highlight(h: StopHighlight) = draw(28f, 28f) {
-        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), if (h == StopHighlight.Favorite) 13.dp.toPx() else 14.dp.toPx(), shadow = 1.2f, heart = h == StopHighlight.Favorite)
+        val favorite = h == StopHighlight.Favorite
+        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), if (favorite) 13.dp.toPx() else 14.dp.toPx(), shadow = 1.2f, heart = favorite)
     }
 
     fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f) }
@@ -103,11 +108,11 @@ internal class MapImages(context: Context) {
     }
 
     private fun label(name: String, more: Int, dark: Boolean): AnnotatedString = AnnotatedString.Builder().apply {
-        pushStyle(SpanStyle(color = if (dark) Color(0xFFF1F5F9) else Color(0xFF0F172A)))
+        pushStyle(SpanStyle(color = if (dark) MapColors.Paper else MapColors.InkDark))
         append(name)
         pop()
         if (more > 0) {
-            pushStyle(SpanStyle(color = if (dark) Color(0xFF94A3B8) else Color(0xFF64748B)))
+            pushStyle(SpanStyle(color = if (dark) MapColors.ShapeFallback else MapColors.Gray))
             append(" +$more")
             pop()
         }
@@ -147,7 +152,7 @@ internal class MapImages(context: Context) {
     private fun DrawScope.groupText(name: String, more: Int, dark: Boolean, topLeft: Offset) {
         // Span colours win over drawText's colour, so the halo is drawn from the plain text.
         val halo = measurer.measure(if (more > 0) "$name +$more" else name, labelStyle)
-        drawText(halo, color = if (dark) Color(0xFF0F172A) else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
+        drawText(halo, color = if (dark) MapColors.InkDark else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
         drawText(measurer.measure(label(name, more, dark), labelStyle), topLeft = topLeft)
     }
 
@@ -159,7 +164,7 @@ internal class MapImages(context: Context) {
             val radius = CornerRadius((CELL_DP / 2 + PILL_PAD_DP).dp.toPx())
             val pill = Size(pw.dp.toPx(), ph.dp.toPx())
             drawRoundRect(Color.Black.copy(alpha = 0.14f), Offset(0f, top + 1.dp.toPx()), pill, radius)
-            drawRoundRect(if (dark) Color(0xFF1E293B) else Color.White, Offset(0f, top), pill, radius)
+            drawRoundRect(if (dark) MapColors.InkSoft else Color.White, Offset(0f, top), pill, radius)
             if (dark) drawRoundRect(Color.White.copy(alpha = 0.18f), Offset(0f, top), pill, radius, style = Stroke(1.dp.toPx()))
             val cell = CELL_DP.dp.toPx()
             val gap = PILL_GAP_DP.dp.toPx()
@@ -168,7 +173,9 @@ internal class MapImages(context: Context) {
                 val row = i / cols
                 val inRow = min(cols, icons.size - row * cols)
                 val rowWidth = inRow * cell + (inRow - 1) * gap
-                groupIcon(icon, Offset(size.width / 2 - rowWidth / 2 + (i % cols) * (cell + gap) + cell / 2, top + PILL_PAD_DP.dp.toPx() + row * (cell + gap) + cell / 2))
+                val x = size.width / 2 - rowWidth / 2 + (i % cols) * (cell + gap) + cell / 2
+                val y = top + PILL_PAD_DP.dp.toPx() + row * (cell + gap) + cell / 2
+                groupIcon(icon, Offset(x, y))
             }
         }
     }
@@ -213,7 +220,7 @@ internal class MapImages(context: Context) {
 
     fun liftedPin(color: Color) = draw(22f, 66f) {
         pinMarker(Offset(11.dp.toPx(), 28.dp.toPx()), color)
-        drawRect(Color(0x8C0F172A), Offset(10.dp.toPx(), 30.dp.toPx()), Size(2.dp.toPx(), 24.dp.toPx()))
+        drawRect(MapColors.InkDark.copy(alpha = 0.55f), Offset(10.dp.toPx(), 30.dp.toPx()), Size(2.dp.toPx(), 24.dp.toPx()))
         val dot = Offset(11.dp.toPx(), 59.dp.toPx())
         drawCircle(Color.Black.copy(alpha = 0.25f), 6.dp.toPx(), dot + Offset(0f, 1.dp.toPx()))
         drawCircle(Color.White, 5.dp.toPx(), dot)
@@ -242,7 +249,12 @@ internal class MapImages(context: Context) {
             val corner = 7.dp.toPx()
             routes.forEachIndexed { i, (_, color) ->
                 val w = widths[i].dp.toPx()
-                drawRoundRect(Color.Black.copy(alpha = 0.18f), Offset(left - 1.dp.toPx(), top), Size(w + 2.dp.toPx(), hp + 2.dp.toPx()), CornerRadius(corner + 1.dp.toPx()))
+                drawRoundRect(
+                    Color.Black.copy(alpha = 0.18f),
+                    Offset(left - 1.dp.toPx(), top),
+                    Size(w + 2.dp.toPx(), hp + 2.dp.toPx()),
+                    CornerRadius(corner + 1.dp.toPx()),
+                )
                 drawRoundRect(Color.White, Offset(left, top), Size(w, hp), CornerRadius(corner))
                 drawRoundRect(routeColor(color), Offset(left + border, top + border), Size(w - border * 2, hp - border * 2), CornerRadius(corner - border))
                 val layout = layouts[i]

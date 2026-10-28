@@ -4,12 +4,8 @@ import android.content.Context
 import androidx.core.content.edit
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.cityPrefs
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import org.maplibre.android.camera.CameraPosition
-import kotlin.math.PI
-import kotlin.math.atan
-import kotlin.math.ln
-import kotlin.math.sinh
-import kotlin.math.tan
 
 const val DEFAULT_ZOOM = 15.0
 const val STOP_ZOOM = 15.0
@@ -19,15 +15,6 @@ const val MAX_ZOOM = 19.0
 const val FIT_MAX_ZOOM = 15.0
 // Cluj's, until the server's list first loads.
 val DEFAULT_CENTER = LatLon(46.7712, 23.6236)
-
-fun mercatorX(lon: Double) = (lon + 180.0) / 360.0
-fun mercatorY(lat: Double): Double {
-    val rad = Math.toRadians(lat)
-    return (1.0 - ln(tan(rad) + 1.0 / kotlin.math.cos(rad)) / PI) / 2.0
-}
-
-fun lonOf(x: Double) = x * 360.0 - 180.0
-fun latOf(y: Double): Double = Math.toDegrees(atan(sinh(PI * (1 - 2 * y))))
 
 class MapCamera(val city: String, val center: LatLon, val zoom: Double) {
     companion object {

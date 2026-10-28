@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Generated from frontend/src/locales/en.json by tools/gen_strings.py, with the app's own wording; keys keep the website's names. -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="w_center">Show your location</string>
     <string name="w_fit_routes">Show whole route</string>
     <string name="w_now">now</string>
@@ -42,7 +42,6 @@
     <string name="w_frequency_every">Every %1$s min</string>
     <string name="w_frequency_every_other">Every %1$s min</string>
     <string name="w_frequency_window">between %1$s and %2$s</string>
-    <string name="w_bus_stop">Bus stop</string>
     <string name="w_stop_kind_bus">Bus stop</string>
     <string name="w_stop_kind_trolleybus">Trolleybus stop</string>
     <string name="w_stop_kind_tram">Tram stop</string>
@@ -60,7 +59,6 @@
     <string name="w_all_routes_at_stop">Lines at this stop</string>
     <string name="w_live">LIVE</string>
     <string name="w_home">Home</string>
-    <string name="w_favorites">Favorites</string>
     <string name="w_favorite_routes">Favorite lines</string>
     <string name="w_favorite_stops">Favorite stops</string>
     <string name="w_favorite_plans">Favorite destinations</string>
@@ -74,7 +72,6 @@
     <string name="w_no_results">No results</string>
     <string name="w_drop_pin">Choose on map</string>
     <string name="w_dropped_pin">Dropped pin</string>
-    <string name="w_add_to_favorites">Add to favorites</string>
     <string name="w_remove_from_favorites">Remove from favorites</string>
     <string name="w_service_suspended">Service suspended</string>
     <string name="w_trip_at">Departing %1$s</string>
@@ -84,7 +81,6 @@
     <string name="w_offline_short">Offline</string>
     <string name="w_toggle_drawer">Toggle panel</string>
     <string name="w_settings">Settings</string>
-    <string name="w_theme">Theme</string>
     <string name="w_theme_light">Light</string>
     <string name="w_theme_dark">Dark</string>
     <string name="w_theme_system">System</string>
@@ -99,14 +95,12 @@
     <string name="w_plan_origin_current_location">Your location</string>
     <string name="w_plan_origin_unknown">Unknown location</string>
     <string name="w_plan_routes_label">Trips</string>
-    <string name="w_plan_nearby_stops">Nearby stations</string>
     <string name="w_plan_boarding">Boarding</string>
     <string name="w_plan_alighting">Alighting</string>
     <string name="w_plan_walk">Walk</string>
     <string name="w_plan_locating">Finding you…</string>
     <string name="w_plan_calculating">Finding trips…</string>
     <string name="w_loading_route">Loading line…</string>
-    <string name="w_loading_stop">Loading stop…</string>
     <string name="w_plan_changes">transfers</string>
     <string name="w_plan_change">transfer</string>
     <string name="w_plan_then">then</string>
@@ -116,7 +110,6 @@
     <string name="w_plan_transfer_same_stop">same stop</string>
     <string name="w_plan_refresh">Refresh</string>
     <string name="w_plan_swap">Swap start and destination</string>
-    <string name="w_plan_time_filter_label">Departure time</string>
     <string name="w_plan_time_leave_now">Leave now</string>
     <string name="w_plan_time_leave_at">Depart at</string>
     <string name="w_plan_time_arrive_by">Arrive by</string>
@@ -155,9 +148,6 @@
     <string name="w_news_error">Couldn\'t load</string>
     <string name="w_news_today">Today</string>
     <string name="w_news_yesterday">Yesterday</string>
-    <string name="w_news_new">New</string>
-    <string name="w_follow_line">Follow line %1$s</string>
-    <string name="w_unfollow_line">Stop following line %1$s</string>
     <string name="w_follow_line_toast">Following line %1$s</string>
     <string name="w_follow_line_toast_body">Its changes will show on the News page.</string>
     <string name="w_unfollow_line_toast">Stopped following line %1$s</string>
@@ -193,9 +183,6 @@
     <string name="w_route_change_kind_trips_removed">Cancelled departures</string>
     <string name="w_route_change_kind_stops_added">Stops added</string>
     <string name="w_route_change_kind_stops_removed">Stops removed</string>
-    <string name="w_share_url">Share</string>
-    <string name="w_url_copied">Link copied!</string>
-    <string name="w_settings_all_settings">All settings</string>
     <string name="w_city_auto">Nearest city</string>
     <string name="w_city">City</string>
     <string name="w_city_search">Search cities</string>
@@ -206,7 +193,6 @@
     <string name="w_colorful_lines_desc">Give every line its own color.</string>
     <string name="w_auto_center_on_me_desc">Center the map on you when it opens.</string>
     <string name="w_auto_fit_map_desc">Show the whole line when you open it.</string>
-    <string name="w_beta">Beta</string>
     <string name="w_followed_lines">Followed lines</string>
     <string name="w_yes">Yes</string>
     <string name="w_no">No</string>
@@ -256,9 +242,7 @@
     <string name="w_sync_problem_over_cap">A list has more than %1$s items and doesn\'t sync. Remove some.</string>
     <string name="w_sync_problem_full">Not everything could be saved. Try again later.</string>
     <string name="w_sync_removed">This device no longer syncs. It was removed, or sync was turned off from another device.</string>
-    <string name="w_sync_needs_https">Sync needs a secure connection (https).</string>
     <string name="w_sync_dropped">%1$s favorites from this device didn\'t fit and stay only here.</string>
-    <string name="w_sync_device_label">%1$s on %2$s</string>
     <string name="w_sync_web_device">Web browser</string>
     <string name="w_limit_reached">Up to %1$s at a time</string>
     <string name="w_destinations">Destinations</string>
@@ -272,11 +256,11 @@
     <string name="w_dest_no_weekdays">no weekday service</string>
     <string name="w_dest_no_rides">No direct line from other areas; plan a trip with a change.</string>
     <string name="w_dest_stops_in">Stops in %1$s</string>
-    <string name="w_dest_more_rides">%1$d more</string>
+    <string name="w_dest_more_rides" tools:ignore="PluralsCandidate">%1$d more</string>
     <string name="w_dest_all">Destinations in %1$s</string>
     <string name="w_dests_in">Destinations in %1$s</string>
     <string name="w_dests_districts">Districts</string>
     <string name="w_dests_towns">Towns and villages</string>
-    <string name="w_dest_counts">%1$d stops · %2$d lines</string>
+    <string name="w_dest_counts" tools:ignore="PluralsCandidate">%1$d stops · %2$d lines</string>
     <string name="w_dest_not_found">No area called “%1$s”</string>
 </resources>

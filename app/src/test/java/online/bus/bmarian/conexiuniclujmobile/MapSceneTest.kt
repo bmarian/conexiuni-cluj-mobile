@@ -1,6 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile
 
-import online.bus.bmarian.conexiuniclujmobile.ui.map.LatLon
+import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.buildScene
 import online.bus.bmarian.conexiuniclujmobile.ui.map.headingBetween

@@ -82,30 +82,6 @@ class Settings(private val context: Context) {
     val legacyBlueActive = bool("legacyBlueActive", false)
     val paperActive = bool("paperActive", false)
 
-    fun unlockArcade() = set(arcadeUnlocked, "arcadeUnlocked", true)
-    fun setArcadeActive(on: Boolean) {
-        if (on) {
-            set(legacyBlueActive, "legacyBlueActive", false)
-            set(paperActive, "paperActive", false)
-        }
-        set(arcadeActive, "arcadeActive", on)
-    }
-    fun unlockLegacyBlue() = set(legacyBlueUnlocked, "legacyBlueUnlocked", true)
-    fun setLegacyBlueActive(on: Boolean) {
-        if (on) {
-            set(arcadeActive, "arcadeActive", false)
-            set(paperActive, "paperActive", false)
-        }
-        set(legacyBlueActive, "legacyBlueActive", on)
-    }
-    fun setPaperActive(on: Boolean) {
-        if (on) {
-            set(arcadeActive, "arcadeActive", false)
-            set(legacyBlueActive, "legacyBlueActive", false)
-        }
-        set(paperActive, "paperActive", on)
-    }
-
     val autoCenterOnMe = bool("autoCenterOnMe", true)
     val autoFitMap = bool("autoFitMap", true)
     val colorfulLines = bool("colorfulLines", false)

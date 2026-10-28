@@ -1,11 +1,11 @@
 package online.bus.bmarian.conexiuniclujmobile
 
-import online.bus.bmarian.conexiuniclujmobile.ui.map.Area
-import online.bus.bmarian.conexiuniclujmobile.ui.map.AreaClusters
-import online.bus.bmarian.conexiuniclujmobile.ui.map.ClusterBox
-import online.bus.bmarian.conexiuniclujmobile.ui.map.StopClusters
-import online.bus.bmarian.conexiuniclujmobile.ui.map.StopGroup
-import online.bus.bmarian.conexiuniclujmobile.ui.map.StopPoint
+import online.bus.bmarian.conexiuniclujmobile.logic.Area
+import online.bus.bmarian.conexiuniclujmobile.logic.AreaClusters
+import online.bus.bmarian.conexiuniclujmobile.logic.ClusterBox
+import online.bus.bmarian.conexiuniclujmobile.logic.StopClusters
+import online.bus.bmarian.conexiuniclujmobile.logic.StopGroup
+import online.bus.bmarian.conexiuniclujmobile.logic.StopPoint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

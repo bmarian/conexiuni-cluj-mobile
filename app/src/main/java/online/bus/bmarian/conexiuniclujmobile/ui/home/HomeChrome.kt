@@ -215,7 +215,11 @@ private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspec
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 2.dp,
     ) {
-        Row(Modifier.height(36.dp).padding(start = 12.dp, end = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            Modifier.height(36.dp).padding(start = 12.dp, end = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Box {
                 Icon(icon, null, Modifier.size(18.dp), tint = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else tint)
                 if (dot) {

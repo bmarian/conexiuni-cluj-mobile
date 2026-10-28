@@ -8,9 +8,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
-import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.BuildConfig
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -19,7 +20,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.ownHex
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
-import androidx.compose.ui.graphics.toArgb
 
 private const val DONE_SHOWN_MS = 2 * 60_000L
 private const val FIRST_SLOT = 100
@@ -221,7 +221,7 @@ object FollowNotifications {
     fun followIntent(context: Context, followed: Followed, atMs: Long): Intent =
         Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
-            .setData(Uri.parse(Links.web("/stop/${followed.stopId}", followed.city)))
+            .setData(Links.web("/stop/${followed.stopId}", followed.city).toUri())
             .putExtra(EXTRA_FOLLOW, Api.json.encodeToString(followed))
             .putExtra(EXTRA_FOLLOW_AT, atMs)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -263,7 +263,7 @@ object FollowNotifications {
         context, followed.stopId,
         Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
-            .setData(Uri.parse(Links.web("/stop/${followed.stopId}", followed.city)))
+            .setData(Links.web("/stop/${followed.stopId}", followed.city).toUri())
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
@@ -272,7 +272,7 @@ object FollowNotifications {
         context, 0,
         Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
-            .setData(Uri.parse("${BuildConfig.SITE_ORIGIN}/journey"))
+            .setData("${BuildConfig.SITE_ORIGIN}/journey".toUri())
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
