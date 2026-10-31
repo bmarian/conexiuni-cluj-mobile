@@ -342,8 +342,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     }
 
     fun wakeMeAt(idx: Int) {
-        val boarding = stops.indexOfFirst { it.stop.stopId == fromStopId }.takeIf { it in 0 until idx }
-            ?: current?.nearestStopIdx?.takeIf { it in 0 until idx }
+        val boarding = current?.nearestStopIdx?.takeIf { it in 0 until idx }
+            ?: stops.indexOfFirst { it.stop.stopId == fromStopId }.takeIf { it in 0 until idx }
             ?: 0
         if (idx <= boarding) return
         val ride = stops.subList(boarding, idx + 1)
@@ -360,7 +360,10 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             path = simplifyPath(path.map { LatLon(it.lat, it.lon) }),
         )
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-        val journey = Journey(JourneyManager.newId(), js(ride.last()), listOf(leg), planPath = "/route/$routeId/$dir", city = Cities.current.value)
+        val journey = Journey(
+            JourneyManager.newId(), js(ride.last()), listOf(leg),
+            planPath = "/route/$routeId/$dir", city = Cities.current.value, onBoard = true,
+        )
         JourneyManager.start(context, journey)
     }
 

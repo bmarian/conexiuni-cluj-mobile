@@ -14,15 +14,15 @@ import kotlin.math.sin
 
 private const val MAX_OFF_ROUTE_M = 150.0
 private const val MAX_MPS = 20.0
-private const val ACCEL = 1.2
+internal const val ACCEL = 1.2
 private const val BRAKE = 2.5
 private const val CATCH_UP_S = 30.0
 private const val HOLD_BACK_S = 40.0
 private const val COAST_S = 8.0
 private const val JUMP_M = 400.0
-private const val HEADING_SPAN_M = 15.0
+internal const val HEADING_SPAN_M = 15.0
 private const val BACKTRACK_M = 60.0
-private const val TREND_WEIGHT = 0.3
+internal const val TREND_WEIGHT = 0.3
 private const val LATE_SHARE = 0.75
 
 class Spot(val s: Double, val off: Double)

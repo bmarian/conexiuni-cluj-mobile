@@ -279,7 +279,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 onNeedLocation = {
                     if (!UserLocation.permitted(context)) permission.launch(LOCATION_PERMISSIONS)
                 },
-                compassTop = statusTop + chromePx + with(density) { 8.dp.toPx() },
+                compassTop = (if (showNav) navTop else statusTop + chromePx) + with(density) { 8.dp.toPx() },
             )
 
             val content: @Composable () -> Unit = {

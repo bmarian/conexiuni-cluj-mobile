@@ -29,6 +29,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.Favorites
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.LOCATION_UPDATE_MS
+import online.bus.bmarian.conexiuniclujmobile.data.NAV_LOCATION_MS
 import online.bus.bmarian.conexiuniclujmobile.data.Repository
 import online.bus.bmarian.conexiuniclujmobile.data.RouteUpdates
 import online.bus.bmarian.conexiuniclujmobile.data.Settings
@@ -174,7 +175,7 @@ object Services {
     }
 
     fun fastLocation(on: Boolean) {
-        locationInterval.value = if (on) 1_000L else LOCATION_UPDATE_MS
+        locationInterval.value = if (on) NAV_LOCATION_MS else LOCATION_UPDATE_MS
     }
 
     private fun watchConnectivity(context: Context) {

@@ -78,9 +78,11 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
@@ -99,7 +101,8 @@ class Pop {
     val x = Animatable(1f)
     val y = Animatable(1f)
 
-    suspend fun from(scaleX: Float, scaleY: Float = scaleX) = coroutineScope {
+    // A caller cancelled mid-spring would leave the shape stretched.
+    suspend fun from(scaleX: Float, scaleY: Float = scaleX) = withContext(NonCancellable) {
         x.snapTo(scaleX)
         y.snapTo(scaleY)
         launch { x.animateTo(1f, Bouncy.pop) }

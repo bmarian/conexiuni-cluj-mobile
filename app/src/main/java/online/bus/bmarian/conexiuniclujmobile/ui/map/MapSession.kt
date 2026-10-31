@@ -263,6 +263,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         map.addOnCameraIdleListener {
             dragging = false
             growWhenStill()
+            // A following camera comes here every frame.
+            if (tracking != null) return@addOnCameraIdleListener
             MapCamera.save(context, map.cameraPosition)
             refreshStops()
         }
@@ -555,10 +557,20 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         pushVehicles()
     }
 
-    fun setMe(fix: Fix?) {
+    fun setMe(fix: Fix?, ahead: List<Fix> = emptyList(), aheadMs: Long = 0) {
         me = fix
         fix?.bearing?.let { lastBearing = it }
-        applyMe()
+        applyMe(ahead.takeIf { motionOn() }.orEmpty(), aheadMs)
+    }
+
+    private fun location(fix: Fix, atMs: Long) = Location("app").apply {
+        latitude = fix.lat
+        longitude = fix.lon
+        accuracy = fix.accuracyMeters
+        // A fix without a heading keeps the last one instead of turning the map north.
+        (fix.bearing ?: lastBearing)?.let { bearing = it }
+        fix.speed?.let { speed = it }
+        time = atMs
     }
 
     /** On board, the location arrow takes the line's colour. */
@@ -1413,7 +1425,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     }
 
     @SuppressLint("MissingPermission")
-    private fun applyMe() {
+    private fun applyMe(ahead: List<Fix> = emptyList(), aheadMs: Long = 0) {
         val style = style ?: return
         val component = map.locationComponent
         val fix = me
@@ -1443,18 +1455,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
         applyPuck()
         val first = !component.isLocationComponentEnabled
-        component.isLocationComponentEnabled = true
-        component.forceLocationUpdate(
-            Location("app").apply {
-                latitude = fix.lat
-                longitude = fix.lon
-                accuracy = fix.accuracyMeters
-                // A fix without a heading keeps the last one instead of turning the map north.
-                (fix.bearing ?: lastBearing)?.let { bearing = it }
-                fix.speed?.let { speed = it }
-                time = System.currentTimeMillis()
-            },
-        )
+        // Enabling replays the last location, leaving the next update no time to animate.
+        if (first) component.isLocationComponentEnabled = true
+        val now = System.currentTimeMillis()
+        if (ahead.isEmpty()) component.forceLocationUpdate(location(fix, now))
+        else component.forceLocationUpdate(ahead.map { location(it, now + aheadMs) }, true)
         if (first) applyTracking()
     }
 

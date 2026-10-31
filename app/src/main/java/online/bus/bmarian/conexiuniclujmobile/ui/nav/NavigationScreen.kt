@@ -129,6 +129,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapPin
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavCamera
+import online.bus.bmarian.conexiuniclujmobile.ui.map.NavMe
 import online.bus.bmarian.conexiuniclujmobile.ui.map.NavScene
 import online.bus.bmarian.conexiuniclujmobile.ui.map.RideAs
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
@@ -139,6 +140,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.ridesApart
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+
+private val COMPASS_ROOM = 64.dp
 
 class NavigationViewModel : ViewModel() {
     private val _vehicles = MutableStateFlow<List<MapVehicle>>(emptyList())
@@ -270,7 +273,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
     LaunchedEffect(here, state?.stepType, state?.legIndex, follow) {
         val fix = here ?: return@LaunchedEffect
         val (shown, p) = follow?.update(fix, state?.stepType, state?.legIndex ?: 0) ?: return@LaunchedEffect
-        map.navMe = shown
+        map.navMe = NavMe(shown, p.ahead, p.aheadMs)
         progress = p
     }
     LaunchedEffect(journey, vehicles, riding, progress) { journey?.let { map.navigation = navScene(it, if (riding) emptyList() else vehicles, progress) } }
@@ -357,7 +360,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
 
         SmallFloatingActionButton(
             onClick = { Services.settings.setJourneyVoice(!voice) },
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = with(density) { bannerBottom.toDp() } + 12.dp, end = 16.dp),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = with(density) { bannerBottom.toDp() } + COMPASS_ROOM, end = 16.dp),
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
         ) {
@@ -509,17 +512,20 @@ private fun NavSteps(journey: Journey, sync: JourneySync, open: Boolean, modifie
             val walkRow = rows.size
             val previous = journey.legs.getOrNull(i - 1)?.alighting
             val sameStop = previous != null && haversineMeters(previous.lat, previous.lon, leg.boarding.lat, leg.boarding.lon) < 40
-            rows += StepRow(
-                (if (sameStop) changeAt else walkTo).format(leg.boarding.name), null,
-                top = if (i == 0) null else Rail.Walk, bottom = Rail.Walk,
-                dot = if (i == 0) TimelineDot.Station else TimelineDot.None,
-                color = start,
-            )
+            if (!journey.onBoard) {
+                rows += StepRow(
+                    (if (sameStop) changeAt else walkTo).format(leg.boarding.name), null,
+                    top = if (i == 0) null else Rail.Walk, bottom = Rail.Walk,
+                    dot = if (i == 0) TimelineDot.Station else TimelineDot.None,
+                    color = start,
+                )
+            }
             val boardRow = rows.size
             leg.stops.forEachIndexed { j, stop ->
                 rows += when (j) {
                     0 -> StepRow(
-                        getOn.format(stop.name), null, Rail.Walk, Rail.Ride(color), TimelineDot.Station, color,
+                        if (journey.onBoard) stop.name else getOn.format(stop.name), null,
+                        if (journey.onBoard) null else Rail.Walk, Rail.Ride(color), TimelineDot.Station, color,
                         lines = leg.lines.zip(leg.colors),
                     )
                     leg.stops.lastIndex -> StepRow(

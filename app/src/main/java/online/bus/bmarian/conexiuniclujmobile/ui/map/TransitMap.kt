@@ -212,8 +212,8 @@ fun TransitMap(
         host.map.getMapAsync { map ->
             map.uiSettings.isFlingVelocityAnimationEnabled = true
             val created = MapSession(context, map)
-            map.addOnCameraIdleListener { controller.resting = created.view() }
-            map.addOnCameraMoveListener { controller.bearing = map.cameraPosition.bearing }
+            map.addOnCameraIdleListener { if (controller.navigation == null) controller.resting = created.view() }
+            map.addOnCameraMoveListener { if (controller.navigation == null) controller.bearing = map.cameraPosition.bearing }
             map.addOnMapClickListener { latLng ->
                 val point = map.projection.toScreenLocation(latLng)
                 val vehicle = created.vehicleAt(point, with(density) { 18.dp.toPx() })
@@ -221,25 +221,28 @@ fun TransitMap(
                     selectedVehicleId = if (selectedVehicleId == vehicle) null else vehicle
                     return@addOnMapClickListener true
                 }
-                val spidered = created.spiderAt(point, with(density) { 8.dp.toPx() })
-                if (spidered != null) {
-                    tooltip = null
-                    created.unspiderfy()
-                    currentOnStopTap(spidered.stopId)
-                    return@addOnMapClickListener true
-                }
-                val stop = created.stopAt(point, with(density) { 16.dp.toPx() })?.let { currentStopsById[it] }
-                if (stop != null) {
-                    tooltip = null
-                    currentOnStopTap(stop.stopId)
-                    return@addOnMapClickListener true
-                }
-                val group = created.groupAt(point, with(density) { 8.dp.toPx() })
-                if (group != null) {
-                    tooltip = null
-                    if (group.stations.size <= CLUSTER_STATIONS_MAX) currentOnStationsTap(created.groupStops(group))
-                    scope.launch(start = CoroutineStart.UNDISPATCHED) { created.expand(group) { restingPadding() } }
-                    return@addOnMapClickListener true
+                // A page opened now would wait under navigation.
+                if (controller.navigation == null) {
+                    val spidered = created.spiderAt(point, with(density) { 8.dp.toPx() })
+                    if (spidered != null) {
+                        tooltip = null
+                        created.unspiderfy()
+                        currentOnStopTap(spidered.stopId)
+                        return@addOnMapClickListener true
+                    }
+                    val stop = created.stopAt(point, with(density) { 16.dp.toPx() })?.let { currentStopsById[it] }
+                    if (stop != null) {
+                        tooltip = null
+                        currentOnStopTap(stop.stopId)
+                        return@addOnMapClickListener true
+                    }
+                    val group = created.groupAt(point, with(density) { 8.dp.toPx() })
+                    if (group != null) {
+                        tooltip = null
+                        if (group.stations.size <= CLUSTER_STATIONS_MAX) currentOnStationsTap(created.groupStops(group))
+                        scope.launch(start = CoroutineStart.UNDISPATCHED) { created.expand(group) { restingPadding() } }
+                        return@addOnMapClickListener true
+                    }
                 }
                 selectedVehicleId = null
                 tooltip = null
@@ -429,8 +432,9 @@ fun TransitMap(
         fit(trip.shapes.flatMap { it.points } + trip.walks.flatten() + listOfNotNull(trip.destination).map { LatLon(it.lat, it.lon) })
     }
     LaunchedEffect(session, selectedVehicleId) { session?.selectVehicle(selectedVehicleId) }
-    val shownMe = if (nav != null) controller.navMe ?: me else me
-    LaunchedEffect(session, shownMe) { session?.setMe(shownMe) }
+    val navMe = controller.navMe.takeIf { nav != null }
+    val shownMe = navMe?.fix ?: me
+    LaunchedEffect(session, shownMe) { session?.setMe(shownMe, navMe?.ahead.orEmpty(), navMe?.aheadMs ?: 0) }
     LaunchedEffect(session, controller.rideAs) { session?.setRideAs(controller.rideAs) }
     LaunchedEffect(session, controller.pinnedLocation, controller.customOrigin, drag, dragAt, nav) {
         val s = session ?: return@LaunchedEffect

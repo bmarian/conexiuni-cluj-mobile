@@ -101,15 +101,17 @@ class JourneyService : Service() {
         if (JourneyManager.journey.value?.id != parsed.id) JourneyManager.mutableJourney.value = parsed
         if (journey?.id != parsed.id) {
             journey = parsed
-            phase = Phase.Walk(0)
+            phase = if (parsed.onBoard) Phase.Ride(0) else Phase.Walk(0)
             stepIndex = 0
             alerted = false
             ended = false
             rideStop = 0
+            ride = null
+            rideStartedAt = System.currentTimeMillis()
             motion.reset()
             legIndex.value = 0
-            cue = Phase.Walk(0)
-            cueSince = System.currentTimeMillis()
+            cue = phase
+            cueSince = rideStartedAt
             cueAfterRide = null
         }
         if (voice == null) voice = JourneyVoice(this)
