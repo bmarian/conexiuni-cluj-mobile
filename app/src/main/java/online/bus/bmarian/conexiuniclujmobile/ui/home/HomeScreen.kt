@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Map
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -82,6 +82,8 @@ private class RouteChip(val route: Route, val label: String, val favorites: List
 
 private fun planKey(p: FavoritePlan) = "${p.lat}_${p.lon}_${p.originLat ?: ""}_${p.originLon ?: ""}"
 
+private const val RECENTS_SHOWN = 5
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen() {
@@ -94,7 +96,7 @@ fun HomeScreen() {
     val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
     val favoriteStopIds by Services.favorites.stops.collectAsStateWithLifecycle()
     val favoritePlans by Services.favorites.plans.collectAsStateWithLifecycle()
-    val recentPlans by Services.favorites.recentPlans.collectAsStateWithLifecycle()
+    val recentList by Services.favorites.recents.collectAsStateWithLifecycle()
     val online by Services.online.collectAsStateWithLifecycle()
     // Another city's keep running, out of sight here.
     val city by Cities.current.collectAsStateWithLifecycle()
@@ -136,9 +138,7 @@ fun HomeScreen() {
     }
     val favoriteStops = remember(stopsById, favoriteStopIds) { favoriteStopIds.mapNotNull { stopsById[it] } }
     val hasFavorites = favoriteRoutes.isNotEmpty() || favoriteStopIds.isNotEmpty() || (online && favoritePlans.isNotEmpty())
-    val recents = remember(recentPlans, favoritePlans) {
-        recentPlans.filterNot { p -> favoritePlans.any { it.samePlace(p) } }.take(5)
-    }
+    val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
 
     fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
 
@@ -276,29 +276,27 @@ fun HomeScreen() {
                 }
             }
         }
-        if (online && recents.isNotEmpty()) {
+        if (recents.isNotEmpty()) {
             item(key = "recents-label") { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = if (hasFavorites) 8.dp else 12.dp)) }
-            items(recents, key = { "recent-${planKey(it)}" }) { plan ->
-                FavoriteRow(
+            items(recents, key = { "recent-${it.recent.key}" }) { item ->
+                val plan = item.plan
+                val stop = item.stop
+                val route = item.route
+                RecentRow(
+                    item,
                     modifier = Modifier.animateItem(),
-                    icon = {
-                        RowIcon(
-                            Icons.Rounded.Schedule,
-                            MaterialTheme.colorScheme.surfaceContainerHighest,
-                            MaterialTheme.colorScheme.onSurfaceVariant,
-                            size = 30.dp,
-                        )
+                    iconSize = 30.dp,
+                    onClick = {
+                        if (plan != null) openPlan(plan)
+                        else {
+                            Services.favorites.addRecent(item.recent)
+                            if (stop != null) nav.stop(stop.stopId) else if (route != null) openRoute(route, "auto")
+                        }
                     },
-                    title = plan.name,
-                    titlePrefix = if (plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
-                    kicker = plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" },
-                    removeLabel = stringResource(R.string.w_remove_from_recents),
-                    onClick = { openPlan(plan) },
-                    onRemove = { Services.favorites.removeRecentPlan(plan) },
                 )
             }
         }
-        if (!hasFavorites && !(online && recents.isNotEmpty())) {
+        if (!hasFavorites && recents.isEmpty()) {
             item(key = "empty") {
                 Text(
                     stringResource(R.string.w_no_favorites),
@@ -354,7 +352,7 @@ private fun FavoriteRouteChip(
 }
 
 @Composable
-private fun FavoriteRow(
+fun FavoriteRow(
     modifier: Modifier,
     icon: @Composable () -> Unit,
     title: String,
@@ -364,9 +362,10 @@ private fun FavoriteRow(
     onRemove: () -> Unit,
     titlePrefix: String? = null,
     lines: (@Composable () -> Unit)? = null,
+    background: Color = MaterialTheme.colorScheme.surfaceContainerLow,
 ) {
     Row(
-        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).squishClickable(onClick = onClick)
+        modifier.fillMaxWidth().background(background).squishClickable(onClick = onClick)
             .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

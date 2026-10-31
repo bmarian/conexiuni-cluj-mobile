@@ -40,7 +40,6 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Place
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -77,7 +76,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
+import online.bus.bmarian.conexiuniclujmobile.data.Place
+import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
+import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
+import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.Route
+import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.logic.sortedRoutes
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
@@ -97,6 +101,7 @@ fun planQueryFor(plan: FavoritePlan): PlanQuery {
     )
 }
 
+private const val RECENTS_SHOWN = 8
 private const val DOCKED_HEIGHT_RATIO = 2f / 3f
 private val DOCKED_MIN_HEIGHT = 240.dp
 
@@ -142,11 +147,15 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
     val online by Services.online.collectAsStateWithLifecycle()
     val me by Services.location.collectAsStateWithLifecycle()
     val locale by Services.settings.locale.collectAsStateWithLifecycle()
-    val recentPlans by Services.favorites.recentPlans.collectAsStateWithLifecycle()
+    val recentList by Services.favorites.recents.collectAsStateWithLifecycle()
     val favoritePlans by Services.favorites.plans.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    LaunchedEffect(state.query, online) { state.searchPlaces(state.query, online, me) }
+    LaunchedEffect(state.query, online) {
+        state.placesOpen = false
+        state.openOnResults = false
+        state.searchPlaces(state.query, online)
+    }
     BackHandler { onClose(true) }
 
     val prefs = remember { context.getSharedPreferences("home", android.content.Context.MODE_PRIVATE) }
@@ -160,16 +169,48 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
     val sortedStops = remember(stops, collator, index) {
         stops.sortedWith { a, b -> collator.compare(a.name, b.name) }.let { sorted -> index?.oneStopPerStation(sorted) ?: sorted }
     }
-    val recents = remember(recentPlans, favoritePlans) {
-        recentPlans.filterNot { p -> favoritePlans.any { it.samePlace(p) } }.take(8)
-    }
+    val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
 
     fun go(action: () -> Unit) {
         focusManager.clearFocus()
         onClose(false)
         action()
     }
-    fun openRoute(route: Route) = go { nav.route(route.routeId, "auto") }
+    fun openRoute(route: Route) = go {
+        Services.favorites.addRecent(RecentRoute(route.routeId))
+        nav.route(route.routeId, "auto")
+    }
+    fun openStop(stop: Stop) = go {
+        Services.favorites.addRecent(RecentStop(stop.stopId))
+        nav.stop(stop.stopId)
+    }
+    fun openPlace(place: Place) = go {
+        val lat = place.latitude
+        val lon = place.longitude
+        if (lat != null && lon != null) Services.favorites.addRecent(RecentPlan(FavoritePlan(place.label, lat = lat, lon = lon)))
+        nav.plan(PlanQuery(lat = place.lat, lon = place.lon, name = place.label))
+    }
+    fun openTopResult(): Boolean {
+        val plan = if (online) matchingPlans(favoritePlans, state.query).firstOrNull() else null
+        val route = state.routes(sortedAll).firstOrNull()
+        val stop = state.stops(stops, me, index).firstOrNull()
+        val place = if (online) state.shownPlaces(me).firstOrNull() else null
+        when {
+            plan != null -> go { nav.plan(planQueryFor(plan)) }
+            route != null -> openRoute(route)
+            stop != null -> openStop(stop)
+            place != null -> openPlace(place)
+            else -> return false
+        }
+        return true
+    }
+    val placesLoading = state.placesLoading(online)
+    LaunchedEffect(placesLoading) {
+        if (!placesLoading && state.openOnResults) {
+            state.openOnResults = false
+            openTopResult()
+        }
+    }
 
     SearchSurface(docked) {
         Column(if (docked) Modifier.fillMaxWidth() else Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
@@ -194,7 +235,14 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                         unfocusedContainerColor = Color.Transparent,
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            if (!openTopResult()) {
+                                focusManager.clearFocus()
+                                state.openOnResults = placesLoading
+                            }
+                        },
+                    ),
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -204,19 +252,14 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                         state = state,
                         routes = sortedAll,
                         stops = stops,
+                        plans = favoritePlans,
                         me = me,
                         online = online,
                         navigatingRouteId = null,
-                        onPlace = { place ->
-                            go {
-                                val lat = place.latitude
-                                val lon = place.longitude
-                                if (lat != null && lon != null) Services.favorites.addRecentPlan(FavoritePlan(place.label, lat = lat, lon = lon))
-                                nav.plan(PlanQuery(lat = place.lat, lon = place.lon, name = place.label))
-                            }
-                        },
+                        onPlan = { plan -> go { nav.plan(planQueryFor(plan)) } },
+                        onPlace = ::openPlace,
                         onRoute = ::openRoute,
-                        onStop = { stop -> go { nav.stop(stop.stopId) } },
+                        onStop = ::openStop,
                         onDropPin = {
                             go { nav.plan(PlanQuery(lat = "46.7712", lon = "23.6236", name = resources.getString(R.string.w_dropped_pin))) }
                         },
@@ -225,18 +268,19 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                     return@LazyColumn
                 }
 
-                if (online && recents.isNotEmpty()) {
+                if (recents.isNotEmpty()) {
                     item { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = 8.dp)) }
-                    items(recents, key = { "recent-${it.lat}-${it.lon}-${it.originLat}" }) { plan ->
-                        ResultRow(
-                            icon = {
-                                RowIcon(Icons.Rounded.Schedule, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            title = plan.name,
-                            distance = null,
-                            subtitle = plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" },
-                            onClick = { go { nav.plan(planQueryFor(plan)) } },
-                        )
+                    items(recents, key = { "recent-${it.recent.key}" }) { item ->
+                        val plan = item.plan
+                        val stop = item.stop
+                        val route = item.route
+                        RecentRow(item, iconSize = 36.dp, background = Color.Transparent) {
+                            when {
+                                plan != null -> go { nav.plan(planQueryFor(plan)) }
+                                stop != null -> openStop(stop)
+                                route != null -> openRoute(route)
+                            }
+                        }
                     }
                 }
                 if (online && favoritePlans.isNotEmpty()) {
@@ -297,7 +341,7 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                 if (showAllStops) {
                     if (stops.isEmpty()) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp)) }
                     items(sortedStops, key = { "all-s-${it.stopId}" }, contentType = { "stop" }) { stop ->
-                        StationRow(stop, index?.look(stop.stopId), distance = null, iconSize = 32.dp) { go { nav.stop(stop.stopId) } }
+                        StationRow(stop, index?.look(stop.stopId), distance = null, iconSize = 32.dp) { openStop(stop) }
                     }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
