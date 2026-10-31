@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Search
@@ -46,10 +47,11 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
-import online.bus.bmarian.conexiuniclujmobile.logic.stopMatchRank
+import online.bus.bmarian.conexiuniclujmobile.logic.matching
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
 import androidx.compose.ui.unit.Dp
+import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Places
 import online.bus.bmarian.conexiuniclujmobile.data.Place
@@ -66,9 +68,17 @@ import java.text.Normalizer
 private val DIACRITICS = Regex("\\p{Mn}+")
 
 const val RESULTS_PER_KIND = 3
+private const val PLACES_KEPT = 10
 
 /** Port of norm(). */
 fun norm(s: String): String = Normalizer.normalize(s, Normalizer.Form.NFD).replace(DIACRITICS, "").lowercase()
+
+/** Port of matchingPlans in stores/favorites.ts. */
+fun matchingPlans(plans: List<FavoritePlan>, query: String): List<FavoritePlan> {
+    val q = norm(query.trim())
+    if (q.isEmpty()) return emptyList()
+    return matching(plans, { norm("${it.label.orEmpty()} ${it.name}") }, q).take(RESULTS_PER_KIND).map { it.item }
+}
 
 fun <T> sortByDistance(items: List<T>, lat: Double, lon: Double, latOf: (T) -> Double, lonOf: (T) -> Double): List<T> =
     items.map { it to haversineMeters(lat, lon, latOf(it), lonOf(it)) }.sortedBy { it.second }.map { it.first }
@@ -80,6 +90,8 @@ class SearchState {
         private set
     // The query the places are for.
     private var placesQuery by mutableStateOf("")
+    var placesOpen by mutableStateOf(false)
+    var openOnResults = false
 
     val active: Boolean get() = query.trim().isNotEmpty()
 
@@ -91,20 +103,27 @@ class SearchState {
     fun routes(routes: List<Route>): List<Route> {
         val q = norm(query.trim())
         if (q.isEmpty()) return emptyList()
-        return routes.filter { norm(it.shortName).contains(q) || norm(it.longName).contains(q) }.take(RESULTS_PER_KIND)
+        return matching(routes, { norm("${it.shortName} ${it.longName}") }, q).take(RESULTS_PER_KIND).map { it.item }
     }
 
     /** Port of searchStopResults. */
     fun stops(stops: List<Stop>, me: Fix?, index: NetworkIndex?): List<Stop> {
         val q = norm(query.trim())
         if (q.isEmpty()) return emptyList()
-        val matches = stops.mapNotNull { stop -> stopMatchRank(norm(stop.name), q).takeIf { it >= 0 }?.let { stop to it } }
-        val sorted = if (me != null) sortByDistance(matches, me.lat, me.lon, { it.first.lat }, { it.first.lon }) else matches
-        val ranked = sorted.sortedBy { it.second }.map { it.first }
+        val matches = matching(stops, { norm(it.name) }, q)
+        val sorted = if (me != null) sortByDistance(matches, me.lat, me.lon, { it.item.lat }, { it.item.lon }) else matches
+        val ranked = sorted.sortedBy { it.rank }.map { it.item }
         return (index?.oneStopPerStation(ranked) ?: ranked).take(RESULTS_PER_KIND)
     }
 
-    suspend fun searchPlaces(query: String, online: Boolean, me: Fix?) {
+    private fun nearestFirst(found: List<Place>, me: Fix?) =
+        if (me != null) sortByDistance(found, me.lat, me.lon, { it.latitude ?: 0.0 }, { it.longitude ?: 0.0 }) else found
+
+    // So nothing moves when the rest open.
+    fun shownPlaces(me: Fix?): List<Place> =
+        nearestFirst(places.take(RESULTS_PER_KIND), me) + if (placesOpen) nearestFirst(places.drop(RESULTS_PER_KIND), me) else emptyList()
+
+    suspend fun searchPlaces(query: String, online: Boolean) {
         val trimmed = query.trim()
         if (placesQuery == trimmed) return
         if (!online || trimmed.length < 3) {
@@ -113,15 +132,12 @@ class SearchState {
             return
         }
         delay(350)
-        val results = try {
-            Places.search(trimmed, RESULTS_PER_KIND)
+        places = try {
+            Places.search(trimmed, PLACES_KEPT)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             emptyList()
         }
-        places = if (me != null && results.size > 1) {
-            sortByDistance(results, me.lat, me.lon, { it.latitude ?: 0.0 }, { it.longitude ?: 0.0 })
-        } else results
         placesQuery = trimmed
     }
 }
@@ -160,21 +176,36 @@ fun LazyListScope.searchResults(
     state: SearchState,
     routes: List<Route>,
     stops: List<Stop>,
+    plans: List<FavoritePlan>,
     me: Fix?,
     online: Boolean,
     navigatingRouteId: Int?,
+    onPlan: (FavoritePlan) -> Unit,
     onPlace: (Place) -> Unit,
     onRoute: (Route) -> Unit,
     onStop: (Stop) -> Unit,
     onDropPin: () -> Unit,
 ) {
+    val savedResults = if (online) matchingPlans(plans, state.query) else emptyList()
     val routeResults = state.routes(routes)
     val index = Services.repository.network.index.value
     val stopResults = state.stops(stops, me, index)
-    val places = if (online) state.places else emptyList()
+    val places = if (online) state.shownPlaces(me) else emptyList()
     val loading = state.placesLoading(online)
     if (loading) {
         item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) }
+    }
+    if (savedResults.isNotEmpty()) {
+        item { SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = 8.dp)) }
+        items(savedResults, key = { "saved-result-${it.lat}-${it.lon}-${it.originLat}" }) { plan ->
+            ResultRow(
+                icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
+                title = plan.label ?: plan.name,
+                distance = null,
+                subtitle = plan.name.takeIf { plan.label != null },
+                onClick = { onPlan(plan) },
+            )
+        }
     }
     if (routeResults.isNotEmpty()) {
         item { SubLabel(stringResource(R.string.w_search_results_routes), Modifier.padding(top = 8.dp)) }
@@ -193,13 +224,24 @@ fun LazyListScope.searchResults(
         items(places, key = { "place-${it.id}" }) { place ->
             ResultRow(
                 icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
-                title = place.label,
+                title = place.name,
                 distance = place.latitude?.let { lat -> place.longitude?.let { lon -> distanceFrom(me, lat, lon) } },
+                subtitle = place.detail.ifEmpty { null },
                 onClick = { onPlace(place) },
             )
         }
+        if (!state.placesOpen && state.places.size > RESULTS_PER_KIND) {
+            item(key = "more-places") {
+                ResultRow(
+                    icon = { RowIcon(Icons.Rounded.ExpandMore, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant) },
+                    title = stringResource(R.string.w_route_change_show_more),
+                    distance = null,
+                    onClick = { state.placesOpen = true },
+                )
+            }
+        }
     }
-    if (!loading && places.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()) {
+    if (!loading && places.isEmpty() && savedResults.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()) {
         item {
             if (online) {
                 Row(

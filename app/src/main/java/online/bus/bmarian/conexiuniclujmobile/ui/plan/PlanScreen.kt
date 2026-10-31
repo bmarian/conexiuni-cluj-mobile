@@ -107,6 +107,8 @@ import java.time.Instant
 import java.time.LocalDateTime
 import kotlin.math.max
 import kotlinx.coroutines.launch
+import online.bus.bmarian.conexiuniclujmobile.ui.home.placePicks
+import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
@@ -579,6 +581,11 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
     val query by vm.searchQuery.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
     val searching by vm.isSearching.collectAsStateWithLifecycle()
+    val plans by Services.favorites.plans.collectAsStateWithLifecycle()
+    val recents by Services.favorites.recents.collectAsStateWithLifecycle()
+    val stops by Services.repository.stops.collectAsStateWithLifecycle()
+    val picks = remember(plans, recents, stops, online, query) { placePicks(query, plans, recents, stops, online) }
+    fun select(place: Place) = if (field == SearchField.Origin) vm.selectOrigin(place) else vm.selectDestination(place)
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -598,6 +605,18 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
             keyboardActions = KeyboardActions(onSearch = { vm.searchNow() }),
             shape = RoundedCornerShape(14.dp),
         )
+        if (hasLocation) {
+            SearchResultRow(Icons.Rounded.MyLocation, stringResource(R.string.w_plan_origin_current_location), MaterialTheme.colorScheme.primary) {
+                if (field == SearchField.Origin) vm.useCurrentLocation() else vm.useCurrentLocationAsDestination()
+            }
+        }
+        if (field == SearchField.Origin || online) {
+            for (pick in picks) {
+                val icon = if (pick.recent) Icons.Rounded.Schedule else Icons.Rounded.Place
+                val tint = if (pick.recent) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
+                SearchResultRow(icon, pick.place.label, tint) { select(pick.place) }
+            }
+        }
         if (searching) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -605,17 +624,10 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
             }
             return@Column
         }
-        if (hasLocation) {
-            SearchResultRow(Icons.Rounded.MyLocation, stringResource(R.string.w_plan_origin_current_location), MaterialTheme.colorScheme.primary) {
-                if (field == SearchField.Origin) vm.useCurrentLocation() else vm.useCurrentLocationAsDestination()
-            }
-        }
         for (place in results) {
-            SearchResultRow(Icons.Rounded.Place, place.label, MaterialTheme.colorScheme.tertiary) {
-                if (field == SearchField.Origin) vm.selectOrigin(place) else vm.selectDestination(place)
-            }
+            SearchResultRow(Icons.Rounded.Place, place.label, MaterialTheme.colorScheme.tertiary) { select(place) }
         }
-        if (field == SearchField.Destination && online && results.isEmpty() && query.trim().length >= 3) {
+        if (field == SearchField.Destination && online && results.isEmpty() && picks.isEmpty() && query.trim().length >= 3) {
             SearchResultRow(Icons.Rounded.PushPin, stringResource(R.string.w_drop_pin), MaterialTheme.colorScheme.onSurfaceVariant) {
                 vm.dropPinAsDestination()
             }

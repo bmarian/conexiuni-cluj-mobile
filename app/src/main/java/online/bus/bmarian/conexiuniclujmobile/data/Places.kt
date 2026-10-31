@@ -11,9 +11,11 @@ import kotlinx.serialization.json.doubleOrNull
 import okhttp3.Request
 import java.util.Locale
 
-data class Place(val id: String, val lat: String, val lon: String, val label: String) {
+data class Place(val id: String, val lat: String, val lon: String, val label: String, val name: String = label) {
     val latitude: Double? get() = lat.toDoubleOrNull()
     val longitude: Double? get() = lon.toDoubleOrNull()
+
+    val detail: String get() = label.removePrefix(name).removePrefix(",").trim()
 }
 
 private fun fallbackLabel(lat: String, lon: String) = String.format(Locale.ROOT, "%.4f, %.4f", lat.toDouble(), lon.toDouble())
@@ -37,7 +39,9 @@ object Places {
         val lonS = jsNumber(lon)
         val label = (o["label"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
         val id = (o["id"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() } ?: "$latS:$lonS"
-        return Place(id, latS, lonS, label.ifEmpty { fallbackLabel(latS, lonS) })
+        val shown = label.ifEmpty { fallbackLabel(latS, lonS) }
+        val name = (o["name"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+        return Place(id, latS, lonS, shown, name.takeIf { label.isNotEmpty() && it.isNotEmpty() } ?: shown)
     }
 
     private suspend fun request(url: String): List<Place> {

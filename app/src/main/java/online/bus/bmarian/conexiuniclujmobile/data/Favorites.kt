@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
@@ -43,16 +44,33 @@ data class FavoritePlan(
 
 private fun round6(x: Double) = SyncRecords.roundCoordinate(x)
 
-private const val MAX_RECENT_PLANS = 10
+/** Same shape as Recent on the web. */
+sealed interface Recent {
+    val key: String
+}
+
+data class RecentPlan(val plan: FavoritePlan) : Recent {
+    override val key get() = "${round6(plan.lat)}_${round6(plan.lon)}_${plan.originLat?.let(::round6)}_${plan.originLon?.let(::round6)}"
+}
+
+data class RecentStop(val stopId: Int) : Recent {
+    override val key get() = "stop-$stopId"
+}
+
+data class RecentRoute(val routeId: Int) : Recent {
+    override val key get() = "route-$routeId"
+}
+
+private const val MAX_RECENTS = 10
 
 /** Saved favorites of one city. */
 class SavedFavorites(
     val routes: List<FavoriteRoute> = emptyList(),
     val stops: List<Int> = emptyList(),
     val plans: List<FavoritePlan> = emptyList(),
-    val recentPlans: List<FavoritePlan> = emptyList(),
+    val recents: List<Recent> = emptyList(),
 ) {
-    val isEmpty get() = routes.isEmpty() && stops.isEmpty() && plans.isEmpty() && recentPlans.isEmpty()
+    val isEmpty get() = routes.isEmpty() && stops.isEmpty() && plans.isEmpty() && recents.isEmpty()
 }
 
 // Same keys as the website's localStorage, for exports; one file per city.
@@ -68,8 +86,8 @@ class Favorites(private val context: Context) {
     val stops: StateFlow<List<Int>> = _stops
     private val _plans = MutableStateFlow(initial.plans)
     val plans: StateFlow<List<FavoritePlan>> = _plans
-    private val _recentPlans = MutableStateFlow(initial.recentPlans)
-    val recentPlans: StateFlow<List<FavoritePlan>> = _recentPlans
+    private val _recents = MutableStateFlow(initial.recents)
+    val recents: StateFlow<List<Recent>> = _recents
 
     /** The city whose stops or lines changed, for the watch. */
     var onSharedChange: ((String) -> Unit)? = null
@@ -77,7 +95,7 @@ class Favorites(private val context: Context) {
     private fun read(prefs: SharedPreferences): SavedFavorites {
         fun get(key: String): JsonElement? =
             prefs.getString(key, null)?.let { runCatching { Api.json.parseToJsonElement(it) }.getOrNull() }
-        return SavedFavorites(parseFavoriteRoutes(get("routes")), parseStopIds(get("stops")), parsePlans(get("plans")), parsePlans(get("recentPlans")))
+        return SavedFavorites(parseFavoriteRoutes(get("routes")), parseStopIds(get("stops")), parsePlans(get("plans")), parseRecents(get("recentPlans")))
     }
 
     private fun write(prefs: SharedPreferences, saved: SavedFavorites) {
@@ -85,7 +103,7 @@ class Favorites(private val context: Context) {
             putString("routes", Api.json.encodeToString(saved.routes))
             putString("stops", Api.json.encodeToString(saved.stops))
             putString("plans", Api.json.encodeToString(saved.plans))
-            putString("recentPlans", Api.json.encodeToString(saved.recentPlans))
+            putString("recentPlans", recentsJson(saved.recents).toString())
         }
     }
 
@@ -93,7 +111,7 @@ class Favorites(private val context: Context) {
         _routes.value = saved.routes
         _stops.value = saved.stops
         _plans.value = saved.plans
-        _recentPlans.value = saved.recentPlans
+        _recents.value = saved.recents
     }
 
     fun use(slug: String) {
@@ -105,7 +123,7 @@ class Favorites(private val context: Context) {
 
     fun saved(city: String): SavedFavorites = if (city == this.city) current() else read(cityPrefs(context, "favorites", city))
 
-    private fun current() = SavedFavorites(_routes.value, _stops.value, _plans.value, _recentPlans.value)
+    private fun current() = SavedFavorites(_routes.value, _stops.value, _plans.value, _recents.value)
 
     private fun persist() = write(prefs, current())
 
@@ -163,7 +181,7 @@ class Favorites(private val context: Context) {
         if (city != this.city) {
             val prefs = cityPrefs(context, "favorites", city)
             val saved = read(prefs)
-            write(prefs, SavedFavorites(routes, stops, saved.plans, saved.recentPlans))
+            write(prefs, SavedFavorites(routes, stops, saved.plans, saved.recents))
             return
         }
         _stops.value = stops
@@ -176,19 +194,19 @@ class Favorites(private val context: Context) {
         persist()
     }
 
-    fun addRecentPlan(plan: FavoritePlan) {
-        _recentPlans.value = (listOf(plan) + _recentPlans.value.filterNot { it.samePlace(plan) }).take(MAX_RECENT_PLANS)
+    fun addRecent(recent: Recent) {
+        _recents.value = (listOf(recent) + _recents.value.filterNot { it.key == recent.key }).take(MAX_RECENTS)
         persist()
     }
 
-    fun removeRecentPlan(plan: FavoritePlan) {
-        _recentPlans.value = _recentPlans.value.filterNot { it.samePlace(plan) }
+    fun removeRecent(recent: Recent) {
+        _recents.value = _recents.value.filterNot { it.key == recent.key }
         persist()
     }
 
     /** What sync agreed on; recent trips stay this device's own. */
     fun replaceSynced(city: String, routes: List<FavoriteRoute>, stops: List<Int>, plans: List<FavoritePlan>) {
-        val saved = SavedFavorites(routes, stops, plans, saved(city).recentPlans)
+        val saved = SavedFavorites(routes, stops, plans, saved(city).recents)
         if (city != this.city) write(cityPrefs(context, "favorites", city), saved)
         else {
             show(saved)
@@ -225,6 +243,30 @@ class Favorites(private val context: Context) {
 
         private fun JsonObject.number(key: String) =
             (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull?.takeIf { it.isFinite() }
+
+        fun parseRecents(raw: JsonElement?): List<Recent> {
+            val list = raw as? JsonArray ?: return emptyList()
+            return list.mapNotNull { item ->
+                val r = item as? JsonObject ?: return@mapNotNull null
+                val stopId = r.number("stopId")?.toInt()
+                val routeId = r.number("routeId")?.toInt()
+                when {
+                    stopId != null -> RecentStop(stopId)
+                    routeId != null -> RecentRoute(routeId)
+                    else -> parsePlans(JsonArray(listOf(r))).firstOrNull()?.let(::RecentPlan)
+                }
+            }
+        }
+
+        fun recentsJson(recents: List<Recent>) = JsonArray(
+            recents.map {
+                when (it) {
+                    is RecentPlan -> Api.json.encodeToJsonElement(it.plan)
+                    is RecentStop -> JsonObject(mapOf("stopId" to JsonPrimitive(it.stopId)))
+                    is RecentRoute -> JsonObject(mapOf("routeId" to JsonPrimitive(it.routeId)))
+                }
+            },
+        )
 
         fun parsePlans(raw: JsonElement?): List<FavoritePlan> {
             val list = raw as? JsonArray ?: return emptyList()
