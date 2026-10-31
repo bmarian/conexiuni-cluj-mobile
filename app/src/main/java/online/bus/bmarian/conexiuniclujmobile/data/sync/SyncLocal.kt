@@ -5,11 +5,16 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
+import online.bus.bmarian.conexiuniclujmobile.data.Recent
+import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
+import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
+import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.City
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Origin
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Place
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.RecentItem
 import java.text.Normalizer
 import java.util.Locale
 
@@ -78,6 +83,23 @@ object SyncLocal {
 
     fun applyNews(slug: String, r: SyncRecords.News) = Services.routeUpdates.replaceSeen(r.seen, slug)
 
+    private fun toRecentItem(r: Recent): RecentItem? = when (r) {
+        is RecentStop -> RecentItem.Stop(r.stopId.toLong()).takeIf { it.id in validId }
+        is RecentRoute -> RecentItem.Line(r.routeId.toLong()).takeIf { it.id in validId }
+        is RecentPlan -> toPlace(r.plan)?.let(RecentItem::Spot)
+    }
+
+    private fun toRecent(item: RecentItem): Recent = when (item) {
+        is RecentItem.Stop -> RecentStop(item.id.toInt())
+        is RecentItem.Line -> RecentRoute(item.id.toInt())
+        is RecentItem.Spot -> RecentPlan(toPlan(item.place))
+    }
+
+    fun recentsFromLocal(slug: String) =
+        SyncRecords.Recents(Services.favorites.saved(slug).recents.mapNotNull(::toRecentItem).distinctBy(SyncRecords::recentId))
+
+    fun applyRecents(slug: String, r: SyncRecords.Recents) = Services.favorites.replaceRecents(slug, r.recent.map(::toRecent))
+
     fun syncedCities(): List<String> = Cities.list.value.map { it.slug }
 
     data class OverCap(val city: String, val list: String, val count: Int)
@@ -109,6 +131,23 @@ object SyncLocal {
         if (s.autoFitMap.value != r.autoFitMap) s.setAutoFitMap(r.autoFitMap)
         if (s.regionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY) != r.greenFriday) {
             s.setRegionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY, r.greenFriday)
+        }
+    }
+
+    fun optionsFromLocal(): SyncRecords.Options {
+        val s = Services.settings
+        return SyncRecords.Options(s.colorfulLines.value, Cities.choice.value.orEmpty(), s.journeyVoice.value, s.fullScreenAlarms.value)
+    }
+
+    fun applyOptions(r: SyncRecords.Options) {
+        val s = Services.settings
+        if (s.colorfulLines.value != r.colorfulLines) s.setColorfulLines(r.colorfulLines)
+        r.journeyVoice?.takeIf { it != s.journeyVoice.value }?.let(s::setJourneyVoice)
+        r.fullScreenAlarms?.takeIf { it != s.fullScreenAlarms.value }?.let(s::setFullScreenAlarms)
+        if (Cities.choice.value.orEmpty() != r.city && (r.city.isEmpty() || Cities.known(r.city))) {
+            val slug = r.city.ifEmpty { null }
+            // A screen open on the old city keeps it until the app next opens.
+            if (Services.atHome.value) Services.chooseCity(slug) else Cities.choose(slug)
         }
     }
 

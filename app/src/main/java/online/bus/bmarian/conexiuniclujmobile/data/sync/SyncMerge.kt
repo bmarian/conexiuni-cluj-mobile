@@ -4,7 +4,9 @@ import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.City
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Device
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Line
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.News
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Options
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Place
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Recents
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Settings
 
 /** The three-way merge of protocol.md §6. Port of utils/sync/merge.ts. */
@@ -87,6 +89,30 @@ object SyncMerge {
 
     fun mergeNews(base: News, local: News, remote: News): News =
         News(mergeList(base.seen, local.seen, remote.seen, SyncRecords::stopId, ::same, Int.MAX_VALUE).merged.let(SyncRecords::newestSeen))
+
+    /** What neither side had goes first: it is what was just looked for. */
+    fun mergeRecents(base: Recents, local: Recents, remote: Recents): Recents {
+        val merged = mergeList(base.recent, local.recent, remote.recent, SyncRecords::recentId, ::same, Int.MAX_VALUE).merged
+        val had = base.recent.map(SyncRecords::recentId).toSet()
+        val (known, fresh) = merged.partition { SyncRecords.recentId(it) in had }
+        return Recents((fresh + known).take(SyncRecords.RECENT_CAP))
+    }
+
+    fun mergeOptions(base: Options?, local: Options, remote: Options): Options {
+        if (base == null) {
+            return remote.copy(
+                city = remote.city.ifEmpty { local.city },
+                journeyVoice = remote.journeyVoice ?: local.journeyVoice,
+                fullScreenAlarms = remote.fullScreenAlarms ?: local.fullScreenAlarms,
+            )
+        }
+        return Options(
+            pick(base.colorfulLines, local.colorfulLines, remote.colorfulLines, true),
+            pick(base.city, local.city, remote.city, true),
+            pick(base.journeyVoice, local.journeyVoice, remote.journeyVoice, true),
+            pick(base.fullScreenAlarms, local.fullScreenAlarms, remote.fullScreenAlarms, true),
+        )
+    }
 
     fun mergeSettings(base: Settings?, local: Settings, remote: Settings): Settings {
         if (base == null) return remote

@@ -7,6 +7,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -23,6 +24,8 @@ import java.io.IOException
 
 // Collects a burst of edits (a reorder, a few toggles) into one write.
 private const val AFTER_EDIT_MS = 2000L
+// An edit made on another device shows up here while this one stays open.
+private const val WHILE_OPEN_MS = 30_000L
 
 /** When this device syncs and what the Settings screen shows about it. Port of stores/sync.ts. */
 class Sync(private val context: Context) {
@@ -49,29 +52,38 @@ class Sync(private val context: Context) {
     fun start(scope: CoroutineScope) {
         _status.value = if (engine.membership() != null) Status.On else Status.Off
         scope.launch {
-            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { syncNow() }
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                syncNow()
+                while (true) {
+                    delay(WHILE_OPEN_MS)
+                    syncNow(quiet = true)
+                }
+            }
         }
         scope.launch { Services.online.drop(1).filter { it }.collect { syncNow() } }
         val favorites = Services.favorites
         scope.launch {
             combine(favorites.routes, favorites.stops, favorites.plans, Services.routeUpdates.followed, Services.routeUpdates.seen) { _, _, _, _, _ -> }
+                .combine(favorites.recents) { _, _ -> }
                 .drop(1).debounce(AFTER_EDIT_MS).collect { syncNow() }
         }
         val s = Services.settings
         scope.launch {
-            combine(s.theme, s.locale, s.autoCenterOnMe, s.autoFitMap) { _, _, _, _ -> }
+            combine(s.theme, s.locale, s.autoCenterOnMe, s.autoFitMap, s.colorfulLines) { _, _, _, _, _ -> }
+                .combine(combine(s.journeyVoice, s.fullScreenAlarms, Cities.choice) { _, _, _ -> }) { _, _ -> }
                 .combine(s.regions) { _, regions -> s.regionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY, regions) }
                 .drop(1).debounce(AFTER_EDIT_MS).collect { if (_withSettings.value) syncNow() }
         }
     }
 
-    suspend fun syncNow() {
+    /** [quiet]: the routine check, which the status line doesn't show. */
+    suspend fun syncNow(quiet: Boolean = false) {
         if (_status.value != Status.On) return
         if (!running.tryLock()) {
             again = true
             return
         }
-        busy.value = true
+        busy.value = !quiet
         try {
             do {
                 again = false

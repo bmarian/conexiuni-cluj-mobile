@@ -47,7 +47,7 @@ Your favorites, followed buses and trips go between the phone and the watch thro
 
 Your favorites, reminders and settings are stored on your devices, and in Android's backup of your phone if you turned that on.
 
-With Sync with other devices on, your favorite stops, lines and places and the lines whose changes you follow stay the same on your phone, watch and the website; with Also sync settings, so do the theme, language and map settings. Reminders, followed buses, trips and recent searches stay on the device they were made on.
+With Sync with other devices on, your favorite stops, lines and places, your recent searches and the lines whose changes you follow stay the same on your phone, watch and the website; with Also sync settings, so do the theme, language, map, city and alert settings. Reminders, followed buses and trips stay on the device they were made on.
 
 Everything synced is encrypted on your devices with a key that ceautobuziau.ro never gets, so the server stores it but can't read it. The key goes to a new device when you add it: inside the QR code, in a part of the link that never reaches the server, or, when you type the code instead, through a key exchange that you confirm by checking that both screens show the same six-digit number. The key isn't in Android's backup.
 

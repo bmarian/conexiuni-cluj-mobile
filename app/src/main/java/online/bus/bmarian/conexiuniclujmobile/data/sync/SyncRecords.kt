@@ -3,6 +3,7 @@ package online.bus.bmarian.conexiuniclujmobile.data.sync
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -14,6 +15,7 @@ object SyncRecords {
     const val CITY_CAP = 50
     const val NEWS_CAP = 200
     const val DEVICE_CAP = 10
+    const val RECENT_CAP = 10
     private const val MAX_INT = Int.MAX_VALUE.toLong()
     val LAT = 43.6..48.3
     val LON = 20.2..29.8
@@ -26,6 +28,13 @@ object SyncRecords {
         val isEmpty get() = stops.isEmpty() && lines.isEmpty() && places.isEmpty() && followed.isEmpty()
     }
     data class News(val seen: List<Long>)
+    sealed interface RecentItem {
+        data class Stop(val id: Long) : RecentItem
+        data class Line(val id: Long) : RecentItem
+        data class Spot(val place: Place) : RecentItem
+    }
+    data class Recents(val recent: List<RecentItem>)
+    data class Options(val colorfulLines: Boolean, val city: String, val journeyVoice: Boolean?, val fullScreenAlarms: Boolean?)
     data class Device(val id: String, val kind: String, val label: String, val pub: String)
     data class Devices(val devices: List<Device>)
     data class Settings(
@@ -118,6 +127,11 @@ object SyncRecords {
     fun lineId(l: Line) = "${l.route}/${l.dir}"
     fun placeId(p: Place) = listOf(p.lat, p.lon, p.origin?.lat ?: "", p.origin?.lon ?: "").joinToString(",")
     fun deviceId(d: Device) = d.id
+    fun recentId(r: RecentItem) = when (r) {
+        is RecentItem.Stop -> "stop:${r.id}"
+        is RecentItem.Line -> "line:${r.id}"
+        is RecentItem.Spot -> "place:${placeId(r.place)}"
+    }
 
     /** Parses, checks the rules and the canonical form; the version comes first, so a later shape is newer, not refused. */
     private fun <T> read(raw: String, parse: (JsonElement) -> T, write: (T) -> String): Read<T> = try {
@@ -133,6 +147,17 @@ object SyncRecords {
         Read.Refused
     }
 
+    private fun parsePlace(f: List<JsonElement>): Place {
+        if (f.size != 4 && f.size != 7) refuse()
+        return Place(
+            name = text(f[0], 1, 100),
+            label = text(f[1], 0, 40),
+            lat = coordinate(f[2], LAT),
+            lon = coordinate(f[3], LON),
+            origin = if (f.size == 7) Origin(text(f[4], 1, 100), coordinate(f[5], LAT), coordinate(f[6], LON)) else null,
+        )
+    }
+
     private fun parseCity(record: JsonElement): City {
         val m = obj(record, "v", "stops", "lines", "places", "followed")
         val stops = list(m["stops"], CITY_CAP).map { integer(it, 1, MAX_INT) }
@@ -142,17 +167,7 @@ object SyncRecords {
             if (pair.size != 2 || (dir != "0" && dir != "1")) refuse()
             Line(integer(pair[0], 1, MAX_INT), dir)
         }
-        val places = list(m["places"], CITY_CAP).map { p ->
-            val f = list(p, 7)
-            if (f.size != 4 && f.size != 7) refuse()
-            Place(
-                name = text(f[0], 1, 100),
-                label = text(f[1], 0, 40),
-                lat = coordinate(f[2], LAT),
-                lon = coordinate(f[3], LON),
-                origin = if (f.size == 7) Origin(text(f[4], 1, 100), coordinate(f[5], LAT), coordinate(f[6], LON)) else null,
-            )
-        }
+        val places = list(m["places"], CITY_CAP).map { parsePlace(list(it, 7)) }
         val followed = list(m["followed"], CITY_CAP).map { text(it, 1, 16) }
         unique(stops, ::stopId)
         unique(lines, ::lineId)
@@ -195,6 +210,33 @@ object SyncRecords {
 
     fun readNews(raw: String): Read<News> = read(raw, ::parseNews, ::writeNews)
 
+    val emptyRecents = Recents(emptyList())
+
+    private fun parseRecents(record: JsonElement): Recents {
+        val recent = list(obj(record, "v", "recent")["recent"], RECENT_CAP).map { item ->
+            val f = list(item, 8)
+            val kind = (f.getOrNull(0) as? JsonPrimitive)?.takeIf { it.isString }?.content
+            when {
+                kind == "place" -> RecentItem.Spot(parsePlace(f.drop(1)))
+                kind == "stop" && f.size == 2 -> RecentItem.Stop(integer(f[1], 1, MAX_INT))
+                kind == "line" && f.size == 2 -> RecentItem.Line(integer(f[1], 1, MAX_INT))
+                else -> refuse()
+            }
+        }
+        unique(recent, ::recentId)
+        return Recents(recent)
+    }
+
+    fun writeRecents(r: Recents): String = "{\"v\":1,\"recent\":" + joined(r.recent) {
+        when (it) {
+            is RecentItem.Stop -> "[\"stop\",${it.id}]"
+            is RecentItem.Line -> "[\"line\",${it.id}]"
+            is RecentItem.Spot -> "[\"place\"," + writePlace(it.place).drop(1)
+        }
+    } + "}"
+
+    fun readRecents(raw: String): Read<Recents> = read(raw, ::parseRecents, ::writeRecents)
+
     private val ID_TEXT = Regex("^[A-Za-z0-9_-]{21}[AQgw]$")
 
     private fun parseDevices(record: JsonElement): Devices {
@@ -231,4 +273,17 @@ object SyncRecords {
             ",\"regions\":{\"cluj\":{\"showGreenFriday\":${r.greenFriday}}}}"
 
     fun readSettings(raw: String): Read<Settings> = read(raw, ::parseSettings, ::writeSettings)
+
+    private fun maybeBool(e: JsonElement?): Boolean? = if (e is JsonNull) null else bool(e)
+
+    private fun parseOptions(record: JsonElement): Options {
+        val m = obj(record, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms")
+        return Options(bool(m["colorfulLines"]), text(m["city"], 0, 40), maybeBool(m["journeyVoice"]), maybeBool(m["fullScreenAlarms"]))
+    }
+
+    fun writeOptions(r: Options): String =
+        "{\"v\":1,\"colorfulLines\":${r.colorfulLines},\"city\":${quote(r.city)}" +
+            ",\"journeyVoice\":${r.journeyVoice},\"fullScreenAlarms\":${r.fullScreenAlarms}}"
+
+    fun readOptions(raw: String): Read<Options> = read(raw, ::parseOptions, ::writeOptions)
 }

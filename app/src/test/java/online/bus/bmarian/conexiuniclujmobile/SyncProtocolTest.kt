@@ -87,6 +87,8 @@ class SyncProtocolTest {
     private fun outcome(kind: String, raw: String): String = when (val read = when (kind) {
         "city" -> SyncRecords.readCity(raw)
         "news" -> SyncRecords.readNews(raw)
+        "recents" -> SyncRecords.readRecents(raw)
+        "options" -> SyncRecords.readOptions(raw)
         "devices" -> SyncRecords.readDevices(raw)
         else -> SyncRecords.readSettings(raw)
     }) {
@@ -128,6 +130,22 @@ class SyncProtocolTest {
                         c.textOrNull("base")?.let { value(SyncRecords.readNews(it)) } ?: SyncRecords.emptyNews,
                         value(SyncRecords.readNews(c.str("local"))),
                         value(SyncRecords.readNews(c.str("remote"))),
+                    )),
+                )
+                "recents" -> assertEquals(
+                    about, c.str("merged"),
+                    SyncRecords.writeRecents(SyncMerge.mergeRecents(
+                        c.textOrNull("base")?.let { value(SyncRecords.readRecents(it)) } ?: SyncRecords.emptyRecents,
+                        value(SyncRecords.readRecents(c.str("local"))),
+                        value(SyncRecords.readRecents(c.str("remote"))),
+                    )),
+                )
+                "options" -> assertEquals(
+                    about, c.str("merged"),
+                    SyncRecords.writeOptions(SyncMerge.mergeOptions(
+                        c.textOrNull("base")?.let { value(SyncRecords.readOptions(it)) },
+                        value(SyncRecords.readOptions(c.str("local"))),
+                        value(SyncRecords.readOptions(c.str("remote"))),
                     )),
                 )
                 "settings" -> assertEquals(

@@ -22,6 +22,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -32,6 +35,12 @@ import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
 import online.bus.bmarian.conexiuniclujmobile.data.Links
+import online.bus.bmarian.conexiuniclujmobile.data.Recent
+import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
+import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
+import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
+import online.bus.bmarian.conexiuniclujmobile.data.Route
+import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
@@ -41,6 +50,10 @@ data class WalkRequest(val id: String, val city: String, val lat: Double, val lo
 
 @Serializable
 data class WalkAnswer(val id: String, val walk: Int? = null, val at: Long = 0)
+
+/** A recent stop or line as the watch keeps it. */
+@Serializable
+data class WatchRecent(val stopId: Int? = null, val routeId: Int? = null, val label: String, val shortName: String? = null, val color: String? = null)
 
 /** Shared with the watch app, one data item per city. */
 @Serializable
@@ -60,11 +73,13 @@ object WearLink {
     const val PATH_JOURNEY_PLAN_REQUEST = "/journey/plan/request"
     const val PATH_WALK_REQUEST = "/follow/walk/request"
     const val PATH_WALK = "/follow/walk"
+    const val PATH_RECENT = "/follow/recent"
     // Cluj's; other cities' under it, as /sync/favorites/{city}. Older builds know only Cluj's.
     const val PATH_FAVORITES = "/sync/favorites"
     const val PATH_LANGUAGE = "/sync/language"
     const val PATH_COLORS = "/sync/colors"
     const val PATH_CITY = "/sync/city"
+    const val PATH_RECENTS = "/sync/recents"
 
     fun favoritesPath(city: String) = if (city == Cities.DEFAULT) PATH_FAVORITES else "$PATH_FAVORITES/$city"
 
@@ -106,6 +121,10 @@ object WearLink {
         }
         scope.launch {
             Cities.current.collect { city -> if (prefs(app).getString("city", null) != city) publishCity(app, city) }
+        }
+        scope.launch {
+            combine(Services.favorites.recents, Services.repository.stops, Services.repository.routes, ::watchRecents)
+                .filterNotNull().distinctUntilChanged().collect { publishRecents(app, it) }
         }
     }
 
@@ -231,6 +250,12 @@ object WearLink {
                 .getOrNull()
                 ?.let { request -> scope.launch { answerWalk(context, request) } }
             PATH_FAVORITES -> onFavorites(context, Cities.DEFAULT, data.decodeToString())
+            PATH_RECENT -> runCatching { Api.json.decodeFromString<WatchRecent>(data.decodeToString()) }
+                .getOrNull()
+                ?.let { recent ->
+                    recent.stopId?.let { Services.favorites.addRecent(RecentStop(it)) }
+                    recent.routeId?.let { Services.favorites.addRecent(RecentRoute(it)) }
+                }
         }
     }
 
@@ -260,6 +285,28 @@ object WearLink {
                 }.asPutDataRequest().setUrgent()
                 Wearable.getDataClient(context).putDataItem(request).await()
             }
+        }
+    }
+
+    /** The stops and lines the watch can show, with what it needs to draw them; null before the network is in. */
+    private fun watchRecents(recents: List<Recent>, stops: List<Stop>, routes: List<Route>): List<WatchRecent>? {
+        if (stops.isEmpty() || routes.isEmpty()) return null
+        return recents.mapNotNull { recent ->
+            when (recent) {
+                is RecentStop -> stops.firstOrNull { it.stopId == recent.stopId }?.let { WatchRecent(stopId = it.stopId, label = it.name) }
+                is RecentRoute -> routes.firstOrNull { it.routeId == recent.routeId }
+                    ?.let { WatchRecent(routeId = it.routeId, label = it.longName, shortName = it.shortName, color = it.color) }
+                is RecentPlan -> null
+            }
+        }
+    }
+
+    private suspend fun publishRecents(context: Context, list: List<WatchRecent>) {
+        runCatching {
+            val request = PutDataMapRequest.create("$PATH_RECENTS/${Services.favorites.city}").apply {
+                dataMap.putString("json", Api.json.encodeToString(list))
+            }.asPutDataRequest().setUrgent()
+            Wearable.getDataClient(context).putDataItem(request).await()
         }
     }
 

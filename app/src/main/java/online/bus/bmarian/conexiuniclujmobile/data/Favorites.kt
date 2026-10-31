@@ -61,8 +61,6 @@ data class RecentRoute(val routeId: Int) : Recent {
     override val key get() = "route-$routeId"
 }
 
-private const val MAX_RECENTS = 10
-
 /** Saved favorites of one city. */
 class SavedFavorites(
     val routes: List<FavoriteRoute> = emptyList(),
@@ -143,6 +141,12 @@ class Favorites(private val context: Context) {
         onSharedChange?.invoke(city)
     }
 
+    /** Devices may have saved different platforms of one station: every one of them goes. */
+    fun toggleStation(stopId: Int, platforms: List<Int>) {
+        val saved = (platforms + stopId).filter { it in _stops.value }
+        if (saved.isEmpty()) toggleStop(stopId) else reorderStops(_stops.value - saved.toSet())
+    }
+
     fun toggleRoute(routeId: Int, direction: String) {
         val fav = FavoriteRoute(routeId, direction)
         if (fav !in _routes.value && atCap(_routes.value)) return
@@ -195,7 +199,7 @@ class Favorites(private val context: Context) {
     }
 
     fun addRecent(recent: Recent) {
-        _recents.value = (listOf(recent) + _recents.value.filterNot { it.key == recent.key }).take(MAX_RECENTS)
+        _recents.value = (listOf(recent) + _recents.value.filterNot { it.key == recent.key }).take(SyncRecords.RECENT_CAP)
         persist()
     }
 
@@ -213,6 +217,17 @@ class Favorites(private val context: Context) {
             persist()
         }
         onSharedChange?.invoke(city)
+    }
+
+    fun replaceRecents(city: String, recents: List<Recent>) {
+        if (city == this.city) {
+            _recents.value = recents
+            persist()
+            return
+        }
+        val prefs = cityPrefs(context, "favorites", city)
+        val saved = read(prefs)
+        write(prefs, SavedFavorites(saved.routes, saved.stops, saved.plans, recents))
     }
 
     companion object {
