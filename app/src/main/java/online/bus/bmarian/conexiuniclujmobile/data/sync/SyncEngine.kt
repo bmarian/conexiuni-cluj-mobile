@@ -63,6 +63,25 @@ class SyncEngine(private val vault: SyncVault) {
         override fun empty(value: SyncRecords.News) = value.seen.isEmpty()
     }
 
+    private fun recentsKind(slug: String) = object : Kind<SyncRecords.Recents> {
+        override fun read(raw: String) = SyncRecords.readRecents(raw)
+        override fun write(value: SyncRecords.Recents) = SyncRecords.writeRecents(value)
+        override fun local(base: SyncRecords.Recents?) = SyncLocal.recentsFromLocal(slug)
+        override fun merge(base: SyncRecords.Recents?, local: SyncRecords.Recents, remote: SyncRecords.Recents) =
+            SyncMerge.mergeRecents(base ?: SyncRecords.emptyRecents, local, remote)
+        override fun apply(value: SyncRecords.Recents) = SyncLocal.applyRecents(slug, value)
+        override fun empty(value: SyncRecords.Recents) = value.recent.isEmpty()
+    }
+
+    private val optionsKind = object : Kind<SyncRecords.Options> {
+        override fun read(raw: String) = SyncRecords.readOptions(raw)
+        override fun write(value: SyncRecords.Options) = SyncRecords.writeOptions(value)
+        override fun local(base: SyncRecords.Options?) = SyncLocal.optionsFromLocal()
+        override fun merge(base: SyncRecords.Options?, local: SyncRecords.Options, remote: SyncRecords.Options) =
+            SyncMerge.mergeOptions(base, local, remote)
+        override fun apply(value: SyncRecords.Options) = SyncLocal.applyOptions(value)
+    }
+
     private val settingsKind = object : Kind<SyncRecords.Settings> {
         override fun read(raw: String) = SyncRecords.readSettings(raw)
         override fun write(value: SyncRecords.Settings) = SyncRecords.writeSettings(value)
@@ -199,10 +218,14 @@ class SyncEngine(private val vault: SyncVault) {
         }
         try {
             step(DEVICES, devicesKind(run, label))
-            if (withSettings) step(SETTINGS, settingsKind)
+            if (withSettings) {
+                step(SETTINGS, settingsKind)
+                step(OPTIONS, optionsKind)
+            }
             for (slug in SyncLocal.syncedCities()) {
                 step("city:$slug", cityKind(slug, run))
                 step("news:$slug", newsKind(slug))
+                step("recents:$slug", recentsKind(slug))
             }
         } finally {
             vault.saveBases(run.bases)
@@ -243,7 +266,7 @@ class SyncEngine(private val vault: SyncVault) {
         val m = vault.membership() ?: throw Gone()
         val st = state(m)
         val keys = SyncCrypto.chainKeys(m.s)
-        val logicals = listOf(DEVICES, SETTINGS) + SyncLocal.syncedCities().flatMap { listOf("city:$it", "news:$it") }
+        val logicals = listOf(DEVICES, SETTINGS, OPTIONS) + SyncLocal.syncedCities().flatMap { listOf("city:$it", "news:$it", "recents:$it") }
         val byName = logicals.associateBy { SyncCrypto.recordName(keys.names, it) }
         val run = Run(m, keys, mutableMapOf())
         val texts = linkedMapOf<String, String>()
@@ -310,5 +333,6 @@ class SyncEngine(private val vault: SyncVault) {
         const val KIND = "android"
         const val DEVICES = "devices"
         const val SETTINGS = "settings"
+        const val OPTIONS = "options"
     }
 }

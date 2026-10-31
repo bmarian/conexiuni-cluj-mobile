@@ -1,6 +1,12 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.settings
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,7 +30,9 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Dialpad
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Smartphone
@@ -54,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -150,11 +159,24 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
             if (removeFailed) Note(stringResource(R.string.w_sync_remove_failed))
         }
     }
-    if (status == Sync.Status.On) for (device in devices) DeviceRow(device, busy) { ask = Ask.Remove(device.id, it) }
+    if (status == Sync.Status.On) {
+        var open by rememberSaveable { mutableStateOf(false) }
+        val turn by animateFloatAsState(if (open) 180f else 0f, label = "chevron")
+        ListItem(
+            modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable { open = !open },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            leadingContent = { Icon(Icons.Rounded.Devices, null) },
+            headlineContent = { Text(stringResource(R.string.w_sync_devices, devices.size.toString())) },
+            trailingContent = { Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(turn)) },
+        )
+        AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column { for (device in devices) DeviceRow(device, busy) { ask = Ask.Remove(device.id, it) } }
+        }
+    }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (!pairingOpen && ask == null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(shapes = ButtonDefaults.shapes(), onClick = ::show, modifier = Modifier.weight(1f)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(shapes = ButtonDefaults.shapes(), onClick = ::show, modifier = Modifier.fillMaxWidth()) {
                     Icon(if (status == Sync.Status.On) Icons.Rounded.Add else Icons.Rounded.QrCode2, null, Modifier.size(18.dp))
                     Text(
                         stringResource(if (status == Sync.Status.On) R.string.w_sync_add_device else R.string.w_sync_show_code),
@@ -165,7 +187,7 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
                     lastAction = "enter"
                     vm.cancel()
                     entering = true
-                }, modifier = Modifier.weight(1f)) {
+                }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Rounded.Dialpad, null, Modifier.size(18.dp))
                     Text(stringResource(R.string.w_sync_enter_code), Modifier.padding(start = 8.dp))
                 }

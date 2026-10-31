@@ -226,7 +226,8 @@
     <string name="w_sync_seen_today">Active today</string>
     <string name="w_sync_seen">Last seen %1$s</string>
     <string name="w_sync_settings">Also sync settings</string>
-    <string name="w_sync_settings_desc">Theme, language and map</string>
+    <string name="w_sync_settings_desc">Theme, language, map, city and alerts</string>
+    <string name="w_sync_devices">Devices (%1$s)</string>
     <string name="w_sync_remove">Remove</string>
     <string name="w_sync_remove_ask">Remove %1$s? It stops syncing and keeps what it has.</string>
     <string name="w_sync_remove_failed">Couldn\'t remove it. Try again.</string>

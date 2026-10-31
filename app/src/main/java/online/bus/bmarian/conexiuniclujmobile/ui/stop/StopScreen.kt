@@ -357,7 +357,7 @@ fun StopScreen(stopId: Int) {
                         tint = if (isFavorite) Palette.Rose else Color.Unspecified,
                     ) {
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
-                        Services.favorites.toggleStop(favoritePlatform ?: stopId)
+                        Services.favorites.toggleStation(stopId, index?.platforms(stopId).orEmpty().map { it.stopId })
                     },
                     ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) {
                         share(context, Services.repository.network.index.value.stopPath(stopId))

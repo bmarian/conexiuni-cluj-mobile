@@ -226,7 +226,8 @@
     <string name="w_sync_seen_today">Activ azi</string>
     <string name="w_sync_seen">Văzut ultima dată pe %1$s</string>
     <string name="w_sync_settings">Sincronizează și setările</string>
-    <string name="w_sync_settings_desc">Tema, limba și harta</string>
+    <string name="w_sync_settings_desc">Tema, limba, harta, orașul și alertele</string>
+    <string name="w_sync_devices">Dispozitive (%1$s)</string>
     <string name="w_sync_remove">Elimină</string>
     <string name="w_sync_remove_ask">Elimini %1$s? Nu se mai sincronizează și păstrează ce are.</string>
     <string name="w_sync_remove_failed">Nu s-a putut elimina. Încearcă din nou.</string>
