@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
+import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import android.animation.ValueAnimator
 import android.view.Choreographer
 import androidx.compose.animation.core.CubicBezierEasing
@@ -25,7 +26,7 @@ private const val PULSE_PEAK = 0.4f
 
 val Snappy: Easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
 
-fun flightMs(distanceDp: Double, zoomDelta: Double): Int = (260 + distanceDp * 0.22 + abs(zoomDelta) * 155).coerceIn(305.0, 955.0).toInt()
+fun flightMs(distanceDp: Double, zoomDelta: Double): Int = paced((260 + distanceDp * 0.22 + abs(zoomDelta) * 155).coerceIn(305.0, 955.0).toInt())
 
 fun pulseScale(t: Float): Float =
     if (t < PULSE_PEAK) 1 + (PULSE_SCALE - 1) * Snappy.transform(t / PULSE_PEAK)

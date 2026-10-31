@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import online.bus.bmarian.conexiuniclujmobile.logic.LONG_PACE
+import online.bus.bmarian.conexiuniclujmobile.logic.paced
+import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
@@ -87,14 +90,14 @@ import kotlinx.coroutines.withContext
 val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
-const val RIPPLE_MS = 870
+const val RIPPLE_MS = (870 * LONG_PACE).toInt()
 
 object Bouncy {
-    val fastSize = spring<IntSize>(dampingRatio = 0.6f, stiffness = 1980f)
-    val press = spring<Float>(dampingRatio = 0.32f, stiffness = 860f)
-    val pop = spring<Float>(dampingRatio = 0.26f, stiffness = 1980f)
-    val slide = spring<Float>(dampingRatio = 0.58f, stiffness = 450f)
-    val land = spring<Float>(dampingRatio = 0.55f, stiffness = 530f)
+    val fastSize = spring<IntSize>(dampingRatio = 0.6f, stiffness = pacedStiffness(1980f))
+    val press = spring<Float>(dampingRatio = 0.32f, stiffness = pacedStiffness(860f))
+    val pop = spring<Float>(dampingRatio = 0.26f, stiffness = pacedStiffness(1980f))
+    val slide = spring<Float>(dampingRatio = 0.58f, stiffness = pacedStiffness(450f))
+    val land = spring<Float>(dampingRatio = 0.55f, stiffness = pacedStiffness(530f))
 }
 
 class Pop {
@@ -214,7 +217,7 @@ fun PopIcon(
             burst.snapTo(0f)
             pop.snapTo(0.25f)
             coroutineScope {
-                launch { burst.animateTo(1f, tween(450)) }
+                launch { burst.animateTo(1f, tween(paced(450))) }
                 pop.animateTo(1f, Bouncy.pop)
             }
         } else {
@@ -309,8 +312,8 @@ fun Ticker(
         modifier,
         contentKey = { it.replace(DIGITS, "#") },
         transitionSpec = {
-            (slideInVertically(spring(dampingRatio = 0.5f, stiffness = 530f)) { it } + fadeIn()) togetherWith
-                (slideOutVertically(spring(stiffness = 530f)) { -it } + fadeOut()) using SizeTransform(clip = false)
+            (slideInVertically(spring(dampingRatio = 0.5f, stiffness = pacedStiffness(530f))) { it } + fadeIn()) togetherWith
+                (slideOutVertically(spring(stiffness = pacedStiffness(530f))) { -it } + fadeOut()) using SizeTransform(clip = false)
         },
         label = "ticker",
     ) { value ->
@@ -329,8 +332,9 @@ fun Ticker(
                                 digit,
                                 transitionSpec = {
                                     val from = if (down) -1 else 1
-                                    (slideInVertically(spring(dampingRatio = 0.5f, stiffness = 530f)) { it * from } + fadeIn()) togetherWith
-                                        (slideOutVertically(spring(stiffness = 530f)) { -it * from } + fadeOut()) using SizeTransform(clip = true)
+                                    (slideInVertically(spring(dampingRatio = 0.5f, stiffness = pacedStiffness(530f))) { it * from } + fadeIn()) togetherWith
+                                        (slideOutVertically(spring(stiffness = pacedStiffness(530f))) { -it * from } + fadeOut()) using
+                                            SizeTransform(clip = true)
                                 },
                                 label = "digit",
                             ) { d ->

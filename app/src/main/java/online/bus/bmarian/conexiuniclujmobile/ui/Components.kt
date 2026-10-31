@@ -67,7 +67,9 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.logic.delayed
 import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
+import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 
@@ -251,7 +253,7 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
             extra -> Color.Transparent
             else -> MaterialTheme.colorScheme.surfaceContainerHighest
         },
-        if (solid) tween(190, delayMillis = 485, easing = LinearEasing) else snap(),
+        if (solid) tween(190, delayMillis = delayed(485L).toInt(), easing = LinearEasing) else snap(),
         label = "pill",
     )
     val content by animateColorAsState(
@@ -260,7 +262,7 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
             live -> colors.onContainer
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
-        if (solid) tween(190, delayMillis = 485, easing = LinearEasing) else snap(),
+        if (solid) tween(190, delayMillis = delayed(485L).toInt(), easing = LinearEasing) else snap(),
         label = "pillText",
     )
     val pill = rememberPop()
@@ -274,14 +276,14 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
         if (!solid || wasDue || !wasLive) return@LaunchedEffect arrive.snapTo(1f)
         arrive.snapTo(0f)
         launch {
-            delay(70)
-            arrive.animateTo(1f, tween(540, easing = EmphasizedDecelerate))
+            delay(delayed(70L))
+            arrive.animateTo(1f, tween(paced(540), easing = EmphasizedDecelerate))
         }
         launch {
-            delay(540)
+            delay(delayed(540L))
             pill.from(0.86f)
         }
-        delay(610)
+        delay(delayed(610L))
         vehicle.squash()
     }
     Row(

@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import online.bus.bmarian.conexiuniclujmobile.logic.SPRING_PACE
 import online.bus.bmarian.conexiuniclujmobile.ui.map.Snappy
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -29,12 +30,13 @@ import kotlin.math.sin
 private const val TAPS = 2
 private const val TAP_MS = 210
 private const val TAP_DP = 5f
-private const val ORBIT_MS = 870
+// Any shorter and it turns too far between frames to read as a spin.
+private const val ORBIT_MS = (870 * SPRING_PACE).toInt()
 private const val ORBIT_DP = 6.0
 const val ARROW_MS = TAPS * TAP_MS + ORBIT_MS
 private const val ARROW_BACK_MS = 280
 // Waits out the page's slide-in.
-private const val ARROW_OPEN_DELAY_MS = 435L
+private const val ARROW_OPEN_DELAY_MS = (435 * SPRING_PACE).toLong()
 
 /** x and y in dp. */
 class ArrowPose(val x: Float, val y: Float, val heading: Double)

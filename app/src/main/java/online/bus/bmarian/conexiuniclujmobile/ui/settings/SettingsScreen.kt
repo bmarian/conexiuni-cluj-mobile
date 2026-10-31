@@ -86,6 +86,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
+import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
@@ -251,7 +252,7 @@ private fun Prompt(
     val state = remember { MutableTransitionState(false) }.apply { targetState = visible }
     AnimatedVisibility(
         state,
-        enter = expandVertically(spring(dampingRatio = 0.8f, stiffness = 530f)) + fadeIn(),
+        enter = expandVertically(spring(dampingRatio = 0.8f, stiffness = pacedStiffness(530f))) + fadeIn(),
         exit = shrinkVertically() + fadeOut(),
     ) {
         val colors = MaterialTheme.colorScheme

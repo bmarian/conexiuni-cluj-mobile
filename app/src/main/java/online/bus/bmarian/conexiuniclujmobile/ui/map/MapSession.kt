@@ -25,6 +25,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
@@ -32,6 +33,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.Area
 import online.bus.bmarian.conexiuniclujmobile.logic.AreaClusters
+import online.bus.bmarian.conexiuniclujmobile.logic.LONG_PACE
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.MapClusters
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
@@ -53,6 +55,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.mercatorX
 import online.bus.bmarian.conexiuniclujmobile.logic.mercatorY
 import online.bus.bmarian.conexiuniclujmobile.logic.modeMask
 import online.bus.bmarian.conexiuniclujmobile.logic.modesIn
+import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.logic.partBetween
 import online.bus.bmarian.conexiuniclujmobile.logic.pathThrough
 import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
@@ -145,7 +148,7 @@ private const val LAYER_SPIDER = "ct-spider"
 private const val LAYER_SELECTED = "ct-selected"
 private const val LAYER_VEHICLES = "ct-vehicles"
 private const val LAYER_PINS = "ct-pins"
-private const val RIPPLE_GAP_MS = 210L
+private const val RIPPLE_GAP_MS = (210 * LONG_PACE).toLong()
 private const val SELECTED_RADIUS_DP = 16f
 
 private val HEADING_OFFSET = 12.0 to 12.0
@@ -164,8 +167,9 @@ private const val MAX_IDLE_MS = 250L
 private data class ClusterKey(val anchor: Int?, val skip: Set<Int>)
 
 private val PLAIN = ClusterKey(null, emptySet())
-private const val CITY_FLIGHT_MS = 2_175
-private const val FIT_MS = 565
+private const val CITY_FLIGHT_MS = 1_400
+private const val FIT_MS = (565 * LONG_PACE).toInt()
+private const val FOLLOW_MS = (695 * LONG_PACE).toLong()
 private const val GLIDE_MS = 1220L
 
 /** In px. */
@@ -321,7 +325,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         drop?.cancel()
         if (stop != null) {
             drop = ValueAnimator.ofFloat(-18f, 0f).apply {
-                duration = 390
+                duration = paced(390L)
                 interpolator = OvershootInterpolator(2.5f)
                 addUpdateListener { a ->
                     style?.getLayerAs<SymbolLayer>(LAYER_SELECTED)?.setProperties(iconTranslate(arrayOf(0f, a.animatedValue as Float)))
@@ -455,18 +459,25 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     private fun moveCamera(update: CameraUpdate, ms: Int, ease: Boolean) {
         aiming++
-        val done = object : MapLibreMap.CancelableCallback {
-            override fun onFinish() {
-                aiming--
-                growWhenStill()
-            }
-
-            override fun onCancel() {
+        var waiting = true
+        val done = {
+            if (waiting) {
+                waiting = false
                 aiming--
                 growWhenStill()
             }
         }
-        if (ease) map.easeCamera(update, ms, done) else map.animateCamera(update, ms, done)
+        val callback = object : MapLibreMap.CancelableCallback {
+            override fun onFinish() = done()
+
+            override fun onCancel() = done()
+        }
+        if (ease) map.easeCamera(update, ms, callback) else map.animateCamera(update, ms, callback)
+        // Lines start drawing halfway through the move.
+        scope.launch {
+            delay(ms / 2L)
+            done()
+        }
     }
 
     fun ripple(color: String, vehicleId: String?) {
@@ -499,7 +510,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val id = vehicleId ?: return
         bounces.remove(id)?.cancel()
         bounces[id] = ValueAnimator.ofFloat(1.2f, 1f).apply {
-            duration = 390
+            duration = paced(390L)
             interpolator = OvershootInterpolator(2.5f)
             addUpdateListener { pushVehicles() }
             doOnEnd {
@@ -1487,7 +1498,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             if (!following && position.bearing == 0.0 && position.tilt == 0.0) return
             val flat = CameraPosition.Builder(position).tilt(0.0).bearing(0.0)
             if (following) flat.padding(0.0, 0.0, 0.0, 0.0)
-            map.easeCamera(CameraUpdateFactory.newCameraPosition(flat.build()), 520)
+            map.easeCamera(CameraUpdateFactory.newCameraPosition(flat.build()), paced(520))
             return
         }
         // The bus badge keeps its number upright; the camera still turns with the ride.
@@ -1496,9 +1507,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         if (component.cameraMode == CameraMode.TRACKING_GPS) {
             if (camera == tracked) return
             tracked = camera
-            component.zoomWhileTracking(camera.zoom, 695L)
-            component.tiltWhileTracking(camera.tilt, 695L)
-            component.paddingWhileTracking(doubleArrayOf(0.0, camera.top.toDouble(), 0.0, camera.bottom.toDouble()), 695L)
+            component.zoomWhileTracking(camera.zoom, FOLLOW_MS)
+            component.tiltWhileTracking(camera.tilt, FOLLOW_MS)
+            component.paddingWhileTracking(doubleArrayOf(0.0, camera.top.toDouble(), 0.0, camera.bottom.toDouble()), FOLLOW_MS)
             return
         }
         val fix = component.lastKnownLocation ?: return
@@ -1514,7 +1525,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .build()
         map.animateCamera(
             CameraUpdateFactory.newCameraPosition(target),
-            695,
+            FOLLOW_MS.toInt(),
             object : MapLibreMap.CancelableCallback {
                 override fun onFinish() {
                     if (move != trackingMove) return
