@@ -11,13 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import online.bus.bmarian.conexiuniclujmobile.logic.LONG_PACE
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.Emphasized
 import online.bus.bmarian.conexiuniclujmobile.ui.map.motionOn
 import kotlin.math.PI
 import kotlin.math.sin
 
-private const val TRAVEL_MS = 520
+private const val TRAVEL_MS = (520 * LONG_PACE).toInt()
 
 /** Port of useSwapMotion.ts. */
 @Stable

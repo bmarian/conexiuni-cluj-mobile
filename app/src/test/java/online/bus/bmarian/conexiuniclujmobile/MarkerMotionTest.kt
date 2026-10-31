@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile
 
+import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.ui.map.Snappy
 import online.bus.bmarian.conexiuniclujmobile.ui.map.flightMs
 import online.bus.bmarian.conexiuniclujmobile.ui.map.pulseScale
@@ -25,9 +26,9 @@ class MarkerMotionTest {
 
     @Test
     fun fliesShortHopsQuicklyAndCapsLongOnes() {
-        assertEquals(305, flightMs(0.0, 0.0))
-        assertEquals(570, flightMs(0.0, 2.0))
-        assertEquals(955, flightMs(4000.0, 3.0))
+        assertEquals(paced(305), flightMs(0.0, 0.0))
+        assertEquals(paced(570), flightMs(0.0, 2.0))
+        assertEquals(paced(955), flightMs(4000.0, 3.0))
         assertTrue(flightMs(800.0, 1.0) > flightMs(200.0, 1.0))
     }
 }

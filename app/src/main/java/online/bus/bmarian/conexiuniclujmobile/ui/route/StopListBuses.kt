@@ -41,6 +41,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
 import online.bus.bmarian.conexiuniclujmobile.logic.SWEEP_MS
 import online.bus.bmarian.conexiuniclujmobile.logic.VehicleTrack
 import online.bus.bmarian.conexiuniclujmobile.logic.fixMs
+import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.logic.rowAlong
 import online.bus.bmarian.conexiuniclujmobile.ui.ModeGlyphs
 import online.bus.bmarian.conexiuniclujmobile.ui.map.motionOn
@@ -180,7 +181,7 @@ fun StopListBuses(
                         if (before < target && row >= target && mark != null) {
                             scope.launch {
                                 flash.snapTo(1f)
-                                flash.animateTo(0f, tween(955))
+                                flash.animateTo(0f, tween(paced(955)))
                             }
                         }
                     }

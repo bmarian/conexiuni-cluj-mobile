@@ -100,6 +100,8 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
+import online.bus.bmarian.conexiuniclujmobile.logic.delayed
+import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocationDialog
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeChrome
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeRequests
@@ -236,7 +238,7 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
     val navigating by JourneyManager.navigating.collectAsStateWithLifecycle()
     val journeyState by JourneyManager.state.collectAsStateWithLifecycle()
     val showNav = navigating && journeyState != null
-    val navShift by animateFloatAsState(if (showNav) 1f else 0f, spring(stiffness = 530f), label = "nav")
+    val navShift by animateFloatAsState(if (showNav) 1f else 0f, spring(stiffness = pacedStiffness(530f)), label = "nav")
     var navTop by remember { mutableFloatStateOf(0f) }
     var navBottom by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(showNav) { if (showNav) searchOpen = false }
@@ -437,10 +439,10 @@ private fun Modifier.besidePanel(panel: SideSheetState, endReserve: Dp = 0.dp, m
     layout(constraints.maxWidth, placeable.height) { placeable.place(left, 0) }
 }
 
-private val PAGE_IN = tween<Float>(185, delayMillis = 80, easing = LinearOutSlowInEasing)
+private val PAGE_IN = tween<Float>(185, delayMillis = delayed(80L).toInt(), easing = LinearOutSlowInEasing)
 private val PAGE_OUT = tween<Float>(90, easing = FastOutLinearInEasing)
-private val PAGE_SLIDE = spring(dampingRatio = 0.72f, stiffness = 530f, visibilityThreshold = IntOffset.VisibilityThreshold)
-private val PAGE_SCALE = spring<Float>(dampingRatio = 0.62f, stiffness = 530f)
+private val PAGE_SLIDE = spring(dampingRatio = 0.72f, stiffness = pacedStiffness(530f), visibilityThreshold = IntOffset.VisibilityThreshold)
+private val PAGE_SCALE = spring<Float>(dampingRatio = 0.62f, stiffness = pacedStiffness(530f))
 
 @Composable
 private fun AnimatedContentScope.Page(content: @Composable () -> Unit) =
