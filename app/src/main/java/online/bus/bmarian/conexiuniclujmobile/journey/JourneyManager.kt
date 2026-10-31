@@ -50,6 +50,7 @@ data class Journey(
     val runs: List<PlannedRun> = emptyList(),
     // Started before cities: Cluj.
     val city: String = Cities.DEFAULT,
+    val onBoard: Boolean = false,
 ) {
     val endsAtStop get() = destination.id == legs.last().alighting.id
 }

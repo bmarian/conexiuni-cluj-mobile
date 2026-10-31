@@ -92,6 +92,26 @@ class JourneyFollowTest {
         assertEquals(300.0, rideRoute(leg).locate(shown.lat, shown.lon)!!.along, 0.5)
     }
 
+    private val walked = journey.copy(walks = listOf(listOf(east(0.0, -300.0), east(0.0))))
+
+    @Test
+    fun onFootAStrayFixAheadDoesNotHoldTheLine() {
+        val follow = NavFollow(walked)
+        follow.update(fix(0.0, -60.0), StepType.WALK, 0)
+        val (_, progress) = follow.update(fix(0.0, -250.0), StepType.WALK, 0)
+        assertEquals(50.0, progress.along, 2.0)
+    }
+
+    @Test
+    fun aFixFromBeforeTheScreenWentOffDoesNotLimitTheNext() {
+        val follow = NavFollow(journey)
+        val before = east(10.0).let { Fix(it.lat, it.lon, 10f, atMs = 1_000) }
+        follow.update(before, StepType.RIDE, 0)
+        val after = east(900.0).let { Fix(it.lat, it.lon, 10f, atMs = 121_000) }
+        val (_, progress) = follow.update(after, StepType.RIDE, 0)
+        assertEquals(900.0, progress.along, 2.0)
+    }
+
     @Test
     fun standingStillStaysStill() {
         val follow = NavFollow(journey)

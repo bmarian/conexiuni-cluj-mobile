@@ -32,6 +32,7 @@ class Fix(
 )
 
 const val LOCATION_UPDATE_MS = 10_000L
+const val NAV_LOCATION_MS = 1_000L
 private const val RECENT_MS = 60 * 60_000L
 private const val SAVE_EVERY_MS = 60_000L
 
@@ -96,7 +97,7 @@ object UserLocation {
         fun offer(location: Location?) {
             trySend(
                 location?.let {
-                    Fix(it.latitude, it.longitude, it.accuracy, it.bearing.takeIf { _ -> it.hasBearing() }, it.speed.takeIf { _ -> it.hasSpeed() })
+                    Fix(it.latitude, it.longitude, it.accuracy, it.bearing.takeIf { _ -> it.hasBearing() }, it.speed.takeIf { _ -> it.hasSpeed() }, it.time)
                 },
             )
         }

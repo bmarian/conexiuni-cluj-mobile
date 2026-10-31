@@ -36,6 +36,8 @@ class NavScene(
 /** The colour of the line the traveller rides: their location arrow takes it while on board. */
 data class RideAs(val color: String)
 
+class NavMe(val fix: Fix, val ahead: List<Fix>, val aheadMs: Long)
+
 /** top and bottom in px. */
 data class NavCamera(val zoom: Double, val tilt: Double, val top: Float, val bottom: Float, val epoch: Int = 0)
 
@@ -70,7 +72,7 @@ class MapController {
     var navCamera by mutableStateOf<NavCamera?>(null)
     var rideAs by mutableStateOf<RideAs?>(null)
     /** During navigation, where to draw the traveller instead of the raw fix. */
-    var navMe by mutableStateOf<Fix?>(null)
+    var navMe by mutableStateOf<NavMe?>(null)
     var trackingLost by mutableStateOf(false)
     var overviewRequest by mutableIntStateOf(0)
         private set

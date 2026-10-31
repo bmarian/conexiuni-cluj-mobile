@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.journey
 
+import online.bus.bmarian.conexiuniclujmobile.logic.HEADING_SPAN_M
 import online.bus.bmarian.conexiuniclujmobile.logic.bearingDegrees
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import kotlin.math.cos
@@ -60,7 +61,13 @@ internal class RouteLine(val points: List<JourneyPoint>) {
         return listOf(pointAt(from)) + inside + pointAt(to)
     }
 
-    private fun pointAt(along: Double): JourneyPoint {
+    fun headingAt(along: Double): Double {
+        val a = pointAt(along - HEADING_SPAN_M)
+        val b = pointAt(along + HEADING_SPAN_M)
+        return bearingDegrees(a.lat, a.lon, b.lat, b.lon)
+    }
+
+    fun pointAt(along: Double): JourneyPoint {
         val i = at.indexOfFirst { it >= along }.let { if (it < 1) if (along <= 0) 1 else points.lastIndex else it }
         val span = at[i] - at[i - 1]
         val t = if (span > 0) ((along - at[i - 1]) / span).coerceIn(0.0, 1.0) else 0.0

@@ -9,7 +9,7 @@ internal const val AT_STOP_M = 40.0
 internal const val LEFT_STOP_M = 150.0
 private const val ON_LINE_M = 75.0
 // 72 km/h, faster than a bus goes in town.
-private const val MAX_BUS_MPS = 20.0
+internal const val MAX_BUS_MPS = 20.0
 private const val IN_A_ROW = 2
 
 internal fun distanceTo(fix: Fix, stop: JourneyStop) = haversineMeters(fix.lat, fix.lon, stop.lat, stop.lon)
