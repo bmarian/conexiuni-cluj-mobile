@@ -59,7 +59,7 @@ class RouteUi(
     val headerTimes: List<Int>,
     val shape: DirectionShape?,
     val vehicles: List<Vehicle>,
-    val roundTripVehicles: List<Vehicle>,
+    val fadedVehicles: List<Vehicle>,
     val nearestStopIdx: Int,
     val now: LocalDateTime,
 )
@@ -146,8 +146,8 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
             arrivals = routeStopArrivals(info, stops, dir == "0", tripId, live, now, nowMs),
             headerTimes = header.map { it.minutes },
             shape = shapes[dir],
-            vehicles = live?.vehicles(tripId).orEmpty(),
-            roundTripVehicles = live?.roundTrip(tripId, tripIdFor(routeId, if (dir == "0") "1" else "0")).orEmpty(),
+            vehicles = live?.onLine(tripId).orEmpty(),
+            fadedVehicles = live?.faded(tripId, tripIdFor(routeId, if (dir == "0") "1" else "0")).orEmpty(),
             nearestStopIdx = nearest,
             now = now,
         )
@@ -227,6 +227,6 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
     }
 
     suspend fun live() {
-        LiveStream.live(emptyList(), listOf(tripIdFor(routeId, "0"), tripIdFor(routeId, "1"))).collect { live.value = it }
+        LiveStream.line(listOf(tripIdFor(routeId, "0"), tripIdFor(routeId, "1"))).collect { live.value = it }
     }
 }
