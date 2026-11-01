@@ -19,7 +19,7 @@ class MapVehicle(
     val shortName: String,
     val color: String,
     val heading: Double,
-    /** On the other direction now, counted on coming back. */
+    /** On the other direction now, counted on coming back, or at a hidden stand. */
     val faded: Boolean = false,
 )
 

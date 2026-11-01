@@ -215,10 +215,10 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         val route = info ?: return@LaunchedEffect
         map.showShapes(listOf(MapShape(tripIdFor(routeId, dir), route.shortName, route.color, shape.shape.map { LatLon(it.lat, it.lon) })))
     }
-    LaunchedEffect(current?.vehicles, current?.roundTripVehicles) {
+    LaunchedEffect(current?.vehicles, current?.fadedVehicles) {
         val name = info?.shortName.orEmpty()
         val color = info?.color ?: "#64748b"
-        map.vehicles = current?.roundTripVehicles.orEmpty().map { MapVehicle("${it.id}", it, name, color, it.heading, faded = true) } +
+        map.vehicles = current?.fadedVehicles.orEmpty().map { MapVehicle("${it.id}", it, name, color, it.heading, faded = true) } +
             current?.vehicles.orEmpty().map { MapVehicle("${it.id}", it, name, color, it.heading) }
     }
     LaunchedEffect(current?.stops, current?.nearestStopIdx, favoriteStops) {
