@@ -127,6 +127,7 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
         val nowMs = System.currentTimeMillis()
         val now = LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMs), CLUJ_ZONE)
         val tripId = tripIdFor(routeId, dir)
+        val otherTripId = tripIdFor(routeId, if (dir == "0") "1" else "0")
         val stops = stopsForDirection(info, tripId)
         val header = routeHeaderArrivals(info, stops, dir == "0", tripId, live, now, nowMs)
         var nearest = -1
@@ -143,11 +144,11 @@ class RouteViewModel(val routeId: Int, initialDirection: String, val fromStopId:
         }
         RouteUi(
             stops = stops,
-            arrivals = routeStopArrivals(info, stops, dir == "0", tripId, live, now, nowMs),
+            arrivals = routeStopArrivals(info, stops, dir == "0", tripId, otherTripId, live, now, nowMs),
             headerTimes = header.map { it.minutes },
             shape = shapes[dir],
             vehicles = live?.onLine(tripId).orEmpty(),
-            fadedVehicles = live?.faded(tripId, tripIdFor(routeId, if (dir == "0") "1" else "0")).orEmpty(),
+            fadedVehicles = live?.faded(tripId, otherTripId).orEmpty(),
             nearestStopIdx = nearest,
             now = now,
         )

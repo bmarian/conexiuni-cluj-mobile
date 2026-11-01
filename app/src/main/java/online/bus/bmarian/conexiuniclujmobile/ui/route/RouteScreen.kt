@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.UTurnLeft
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -218,7 +219,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     LaunchedEffect(current?.vehicles, current?.fadedVehicles) {
         val name = info?.shortName.orEmpty()
         val color = info?.color ?: "#64748b"
-        map.vehicles = current?.fadedVehicles.orEmpty().map { MapVehicle("${it.id}", it, name, color, it.heading, faded = true) } +
+        val tripId = tripIdFor(routeId, dir)
+        map.vehicles = current?.fadedVehicles.orEmpty().map { MapVehicle("${it.id}", it, name, color, it.heading, faded = true, returning = it.tripId != tripId) } +
             current?.vehicles.orEmpty().map { MapVehicle("${it.id}", it, name, color, it.heading) }
     }
     LaunchedEffect(current?.stops, current?.nearestStopIdx, favoriteStops) {
@@ -487,6 +489,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         first = idx == 0,
                         last = idx == stops.lastIndex,
                         times = arrivals.map { (if (it.soon) soonLabel else formatMinutesFromNow(it.minutes, current!!.now, nowLabel)) to it.isLive },
+                        uTurnAt = arrivals.indexOfFirst { it.returning },
                         trailingText = null,
                         paint = { buses.paintIn(idx) },
                         paintColor = lineColor,
@@ -663,22 +666,28 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
 }
 
 @Composable
-private fun TimeColumns(times: List<Pair<String, Boolean>>, header: Boolean = false) {
+private fun TimeColumns(times: List<Pair<String, Boolean>>, header: Boolean = false, uTurnAt: Int = -1) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        for ((label, live) in times) {
-            Text(
-                label,
-                modifier = Modifier.width(44.dp),
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
-                fontWeight = if (live) FontWeight.ExtraBold else FontWeight.SemiBold,
-                color = when {
-                    live -> MaterialTheme.colorScheme.primary
-                    header -> MaterialTheme.colorScheme.outline
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                maxLines = 1,
-            )
+        times.forEachIndexed { i, (label, live) ->
+            val color = when {
+                live -> MaterialTheme.colorScheme.primary
+                header -> MaterialTheme.colorScheme.outline
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Row(
+                Modifier.width(44.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (i == uTurnAt) Icon(Icons.Rounded.UTurnLeft, null, Modifier.size(12.dp), tint = color)
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                    fontWeight = if (live) FontWeight.ExtraBold else FontWeight.SemiBold,
+                    color = color,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
@@ -694,6 +703,7 @@ private fun StopLine(
     first: Boolean,
     last: Boolean,
     times: List<Pair<String, Boolean>>,
+    uTurnAt: Int = -1,
     trailingText: String?,
     trailingHighlight: Boolean = false,
     paint: (() -> ClosedFloatingPointRange<Float>?)? = null,
@@ -777,7 +787,7 @@ private fun StopLine(
                 color = if (trailingHighlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            TimeColumns(times)
+            TimeColumns(times, uTurnAt = uTurnAt)
         }
     }
 }

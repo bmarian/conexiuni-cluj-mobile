@@ -76,14 +76,17 @@ fun routeStopArrivals(
     stops: List<IndexedStop>,
     outgoing: Boolean,
     tripId: String,
+    otherTripId: String,
     live: LiveState?,
     now: LocalDateTime,
     nowMs: Long,
 ): List<List<MarkedArrival>> {
     val rows = stops.map { live?.entriesAt(tripId, it.stop.stopId, nowMs) }
     if (rows.any { it != null }) {
+        val others = live?.vehicles(otherTripId).orEmpty().map { it.id }
+        val coming = rows.firstOrNull()?.firstOrNull { it.vehicleId in others }
         return stops.mapIndexed { i, stop ->
-            rows[i]?.map { MarkedArrival(it.minutes, it.live, it.soon) }
+            rows[i]?.map { MarkedArrival(it.minutes, it.live, it.soon, it === coming) }
                 ?: scheduledRow(shapeInfo, stop, outgoing, now).map { MarkedArrival(it.minutes, false, false) }
         }
     }

@@ -307,7 +307,11 @@ internal class MapImages(context: Context) {
         scale(k, k, pivot = Offset.Zero) { drawPath(Glyphs.locationArrow, routeColor(color)) }
     }
 
-    fun heading() = draw(19f, 19f) {
+    fun heading() = badge(Glyphs.navArrow)
+
+    fun uTurn() = badge(Glyphs.uTurn)
+
+    private fun badge(glyph: Path) = draw(19f, 19f) {
         val c = center
         val br = 8.dp.toPx()
         drawCircle(Color.Black.copy(alpha = 0.15f), br + 1.dp.toPx(), c)
@@ -315,7 +319,7 @@ internal class MapImages(context: Context) {
         drawCircle(MapColors.Ink.copy(alpha = 0.85f), br - 1.dp.toPx(), c)
         val arrow = 10.dp.toPx()
         translate(c.x - arrow / 2, c.y - arrow / 2) {
-            scale(arrow / 24f, arrow / 24f, pivot = Offset.Zero) { drawPath(Glyphs.navArrow, Color.White) }
+            scale(arrow / 24f, arrow / 24f, pivot = Offset.Zero) { drawPath(glyph, Color.White) }
         }
     }
 }
