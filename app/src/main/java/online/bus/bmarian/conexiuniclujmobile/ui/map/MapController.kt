@@ -21,6 +21,7 @@ class MapVehicle(
     val heading: Double,
     /** On the other direction now, counted on coming back, or at a hidden stand. */
     val faded: Boolean = false,
+    val returning: Boolean = false,
 )
 
 class MapPin(val lat: Double, val lon: Double, val label: String)

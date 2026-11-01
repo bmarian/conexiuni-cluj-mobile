@@ -19,6 +19,8 @@ object Glyphs {
         "M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"
     const val NAV_ARROW = "M12 2L21 21l-9-4-9 4 9-19z"
     const val DIRECTION_ARROW = "M12 3 L20 19 L12 15 L4 19 Z"
+    const val U_TURN =
+        "M3.71 12.29a.996.996 0 0 1 1.41 0l.88.88V9c0-3.31 2.69-6 6-6s6 2.69 6 6v11c0 .55-.45 1-1 1s-1-.45-1-1V9c0-2.21-1.79-4-4-4S8 6.79 8 9v4.17l.88-.88a.996.996 0 1 1 1.41 1.41L7.7 16.29a.996.996 0 0 1-1.41 0L3.7 13.7c-.38-.38-.38-1.02.01-1.41z"
     const val PIN = "M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z"
 
     // Material round "flag".
@@ -26,6 +28,7 @@ object Glyphs {
 
     val busStop: Path by lazy { PathParser().parsePathString(BUS_STOP).toPath() }
     val navArrow: Path by lazy { PathParser().parsePathString(NAV_ARROW).toPath() }
+    val uTurn: Path by lazy { PathParser().parsePathString(U_TURN).toPath() }
     val locationArrow: Path by lazy {
         PathParser().parsePathString(
             "M39.2,28.46C39.01,27.99 38.54,27.68 38.02,27.69C37.5,27.7 37.02,28.01 36.81,28.49L27.05,45.83C26.83,46.32 26.92,46.89 27.28,47.26C27.65,47.64 28.21,47.75 28.71,47.54L37.07,44.03C37.39,43.89 37.75,43.89 38.06,44.02L46.27,47.34C46.75,47.54 47.33,47.42 47.71,47.03C48.09,46.64 48.21,46.07 48,45.59L39.2,28.46Z",

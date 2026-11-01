@@ -388,7 +388,7 @@ fun TransitMap(
     }
     val coloredVehicles = remember(shownVehicles, looks) {
         val apart = manyLines(shownVehicles.map { it.shortName })
-        shownVehicles.map { MapVehicle(it.id, it.vehicle, it.shortName, looks.hex(it.shortName, it.color, apart) ?: it.color, it.heading, it.faded) }
+        shownVehicles.map { MapVehicle(it.id, it.vehicle, it.shortName, looks.hex(it.shortName, it.color, apart) ?: it.color, it.heading, it.faded, it.returning) }
     }
     LaunchedEffect(session, scene) { session?.setScene(scene, looks.favoriteNames, grow = nav == null) }
     LaunchedEffect(session, shownWalks) { session?.setWalks(shownWalks) }

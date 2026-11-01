@@ -38,7 +38,7 @@ data class Arrival(val minutes: Int, val isLive: Boolean, val vehicleId: Int = 0
 fun nextArrivals(scheduled: List<Double>, limit: Int): List<Arrival> =
     scheduled.take(limit).map { Arrival(max(it.roundToInt(), 0), false) }
 
-data class MarkedArrival(val minutes: Int, val isLive: Boolean, val soon: Boolean)
+data class MarkedArrival(val minutes: Int, val isLive: Boolean, val soon: Boolean, val returning: Boolean = false)
 
 private fun readsNow(arrival: Arrival?): Boolean = arrival != null && arrival.minutes.toDouble().roundToInt() == 0
 

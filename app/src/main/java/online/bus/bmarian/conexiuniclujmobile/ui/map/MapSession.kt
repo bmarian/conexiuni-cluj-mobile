@@ -1000,6 +1000,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         style.addImage("arrow-bubble", images.arrowBubble(dark))
         style.addImage("arrow-glyph", images.arrowGlyph(dark))
         style.addImage("heading", images.heading())
+        style.addImage("u-turn", images.uTurn())
         style.addImage("pin-Origin", images.pin(MapColors.Origin))
         style.addImage("pin-Destination", images.pin(MapColors.Destination))
         style.addImage("pin-Origin-lifted", images.liftedPin(MapColors.Origin))
@@ -1409,7 +1410,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                         listOf(
                             vehicleFeature(shown, name, z = 2 * i, rot = 0.0, off = 0.0 to 0.0, now = now),
                             vehicleFeature(
-                                shown, "heading", z = 2 * i + 1, rot = rot,
+                                shown, if (v.returning) "u-turn" else "heading", z = 2 * i + 1, rot = rot,
                                 off = (ox * cos(r) + oy * sin(r)) to (oy * cos(r) - ox * sin(r)), now = now,
                             ),
                         )
