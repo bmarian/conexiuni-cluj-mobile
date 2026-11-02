@@ -114,9 +114,11 @@ object WearLink {
             Services.settings.locale.collect { tag -> if (prefs(app).getString("language", null) != tag) publishLanguage(app, tag) }
         }
         scope.launch {
-            Services.settings.colorfulLines.collect { on ->
+            combine(Services.settings.colorfulLines, Services.settings.traffic, ::Pair).collect { (colorful, traffic) ->
                 val prefs = prefs(app)
-                if (!prefs.contains("colorful") || prefs.getBoolean("colorful", false) != on) publishColors(app, on)
+                if (!prefs.contains("colorful") || prefs.getBoolean("colorful", false) != colorful || prefs.getBoolean("traffic", false) != traffic) {
+                    publishColors(app, colorful, traffic)
+                }
             }
         }
         scope.launch {
@@ -333,14 +335,18 @@ object WearLink {
         }
     }
 
-    private suspend fun publishColors(context: Context, colorful: Boolean) {
+    private suspend fun publishColors(context: Context, colorful: Boolean, traffic: Boolean) {
         runCatching {
             val request = PutDataMapRequest.create(PATH_COLORS).apply {
                 dataMap.putBoolean("colorful", colorful)
+                dataMap.putBoolean("traffic", traffic)
                 dataMap.putLong("at", System.currentTimeMillis())
             }.asPutDataRequest().setUrgent()
             Wearable.getDataClient(context).putDataItem(request).await()
-            prefs(context).edit { putBoolean("colorful", colorful) }
+            prefs(context).edit {
+                putBoolean("colorful", colorful)
+                putBoolean("traffic", traffic)
+            }
         }
     }
 

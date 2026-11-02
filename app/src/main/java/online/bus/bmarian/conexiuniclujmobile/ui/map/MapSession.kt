@@ -30,6 +30,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
+import online.bus.bmarian.conexiuniclujmobile.data.TrafficStretch
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.Area
 import online.bus.bmarian.conexiuniclujmobile.logic.AreaClusters
@@ -56,12 +57,14 @@ import online.bus.bmarian.conexiuniclujmobile.logic.mercatorY
 import online.bus.bmarian.conexiuniclujmobile.logic.modeMask
 import online.bus.bmarian.conexiuniclujmobile.logic.modesIn
 import online.bus.bmarian.conexiuniclujmobile.logic.paced
+import online.bus.bmarian.conexiuniclujmobile.logic.paintedParts
 import online.bus.bmarian.conexiuniclujmobile.logic.partBetween
 import online.bus.bmarian.conexiuniclujmobile.logic.pathThrough
 import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
 import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsClear
 import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsToward
 import online.bus.bmarian.conexiuniclujmobile.logic.stationRank
+import online.bus.bmarian.conexiuniclujmobile.logic.trafficRuns
 import online.bus.bmarian.conexiuniclujmobile.ui.RIPPLE_MS
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import org.maplibre.android.camera.CameraPosition
@@ -222,6 +225,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var selected: Stop? = null
     private var highlights: List<Pair<Stop, StopHighlight>> = emptyList()
     private var scene = MapScene.Empty
+    private var traffic: Map<String, List<TrafficStretch>> = emptyMap()
     private var walks: List<List<LatLon>> = emptyList()
     private var pins: List<PinMark> = emptyList()
     private var me: Fix? = null
@@ -420,12 +424,12 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val known = before.lines.map { it.points }.toSet()
         val fresh = after.lines.indices.filter { after.lines[it].points !in known && after.lines[it].dash == 0 && after.lines[it].points.size >= 2 }
         if (fresh.isEmpty()) return false
-        val grows = fresh.map { after.lines[it].points to lineArgb(after.lines[it].color) }
+        val grows = fresh.map { after.lines[it] to lineArgb(after.lines[it].color) }
         applyLines(hidden = fresh.toSet())
         sweepLeft = false
         paintSweep(emptyList())
         reveal.grow(
-            grows.map { (points, _) -> pathThrough(points.map { it.lat }.toDoubleArray(), points.map { it.lon }.toDoubleArray()) },
+            grows.map { (line, _) -> pathThrough(line.points.map { it.lat }.toDoubleArray(), line.points.map { it.lon }.toDoubleArray()) },
             fresh.map { after.lines[it].name }.toSet(),
         )
         applyHighlights()
@@ -435,7 +439,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             sweep { done ->
                 reveal.draw(done)
                 motion.start()
-                paintSweep(grows.map { (points, color) -> partBetween(points, 0f, done) to color })
+                paintSweep(grows.flatMap { (line, color) -> parts(line, color, done) })
             }
         }
         // Posted, so a fit asked for in the same update is already aiming.
@@ -529,7 +533,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val same = before.lines.size == after.lines.size &&
             before.lines.zip(after.lines).all { (a, b) -> a.points === b.points && a.dash == b.dash }
         if (!same) return false
-        val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 }
+        val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 && traffic[after.lines[it].tripId].isNullOrEmpty() }
         if (changed.isEmpty()) return false
         val sweeps = changed.map { i ->
             val line = after.lines[i]
@@ -544,6 +548,14 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         }
         return true
     }
+
+    fun setTraffic(value: Map<String, List<TrafficStretch>>) {
+        traffic = value
+        if (recolor == null && pendingGrow == null) applyLines()
+    }
+
+    /** The line in its traffic colours where measured, [color] between, up to the share [done] of its length. */
+    private fun parts(line: SceneLine, color: Int, done: Float = 1f) = paintedParts(line.points, color, trafficRuns(traffic[line.tripId].orEmpty(), line.points), done)
 
     fun setWalks(list: List<List<LatLon>>) {
         if (list == walks) return
@@ -1321,11 +1333,13 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         linesVersion++
         src.setGeoJson(
             FeatureCollection.fromFeatures(
-                scene.lines.zip(colors).filterIndexed { i, (line, _) -> line.points.size >= 2 && i !in hidden }.map { (line, color) ->
-                    Feature.fromGeometry(LineString.fromLngLats(line.points.map(::point))).apply {
-                        addStringProperty("color", "#%06X".format(0xFFFFFF and color))
-                        addNumberProperty("dash", line.dash)
-                        addNumberProperty("v", linesVersion)
+                scene.lines.zip(colors).filterIndexed { i, _ -> i !in hidden }.flatMap { (line, color) ->
+                    parts(line, color).map { (part, color) ->
+                        Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply {
+                            addStringProperty("color", "#%06X".format(0xFFFFFF and color))
+                            addNumberProperty("dash", line.dash)
+                            addNumberProperty("v", linesVersion)
+                        }
                     }
                 },
             ),
