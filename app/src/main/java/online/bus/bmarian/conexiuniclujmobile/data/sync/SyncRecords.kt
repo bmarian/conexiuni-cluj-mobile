@@ -34,7 +34,7 @@ object SyncRecords {
         data class Spot(val place: Place) : RecentItem
     }
     data class Recents(val recent: List<RecentItem>)
-    data class Options(val colorfulLines: Boolean, val city: String, val journeyVoice: Boolean?, val fullScreenAlarms: Boolean?)
+    data class Options(val colorfulLines: Boolean, val city: String, val journeyVoice: Boolean?, val fullScreenAlarms: Boolean?, val traffic: Boolean?)
     data class Device(val id: String, val kind: String, val label: String, val pub: String)
     data class Devices(val devices: List<Device>)
     data class Settings(
@@ -277,13 +277,13 @@ object SyncRecords {
     private fun maybeBool(e: JsonElement?): Boolean? = if (e is JsonNull) null else bool(e)
 
     private fun parseOptions(record: JsonElement): Options {
-        val m = obj(record, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms")
-        return Options(bool(m["colorfulLines"]), text(m["city"], 0, 40), maybeBool(m["journeyVoice"]), maybeBool(m["fullScreenAlarms"]))
+        val m = obj(record, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms", "traffic")
+        return Options(bool(m["colorfulLines"]), text(m["city"], 0, 40), maybeBool(m["journeyVoice"]), maybeBool(m["fullScreenAlarms"]), maybeBool(m["traffic"]))
     }
 
     fun writeOptions(r: Options): String =
         "{\"v\":1,\"colorfulLines\":${r.colorfulLines},\"city\":${quote(r.city)}" +
-            ",\"journeyVoice\":${r.journeyVoice},\"fullScreenAlarms\":${r.fullScreenAlarms}}"
+            ",\"journeyVoice\":${r.journeyVoice},\"fullScreenAlarms\":${r.fullScreenAlarms},\"traffic\":${r.traffic}}"
 
     fun readOptions(raw: String): Read<Options> = read(raw, ::parseOptions, ::writeOptions)
 }

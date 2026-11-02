@@ -104,6 +104,7 @@ object SyncMerge {
                 city = remote.city.ifEmpty { local.city },
                 journeyVoice = remote.journeyVoice ?: local.journeyVoice,
                 fullScreenAlarms = remote.fullScreenAlarms ?: local.fullScreenAlarms,
+                traffic = remote.traffic ?: local.traffic,
             )
         }
         return Options(
@@ -111,6 +112,7 @@ object SyncMerge {
             pick(base.city, local.city, remote.city, true),
             pick(base.journeyVoice, local.journeyVoice, remote.journeyVoice, true),
             pick(base.fullScreenAlarms, local.fullScreenAlarms, remote.fullScreenAlarms, true),
+            pick(base.traffic, local.traffic, remote.traffic, true),
         )
     }
 

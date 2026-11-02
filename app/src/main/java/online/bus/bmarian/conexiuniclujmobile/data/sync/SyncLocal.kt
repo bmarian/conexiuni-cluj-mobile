@@ -136,7 +136,7 @@ object SyncLocal {
 
     fun optionsFromLocal(): SyncRecords.Options {
         val s = Services.settings
-        return SyncRecords.Options(s.colorfulLines.value, Cities.choice.value.orEmpty(), s.journeyVoice.value, s.fullScreenAlarms.value)
+        return SyncRecords.Options(s.colorfulLines.value, Cities.choice.value.orEmpty(), s.journeyVoice.value, s.fullScreenAlarms.value, s.traffic.value)
     }
 
     fun applyOptions(r: SyncRecords.Options) {
@@ -144,6 +144,7 @@ object SyncLocal {
         if (s.colorfulLines.value != r.colorfulLines) s.setColorfulLines(r.colorfulLines)
         r.journeyVoice?.takeIf { it != s.journeyVoice.value }?.let(s::setJourneyVoice)
         r.fullScreenAlarms?.takeIf { it != s.fullScreenAlarms.value }?.let(s::setFullScreenAlarms)
+        r.traffic?.takeIf { it != s.traffic.value }?.let(s::setTraffic)
         if (Cities.choice.value.orEmpty() != r.city && (r.city.isEmpty() || Cities.known(r.city))) {
             val slug = r.city.ifEmpty { null }
             // A screen open on the old city keeps it until the app next opens.
