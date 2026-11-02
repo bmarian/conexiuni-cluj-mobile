@@ -350,7 +350,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         drawnFavorites = favorites
         stopSweep()
         pendingGrow = null
-        reveal.end(System.nanoTime(), value.lines.map { it.name }.toSet())
+        // A grow still waiting for the camera drew its stops at size 0.
+        if (reveal.end(System.nanoTime(), value.lines.map { it.name }.toSet())) {
+            revealDirty = true
+            motion.start()
+        }
         // One write per line, for the same reason as sweepLeft.
         when {
             grow && growLines(before, value) -> Unit
