@@ -267,7 +267,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         if (shortName != null) {
             add(
                 MenuAction(
-                    stringResource(if (isFollowing) R.string.line_following else R.string.line_follow),
+                    stringResource(if (isFollowing) R.string.line_unfollow else R.string.line_follow),
                     if (isFollowing) Icons.Rounded.Notifications else Icons.Rounded.NotificationsNone,
                 ) {
                     val following = Services.routeUpdates.toggleFollow(shortName)
