@@ -44,13 +44,14 @@ internal class LineReveal(private val context: Context) {
         if (growing) drawn = done
     }
 
-    /** Buses of growing lines not in [staying] were never shown, so they stay hidden while they leave. */
-    fun end(now: Long, staying: Set<String>? = null) {
-        if (!growing) return
+    /** Buses of growing lines not in [staying] were never shown, so they stay hidden while they leave. False when nothing was growing. */
+    fun end(now: Long, staying: Set<String>? = null): Boolean {
+        if (!growing) return false
         growing = false
         drawn = 1f
         ended = now
         if (staying != null) gone = names - staying
+        return true
     }
 
     /** Bouncy.pop from nothing, on the animator duration scale the sweep runs on. */

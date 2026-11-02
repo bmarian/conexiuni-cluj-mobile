@@ -137,7 +137,9 @@ fun HomeScreen() {
         }
     }
     val favoriteStops = remember(stopsById, favoriteStopIds) { favoriteStopIds.mapNotNull { stopsById[it] } }
-    val hasFavorites = favoriteRoutes.isNotEmpty() || favoriteStopIds.isNotEmpty() || (online && favoritePlans.isNotEmpty())
+    // Saved ones count until lines and stops load.
+    val shownFavorites = if (routes.isEmpty() || stops.isEmpty()) favoriteRoutes.size + favoriteStopIds.size else chips.size + favoriteStops.size
+    val hasFavorites = shownFavorites > 0 || (online && favoritePlans.isNotEmpty())
     val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
 
     fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
