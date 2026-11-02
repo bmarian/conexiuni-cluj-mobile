@@ -94,7 +94,7 @@
     <string name="save">Save</string>
     <string name="saved">Saved</string>
     <string name="line_follow">Follow changes</string>
-    <string name="line_following">Following changes</string>
+    <string name="line_unfollow">Stop following changes</string>
     <string name="nav_then_take">Then: %1$s to %2$s</string>
     <string name="nav_then_get_off">Then: get off at %1$s</string>
     <string name="nav_then_change">Then: %1$s from %2$s</string>

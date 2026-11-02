@@ -99,7 +99,7 @@
     <string name="save">Salvează</string>
     <string name="saved">Salvat</string>
     <string name="line_follow">Urmărește schimbările</string>
-    <string name="line_following">Urmărești schimbările</string>
+    <string name="line_unfollow">Nu mai urmări schimbările</string>
     <string name="nav_then_take">Apoi: %1$s până la %2$s</string>
     <string name="nav_then_get_off">Apoi: coboară la %1$s</string>
     <string name="nav_then_change">Apoi: %1$s din %2$s</string>
