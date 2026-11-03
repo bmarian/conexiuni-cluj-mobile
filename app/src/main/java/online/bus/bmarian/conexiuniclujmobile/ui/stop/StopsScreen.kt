@@ -37,6 +37,7 @@ fun StopsScreen(stopIds: List<Int>) {
     val owner = remember { Any() }
     DisposableEffect(owner) {
         map.claim(owner)
+        map.labelledStops = stopIds.toSet()
         onDispose { map.release(owner) }
     }
     val stations = remember(stops, index, stopIds) {

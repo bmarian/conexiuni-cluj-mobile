@@ -379,6 +379,9 @@ fun TransitMap(
     LaunchedEffect(session, shownHighlights, stopsById) {
         session?.setHighlights(shownHighlights.mapNotNull { (id, h) -> stopsById[id]?.let { it to h } })
     }
+    LaunchedEffect(session, controller.labelledStops, nav != null, insets) {
+        session?.setLabelled(controller.labelledStops.takeIf { nav == null }.orEmpty(), MapPadding(insets.left, insets.top, insets.right, insets.bottom))
+    }
     val shownShapes = nav?.shapes ?: controller.shapes
     val drawnLines = remember(shownShapes) { shownShapes.filter { it.points.isNotEmpty() }.map { it.shortName to it.color } }
     LaunchedEffect(drawnLines) { LineColors.draw(drawnLines) }

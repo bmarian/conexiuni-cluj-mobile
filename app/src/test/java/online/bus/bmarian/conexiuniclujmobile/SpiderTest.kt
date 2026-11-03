@@ -1,7 +1,10 @@
 package online.bus.bmarian.conexiuniclujmobile
 
 import online.bus.bmarian.conexiuniclujmobile.logic.ClusterBox
+import online.bus.bmarian.conexiuniclujmobile.logic.LabelSide
 import online.bus.bmarian.conexiuniclujmobile.logic.Rect
+import online.bus.bmarian.conexiuniclujmobile.logic.boxAt
+import online.bus.bmarian.conexiuniclujmobile.logic.labelSidesClear
 import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
 import online.bus.bmarian.conexiuniclujmobile.logic.SpiderPlace
 import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegs
@@ -64,5 +67,30 @@ class SpiderTest {
         assertEquals(44, spiderRadius(spiderLegs(2)))
         assertTrue(spiderRadius(spiderLegs(20)) > spiderRadius(spiderLegs(9)))
         assertEquals(0, spiderRadius(emptyList()))
+    }
+
+    private val icon = ClusterBox(24f, 24f, 12f, 12f)
+    private val area = Rect(0.0, 0.0, 1000.0, 1000.0)
+
+    private fun at(x: Double) = SpiderPlace(x, 500.0, icon, 120.0, 13.0)
+
+    private fun sides(places: List<SpiderPlace>, extra: List<Rect> = emptyList()) =
+        labelSidesClear(places, places.map { boxAt(it.stationX, it.stationY, icon) } + extra, area)
+
+    @Test
+    fun labelsOfStationsLeftInPlaceFaceAwayFromTheOthers() {
+        assertEquals(listOf(LabelSide.Left, LabelSide.Right), sides(listOf(at(500.0), at(527.0))))
+        assertEquals(listOf(LabelSide.Right), sides(listOf(at(500.0))))
+    }
+
+    @Test
+    fun labelsTurnFromWhatIsInTheWayThenGoUnderTheIcon() {
+        assertEquals(listOf(LabelSide.Left), sides(listOf(at(500.0)), listOf(Rect(520.0, 480.0, 600.0, 520.0))))
+        assertEquals(listOf(LabelSide.Left, LabelSide.Below, LabelSide.Right), sides(listOf(at(473.0), at(500.0), at(527.0))))
+    }
+
+    @Test
+    fun labelsStayInsideTheArea() {
+        assertEquals(listOf(LabelSide.Left), sides(listOf(at(960.0))))
     }
 }

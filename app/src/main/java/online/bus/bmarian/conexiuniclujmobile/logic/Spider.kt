@@ -61,18 +61,59 @@ fun spiderLegsToward(screenAngles: List<Double>): List<SpiderLeg> {
 
 class SpiderPlace(val stationX: Double, val stationY: Double, val icon: ClusterBox, val labelWidth: Double, val labelHeight: Double)
 
+enum class LabelSide { Left, Right, Below }
+
 const val SPIDER_LABEL_GAP_DP = 4f
+
+// Same as the gap between a group's pill and its label in MapImages.
+private const val LABEL_UNDER_DP = 2f
 private const val RINGS = 3
 
+// Port of labelBox in utils/spider.ts.
+internal fun labelBox(x: Double, y: Double, icon: ClusterBox, labelWidth: Double, labelHeight: Double, side: LabelSide): Rect {
+    val box = boxAt(x, y, icon)
+    if (side == LabelSide.Below) {
+        val left = (box.left + box.right - labelWidth) / 2
+        return Rect(left, box.bottom + LABEL_UNDER_DP, left + labelWidth, box.bottom + LABEL_UNDER_DP + labelHeight)
+    }
+    val middle = (box.top + box.bottom) / 2
+    val start = if (side == LabelSide.Left) box.left - SPIDER_LABEL_GAP_DP - labelWidth else box.right + SPIDER_LABEL_GAP_DP
+    return Rect(start, middle - labelHeight / 2, start + labelWidth, middle + labelHeight / 2)
+}
+
 private fun placeBoxes(place: SpiderPlace, leg: SpiderLeg): List<Rect> {
-    val icon = boxAt(leg.x.toDouble(), leg.y.toDouble(), place.icon)
-    val middle = (icon.top + icon.bottom) / 2
-    val start = if (leg.left) icon.left - SPIDER_LABEL_GAP_DP - place.labelWidth else icon.right + SPIDER_LABEL_GAP_DP
-    return listOf(icon, Rect(start, middle - place.labelHeight / 2, start + place.labelWidth, middle + place.labelHeight / 2))
+    val x = leg.x.toDouble()
+    val y = leg.y.toDouble()
+    val side = if (leg.left) LabelSide.Left else LabelSide.Right
+    return listOf(boxAt(x, y, place.icon), labelBox(x, y, place.icon, place.labelWidth, place.labelHeight, side))
 }
 
 private fun overlap(a: Rect, b: Rect) =
     max(0.0, min(a.right, b.right) - max(a.left, b.left)) * max(0.0, min(a.bottom, b.bottom) - max(a.top, b.top))
+
+// Port of labelSidesClear in utils/spider.ts.
+internal fun labelSidesClear(places: List<SpiderPlace>, obstacles: List<Rect>, area: Rect): List<LabelSide> {
+    val taken = obstacles.toMutableList()
+    val middle = places.sumOf { it.stationX } / places.size
+    return places.map { p ->
+        val out = if (p.stationX < middle) LabelSide.Left else LabelSide.Right
+        var best: Rect? = null
+        var bestSide = out
+        var least = 0.0
+        for (side in listOf(out, if (out == LabelSide.Left) LabelSide.Right else LabelSide.Left, LabelSide.Below)) {
+            val box = labelBox(p.stationX, p.stationY, p.icon, p.labelWidth, p.labelHeight, side)
+            val covered = taken.sumOf { overlap(box, it) } + (box.right - box.left) * (box.bottom - box.top) - overlap(box, area)
+            if (best == null || covered < least) {
+                best = box
+                bestSide = side
+                least = covered
+            }
+            if (covered == 0.0) break
+        }
+        taken += best!!
+        bestSide
+    }
+}
 
 // Port of spiderLegsClear in utils/spider.ts.
 internal fun spiderLegsClear(places: List<SpiderPlace>, obstacles: List<Rect>): List<SpiderLeg> {
