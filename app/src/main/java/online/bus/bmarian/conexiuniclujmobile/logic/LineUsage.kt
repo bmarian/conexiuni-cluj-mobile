@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 // Port of utils/lineUsage.ts.
 
 @Serializable
-data class Usage(val counts: Map<String, Int> = emptyMap(), val last: Long = 0, val dismissed: Boolean = false) {
+data class Usage(val counts: Map<String, Int> = emptyMap(), val last: Long = 0) {
     val total get() = counts.values.sum()
 }
 

@@ -19,8 +19,11 @@ data class LineLooks(
     private val favorites: Set<String>?,
     private val colorfuls: Map<String, String> = emptyMap(),
     private val drawnLines: List<Pair<String, String>> = emptyList(),
+    private val linesApart: Boolean = true,
 ) {
-    private val drawn = manyLines(drawnLines.map { it.first }).let { apart -> drawnLines.associate { (name, hex) -> name to own(name, hex, apart) } }
+    private val drawn = (linesApart && manyLines(drawnLines.map { it.first })).let { apart ->
+        drawnLines.associate { (name, hex) -> name to own(name, hex, apart) }
+    }
 
     fun own(name: String?, hex: String?, apart: Boolean = false): String? =
         if (!name.isNullOrBlank() && (apart || colorful || favorite(name) == true)) colorfuls[name] ?: hex else hex
@@ -36,15 +39,15 @@ data class LineLooks(
     fun color(name: String?, hex: String?, apart: Boolean = false): Color = routeColor(hex(name, hex, apart))
 
     /** For the map itself, before [LineColors.draw] lands. */
-    fun drawing(lines: List<Pair<String, String>>) = copy(drawnLines = lines)
+    fun drawing(lines: List<Pair<String, String>>, apart: Boolean) = copy(drawnLines = lines, linesApart = apart)
 }
 
 object LineColors {
-    private val drawn = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    private val drawn = MutableStateFlow<Pair<List<Pair<String, String>>, Boolean>>(emptyList<Pair<String, String>>() to true)
 
     /** As (name, feed colour). */
-    fun draw(lines: List<Pair<String, String>>) {
-        drawn.value = lines
+    fun draw(lines: List<Pair<String, String>>, apart: Boolean) {
+        drawn.value = lines to apart
     }
 
     val looks: StateFlow<LineLooks> by lazy {
@@ -52,7 +55,9 @@ object LineColors {
             val names = favorites.mapNotNull { f -> routes.firstOrNull { it.routeId == f.routeId }?.shortName }.toSet()
             (if (routes.isEmpty()) null else names) to routes.filter { it.colorful.isNotEmpty() }.associate { it.shortName to it.colorful }
         }
-        combine(Services.settings.colorfulLines, lines, drawn) { on, (favorites, colorfuls), drawnLines -> LineLooks(on, favorites, colorfuls, drawnLines) }
+        combine(Services.settings.colorfulLines, lines, drawn) { on, (favorites, colorfuls), (drawnLines, apart) ->
+            LineLooks(on, favorites, colorfuls, drawnLines, apart)
+        }
             .stateIn(Services.scope, SharingStarted.Eagerly, LineLooks(Services.settings.colorfulLines.value, null))
     }
 }

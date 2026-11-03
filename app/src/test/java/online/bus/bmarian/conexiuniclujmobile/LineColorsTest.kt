@@ -12,8 +12,16 @@ class LineColorsTest {
         val looks = LineLooks(colorful = false, favorites = setOf("25"), colorfuls = colorfuls)
         assertEquals("#462EE0", looks.hex("25", "#1D71B8"))
         assertEquals("#1D71B8", looks.hex("35", "#1D71B8"))
-        assertEquals("#DA771B", looks.drawing(listOf("35" to "#1D71B8", "24B" to "#1D71B8")).hex("35", "#1D71B8"))
-        assertEquals("#1D71B8", looks.drawing(listOf("35" to "#1D71B8")).hex("35", "#1D71B8"))
+        assertEquals("#DA771B", looks.drawing(listOf("35" to "#1D71B8", "24B" to "#1D71B8"), apart = true).hex("35", "#1D71B8"))
+        assertEquals("#1D71B8", looks.drawing(listOf("35" to "#1D71B8"), apart = true).hex("35", "#1D71B8"))
+    }
+
+    @Test
+    fun linesDrawnTogetherKeepTheDefaultWhereTheScreenAsks() {
+        val drawn = LineLooks(colorful = false, favorites = setOf("25"), colorfuls = colorfuls)
+            .drawing(listOf("25" to "#1D71B8", "35" to "#1D71B8"), apart = false)
+        assertEquals("#462EE0", drawn.hex("25", "#1D71B8"))
+        assertEquals("#1D71B8", drawn.hex("35", "#1D71B8"))
     }
 
     @Test

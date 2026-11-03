@@ -74,18 +74,15 @@ class LineGroupStore(private val context: Context) {
 
     fun reorder(list: List<SavedGroup>) = persist(list)
 
-    fun usage(kind: String): Map<String, Usage> =
-        prefs.getString("usage:$kind", null)?.let { runCatching { Api.json.decodeFromString<Map<String, Usage>>(it) }.getOrNull() }.orEmpty()
+    fun lineUsage(): Map<String, Usage> =
+        prefs.getString(LINE_USAGE, null)?.let { runCatching { Api.json.decodeFromString<Map<String, Usage>>(it) }.getOrNull() }.orEmpty()
 
-    private fun writeUsage(kind: String, log: Map<String, Usage>) = prefs.edit { putString("usage:$kind", Api.json.encodeToString(log)) }
-
-    fun recordUse(kind: String, key: String, atMs: Long = System.currentTimeMillis()) {
-        val log = usage(kind)
-        writeUsage(kind, log + (key to log[key].counted(atMs)))
+    fun recordLineUse(key: String, atMs: Long = System.currentTimeMillis()) {
+        val log = lineUsage()
+        prefs.edit { putString(LINE_USAGE, Api.json.encodeToString(log + (key to log[key].counted(atMs)))) }
     }
 
-    fun dismiss(kind: String, key: String) {
-        val log = usage(kind)
-        log[key]?.let { writeUsage(kind, log + (key to it.copy(dismissed = true))) }
+    private companion object {
+        const val LINE_USAGE = "usage:lines"
     }
 }
