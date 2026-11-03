@@ -155,4 +155,23 @@
     <string name="watch_install">Instalează</string>
     <string name="map_more_stations">și încă %d</string>
     <string name="line_ends_here">capăt de linie</string>
+    <string name="group_title">Linii grupate</string>
+    <string name="group_create">Creează grup</string>
+    <string name="group_lines">Linii</string>
+    <string name="group_chosen">Alese</string>
+    <string name="group_connects">Se leagă cu %1$s</string>
+    <string name="group_often">Liniile des folosite</string>
+    <string name="group_meets_at">la %1$s</string>
+    <string name="group_change">Schimbi la %1$s</string>
+    <string name="group_show">Arată</string>
+    <string name="group_search">Caută o linie</string>
+    <string name="group_name_title">Denumește grupul</string>
+    <string name="group_name">Nume</string>
+    <string name="group_suggested">Sugestie</string>
+    <string name="group_not_now">Nu mai arăta</string>
+    <string name="group_rename">Redenumește</string>
+    <string name="group_flip">Schimbă sensul</string>
+    <string name="group_remove_line">Scoate linia</string>
+    <string name="group_then">apoi</string>
+    <string name="group_no_more">Nu mai pleacă azi</string>
 </resources>

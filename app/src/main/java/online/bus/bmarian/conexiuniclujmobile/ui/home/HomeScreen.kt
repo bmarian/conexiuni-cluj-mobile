@@ -1,6 +1,16 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableIntStateOf
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.chainOf
+import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
+import online.bus.bmarian.conexiuniclujmobile.logic.legsNear
+import online.bus.bmarian.conexiuniclujmobile.logic.readKey
+import online.bus.bmarian.conexiuniclujmobile.logic.usageOrder
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
 import androidx.compose.animation.animateContentSize
@@ -68,6 +78,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.follow.JourneyCard
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderRepeat
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
+import online.bus.bmarian.conexiuniclujmobile.ui.group.GroupNameDialog
+import online.bus.bmarian.conexiuniclujmobile.ui.group.LineChain
 import online.bus.bmarian.conexiuniclujmobile.ui.longPressDrag
 import online.bus.bmarian.conexiuniclujmobile.ui.moved
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberReorderState
@@ -141,6 +153,19 @@ fun HomeScreen() {
     val shownFavorites = if (routes.isEmpty() || stops.isEmpty()) favoriteRoutes.size + favoriteStopIds.size else chips.size + favoriteStops.size
     val hasFavorites = shownFavorites > 0 || (online && favoritePlans.isNotEmpty())
     val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
+    val groups by Services.groups.saved.collectAsStateWithLifecycle()
+    val fix by Services.location.collectAsStateWithLifecycle()
+    var dismissals by remember { mutableIntStateOf(0) }
+    val suggested = remember(index, groups, dismissals) {
+        val known = index ?: return@remember null
+        val saved = groups.map { it.key }.toSet()
+        Services.groups.usage("groups").entries
+            .filter { (key, usage) -> !usage.dismissed && key !in saved && usage.total > 1 }
+            .sortedWith(compareBy(usageOrder(System.currentTimeMillis())) { it.value })
+            .firstNotNullOfOrNull { (key, _) -> known.readKey(key).takeIf { it.isNotEmpty() } }
+    }
+    fun chainFor(group: List<GroupLine>) = index?.let { it.chainOf(it.legsNear(group, fix?.lat, fix?.lon)) { _, color -> color } }.orEmpty()
+    var namingSuggested by remember { mutableStateOf(false) }
 
     fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
 
@@ -153,6 +178,7 @@ fun HomeScreen() {
     }
     val stopReorder = rememberReorderState(favoriteStopIds) { from, to -> Services.favorites.reorderStops(favoriteStopIds.moved(from, to)) }
     val planReorder = rememberReorderState(favoritePlans.map(::planKey)) { from, to -> Services.favorites.reorderPlans(favoritePlans.moved(from, to)) }
+    val groupReorder = rememberReorderState(groups.map { it.key }) { from, to -> Services.groups.reorder(groups.moved(from, to)) }
 
     LazyColumn(Modifier.fillMaxSize(), state = listState) {
         journey?.let { trip ->
@@ -207,8 +233,50 @@ fun HomeScreen() {
                 }
             }
         }
+        if (groups.isNotEmpty()) {
+            item(key = "groups-label") { SubLabel(stringResource(R.string.group_title), Modifier.padding(top = 12.dp)) }
+            item(key = "groups") {
+                Column {
+                    for (group in groups) key(group.key) {
+                        FavoriteRow(
+                            modifier = Modifier.reorderItem(groupReorder, group.key).longPressDrag(groupReorder, group.key),
+                            icon = null,
+                            title = group.name,
+                            lines = { LineChain(chainFor(group.lines), small = true) },
+                            kicker = null,
+                            removeLabel = stringResource(R.string.w_remove_from_favorites),
+                            onClick = { index?.let { nav.group(it.writeLines(group.lines)) } },
+                            onRemove = { Services.groups.remove(group.lines) },
+                        )
+                    }
+                }
+            }
+        }
+        suggested?.let { lines ->
+            item(key = "group-suggestion-label") {
+                SubLabel(stringResource(R.string.group_suggested), Modifier.padding(top = if (groups.isEmpty()) 12.dp else 8.dp))
+            }
+            item(key = "group-suggestion") {
+                FavoriteRow(
+                    modifier = Modifier,
+                    icon = null,
+                    title = null,
+                    lines = { LineChain(chainFor(lines), small = true) },
+                    kicker = null,
+                    removeLabel = stringResource(R.string.group_not_now),
+                    onClick = { index?.let { nav.group(it.writeLines(lines)) } },
+                    onRemove = {
+                        Services.groups.dismiss("groups", groupKey(lines))
+                        dismissals++
+                    },
+                    trailing = { TextButton(onClick = { namingSuggested = true }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.save)) } },
+                )
+            }
+        }
         if (chips.isNotEmpty()) {
-            item(key = "routes-label") { SubLabel(stringResource(R.string.w_favorite_routes), Modifier.padding(top = 12.dp)) }
+            item(key = "routes-label") {
+                SubLabel(stringResource(R.string.w_favorite_routes), Modifier.padding(top = if (groups.isEmpty() && suggested == null) 12.dp else 8.dp))
+            }
             item(key = "routes") {
                 FlowRow(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -314,6 +382,14 @@ fun HomeScreen() {
         item(key = "end") { Spacer(Modifier.height(24.dp)) }
     }
     reminding?.let { ReminderSheet(it) { reminding = null } }
+    if (namingSuggested) {
+        suggested?.let { lines ->
+            GroupNameDialog(chainFor(lines), null, onDismiss = { namingSuggested = false }) { name ->
+                Services.groups.save(lines, name)
+                namingSuggested = false
+            }
+        }
+    }
 }
 
 @Composable
@@ -356,8 +432,8 @@ private fun FavoriteRouteChip(
 @Composable
 fun FavoriteRow(
     modifier: Modifier,
-    icon: @Composable () -> Unit,
-    title: String,
+    icon: (@Composable () -> Unit)?,
+    title: String?,
     kicker: String?,
     removeLabel: String,
     onClick: () -> Unit,
@@ -365,6 +441,7 @@ fun FavoriteRow(
     titlePrefix: String? = null,
     lines: (@Composable () -> Unit)? = null,
     background: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier.fillMaxWidth().background(background).squishClickable(onClick = onClick)
@@ -372,7 +449,7 @@ fun FavoriteRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        icon()
+        icon?.invoke()
         Column(Modifier.weight(1f)) {
             kicker?.let {
                 Text(
@@ -383,17 +460,20 @@ fun FavoriteRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                buildString {
-                    titlePrefix?.let(::append)
-                    append(title)
-                },
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            lines?.let { Box(Modifier.padding(top = 4.dp)) { it() } }
+            if (title != null) {
+                Text(
+                    buildString {
+                        titlePrefix?.let(::append)
+                        append(title)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            lines?.let { Box(Modifier.padding(top = if (title != null) 4.dp else 0.dp)) { it() } }
         }
+        trailing?.invoke()
         IconButton(onClick = onRemove) {
             Icon(Icons.Rounded.Close, contentDescription = removeLabel, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
         }

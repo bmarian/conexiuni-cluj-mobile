@@ -7,15 +7,21 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
+import online.bus.bmarian.conexiuniclujmobile.data.GroupPlace
 import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
 import online.bus.bmarian.conexiuniclujmobile.data.LiveState
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
@@ -30,17 +36,22 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneyStop
 import online.bus.bmarian.conexiuniclujmobile.journey.PlannedRun
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
+import online.bus.bmarian.conexiuniclujmobile.logic.ChainLeg
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanOption
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanResponse
 import online.bus.bmarian.conexiuniclujmobile.logic.TimeMode
+import online.bus.bmarian.conexiuniclujmobile.logic.chainOf
 import online.bus.bmarian.conexiuniclujmobile.logic.clampCoord4
 import online.bus.bmarian.conexiuniclujmobile.logic.dayTypeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.decodePolyline
 import online.bus.bmarian.conexiuniclujmobile.logic.formatLocalDateTime
+import online.bus.bmarian.conexiuniclujmobile.logic.legsNear
 import online.bus.bmarian.conexiuniclujmobile.logic.planQuery
+import online.bus.bmarian.conexiuniclujmobile.logic.readLines
 import online.bus.bmarian.conexiuniclujmobile.logic.serviceSlot
 import online.bus.bmarian.conexiuniclujmobile.logic.toFixed4
+import online.bus.bmarian.conexiuniclujmobile.logic.tripOf
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
@@ -77,6 +88,12 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     )
     val timeValue = MutableStateFlow(query.time.orEmpty())
     private var planParam: Int? = query.plan?.toIntOrNull()
+
+    private val linii = query.linii
+    private fun groupLines() = linii?.let { Services.repository.network.index.value?.readLines(it) }
+    val groupChain: StateFlow<List<ChainLeg>> = combine(Services.repository.network.index, Services.location) { index, fix ->
+        if (index == null || linii == null) emptyList() else index.chainOf(index.legsNear(index.readLines(linii), fix?.lat, fix?.lon)) { _, color -> color }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val isCalculating = MutableStateFlow(false)
     val planData = MutableStateFlow<PlanResponse?>(null)
@@ -175,6 +192,12 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     }
 
     init {
+        if (linii != null) {
+            viewModelScope.launch {
+                Services.repository.network.index.filterNotNull().first()
+                calculateRoutes()
+            }
+        }
         if (hasValidCoords && Services.location.value == null && customOrigin.value == null) activeSearch.value = SearchField.Origin
         if (!hasValidCoords) activeSearch.value = SearchField.Destination
         calculateRoutes()
@@ -228,6 +251,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
             }.takeIf { timeValue.value.isNotEmpty() },
             last = if (mode == TimeMode.Last) "true" else null,
             plan = selectedIndex.value.takeIf { it > 0 }?.toString(),
+            linii = linii,
         )
     }
 
@@ -237,7 +261,9 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     private fun queryKey(): String? {
         val origin = originPoint() ?: return null
         if (!hasValidCoords) return null
-        return planQuery(origin, destLat to destLon, timeMode.value, timeValue.value, Api::encode)
+        // A group's plan waits for the network to read its lines.
+        val trips = if (linii == null) emptyList() else groupLines()?.map(::tripOf) ?: return null
+        return planQuery(origin, destLat to destLon, timeMode.value, timeValue.value, Api::encode, trips)
     }
 
     private fun clearPlanSelection() {
@@ -266,6 +292,8 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
                 val data = Api.get<PlanResponse>(qk)
                 setPlanData(data)
                 currentQueryKey = qk
+                val group = groupLines()?.takeIf { it.isNotEmpty() && destName.value.isNotEmpty() }
+                if (group != null) Services.groups.setDestination(group, GroupPlace(destName.value, lat, lon))
                 if (!silent && data.options.isNotEmpty()) {
                     fitRequests.value++
                     if (Services.online.value) {

@@ -132,14 +132,16 @@ fun StationLines(look: StationLook?, modifier: Modifier = Modifier) = LineBadges
 fun LineBadges(routes: List<NetworkRoute>, modifier: Modifier = Modifier) {
     if (routes.isEmpty()) return
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        for (route in routes) {
-            Box(
-                Modifier.widthIn(min = 28.dp).clip(RoundedCornerShape(5.dp))
-                    .background(lineColor(route.shortName, route.color)).padding(horizontal = 5.dp, vertical = 1.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(route.shortName, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
-            }
-        }
+        for (route in routes) StationLine(route.shortName, lineColor(route.shortName, route.color))
+    }
+}
+
+@Composable
+fun StationLine(name: String, color: Color) {
+    Box(
+        Modifier.widthIn(min = 28.dp).clip(RoundedCornerShape(5.dp)).background(color).padding(horizontal = 5.dp, vertical = 1.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(name, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
     }
 }

@@ -4,23 +4,17 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -50,7 +44,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -108,6 +101,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.groupByMode
 import online.bus.bmarian.conexiuniclujmobile.logic.mainMode
 import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
+import online.bus.bmarian.conexiuniclujmobile.logic.reverseRouteLongName
 import online.bus.bmarian.conexiuniclujmobile.logic.tripIdForRouteAtStop
 import online.bus.bmarian.conexiuniclujmobile.logic.walkMinutes
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
@@ -146,7 +140,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.rememberPop
 import online.bus.bmarian.conexiuniclujmobile.ui.route.RouteHandoff
 import online.bus.bmarian.conexiuniclujmobile.ui.share
 import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
-import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
@@ -163,6 +156,8 @@ fun routeDestination(name: String): String {
     val i = name.lastIndexOf(" - ")
     return if (i >= 0) name.substring(i + 3) else name
 }
+
+fun directedDestination(longName: String, direction: String) = routeDestination(if (direction == "1") reverseRouteLongName(longName) else longName)
 
 fun routeOrigin(name: String): String {
     val i = name.lastIndexOf(" - ")
@@ -464,7 +459,7 @@ private fun stopKind(mode: Mode) = when (mode) {
 }
 
 @Composable
-private fun DeparturesLabel() {
+fun DeparturesLabel(hint: Boolean = true) {
     val ring = remember { Animatable(1f) }
     val dot = rememberPop()
     OnLiveBeat {
@@ -490,8 +485,10 @@ private fun DeparturesLabel() {
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.weight(1f))
-        Text(stringResource(R.string.departures_hold_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        if (hint) {
+            Spacer(Modifier.weight(1f))
+            Text(stringResource(R.string.departures_hold_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        }
     }
 }
 
@@ -517,70 +514,29 @@ fun DepartureCard(
     onClick: () -> Unit,
 ) {
     val live = !departure.isStatic
-    val press = remember { MutableInteractionSource() }
-    Card(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press)
-            .clip(CardDefaults.shape)
-            .combinedClickable(interactionSource = press, indication = ripple(), onLongClick = onLongClick, onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        border = if (favorite) BorderStroke(1.dp, Palette.Rose.copy(alpha = 0.45f)) else null,
-    ) {
-        Row(
-            Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(
-                Modifier.width(4.dp).fillMaxHeight().padding(vertical = 10.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(if (live) liveColor() else Color.Transparent),
-            )
+    BusCard(
+        live = live,
+        destination = routeDestination(departure.longName),
+        subtitle = routeOrigin(departure.longName),
+        onClick = onClick,
+        modifier = modifier,
+        favorite = favorite,
+        onLongClick = onLongClick,
+        badge = {
             LineBadge(
                 departure.shortName, departure.color,
                 Modifier.sharedBadge(badgeKey(departure.routeId, departure.tripId)),
                 height = 36.dp, minWidth = 44.dp, corner = 12.dp,
             )
-            Column(Modifier.weight(1f).padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (live) LiveBadge()
-                    Text(
-                        "→ ${routeDestination(departure.longName)}",
-                        modifier = Modifier.weight(1f, fill = false),
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (reminded) {
-                        Icon(Icons.Rounded.Alarm, stringResource(R.string.remind_saved), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                val origin = routeOrigin(departure.longName)
-                if (origin.isNotEmpty()) {
-                    Text(
-                        origin,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    departure.nextTimes.forEachIndexed { i, time ->
-                        val label = minutesLabel(time.minutes, now)
-                        TimePill(
-                            text = if (i == 0 && departure.isStatic) "~ $label" else label,
-                            live = i == 0 && live,
-                            extra = i > 0,
-                            due = i == 0 && live && time.minutes == 0,
-                            mode = mode,
-                        )
-                    }
-                }
+        },
+        flag = {
+            if (reminded) {
+                Icon(Icons.Rounded.Alarm, stringResource(R.string.remind_saved), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
             }
-            if (onRemind != null) {
-                IconToggleButton(checked = remindOn, onCheckedChange = { onRemind() }, shapes = IconButtonDefaults.toggleableShapes()) {
+        },
+        trailing = onRemind?.let { remind ->
+            {
+                IconToggleButton(checked = remindOn, onCheckedChange = { remind() }, shapes = IconButtonDefaults.toggleableShapes()) {
                     PopIcon(
                         if (remindOn) Icons.Rounded.AlarmOn else Icons.Rounded.AlarmAdd,
                         remindOn,
@@ -588,12 +544,18 @@ fun DepartureCard(
                         tint = if (remindOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            } else {
-                Icon(
-                    Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    null,
-                    Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.outline,
+            }
+        },
+    ) {
+        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            departure.nextTimes.forEachIndexed { i, time ->
+                val label = minutesLabel(time.minutes, now)
+                TimePill(
+                    text = if (i == 0 && departure.isStatic) "~ $label" else label,
+                    live = i == 0 && live,
+                    extra = i > 0,
+                    due = i == 0 && live && time.minutes == 0,
+                    mode = mode,
                 )
             }
         }
