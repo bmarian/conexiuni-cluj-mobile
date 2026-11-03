@@ -64,8 +64,6 @@ class MapController {
     var directionArrowAtStart by mutableStateOf(false)
     var linesApart by mutableStateOf(true)
 
-    /** Start and end markers stay even with highlighted stops. */
-    var lineEnds by mutableStateOf(false)
 
     var pinnedLocation by mutableStateOf<MapPin?>(null)
     var customOrigin by mutableStateOf<MapPin?>(null)
@@ -148,7 +146,6 @@ class MapController {
         val fitNewShapes: Boolean,
         val directionArrowAtStart: Boolean,
         val linesApart: Boolean,
-        val lineEnds: Boolean,
         val pinnedLocation: MapPin?,
         val customOrigin: MapPin?,
         val onPinDragged: ((LatLon) -> Unit)?,
@@ -159,7 +156,7 @@ class MapController {
 
     private fun save() = Owned(
         shapes, vehicles, highlightedStops, selectedStopId, labelledStops, walkingPolylines, fitWalking, fitNewShapes,
-        directionArrowAtStart, linesApart, lineEnds, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
+        directionArrowAtStart, linesApart, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
     )
 
     private fun restore(owned: Owned) {
@@ -176,7 +173,6 @@ class MapController {
         fitNewShapes = owned.fitNewShapes
         directionArrowAtStart = owned.directionArrowAtStart
         linesApart = owned.linesApart
-        lineEnds = owned.lineEnds
         pinnedLocation = owned.pinnedLocation
         customOrigin = owned.customOrigin
         onPinDragged = owned.onPinDragged
@@ -197,7 +193,6 @@ class MapController {
         fitNewShapes = true
         directionArrowAtStart = false
         linesApart = true
-        lineEnds = false
         pinnedLocation = null
         customOrigin = null
         onPinDragged = null

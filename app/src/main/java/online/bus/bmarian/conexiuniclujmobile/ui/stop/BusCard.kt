@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
@@ -39,13 +40,15 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 @Composable
 fun BusCard(
     live: Boolean,
+    shortName: String,
+    color: String,
     destination: String,
     subtitle: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     favorite: Boolean = false,
     onLongClick: (() -> Unit)? = null,
-    badge: @Composable () -> Unit,
+    badgeModifier: Modifier = Modifier,
     flag: @Composable () -> Unit = {},
     trailing: (@Composable () -> Unit)? = null,
     times: @Composable () -> Unit,
@@ -70,7 +73,7 @@ fun BusCard(
                     .clip(RoundedCornerShape(2.dp))
                     .background(if (live) liveColor() else Color.Transparent),
             )
-            badge()
+            LineBadge(shortName, color, badgeModifier, height = 36.dp, minWidth = 44.dp, corner = 12.dp)
             Column(Modifier.weight(1f).padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (live) LiveBadge()
