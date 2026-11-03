@@ -2,7 +2,7 @@
 
 The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus, tram and trolleybus tracker as an Android app.
 
-**Join the beta:** [join the testers group](https://groups.google.com/g/ce-autobuz-iau-beta), then [get the app on Google Play](https://play.google.com/apps/testing/online.bmarian.bus). Needs Android 8 or newer.
+**[Get it on Google Play](https://play.google.com/store/apps/details?id=online.bmarian.bus).** Needs Android 8 or newer.
 
 <p align="center">
   <img src="readme/home.png" width="200" alt="Home in light and dark: the dorm, UTCN and the library saved as places, favorite lines and stops">
