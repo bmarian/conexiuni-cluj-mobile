@@ -27,6 +27,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.Favorites
+import online.bus.bmarian.conexiuniclujmobile.data.LineGroupStore
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.LOCATION_UPDATE_MS
 import online.bus.bmarian.conexiuniclujmobile.data.NAV_LOCATION_MS
@@ -62,6 +63,8 @@ object Services {
         private set
     lateinit var favorites: Favorites
         private set
+    lateinit var groups: LineGroupStore
+        private set
     lateinit var settings: Settings
         private set
     lateinit var routeUpdates: RouteUpdates
@@ -91,6 +94,7 @@ object Services {
         Cities.init(app)
         repository = Repository(app)
         favorites = Favorites(app)
+        groups = LineGroupStore(app)
         settings = Settings(app)
         routeUpdates = RouteUpdates(app)
         sync = Sync(app)
@@ -146,6 +150,7 @@ object Services {
         if (slug == Cities.current.value) return
         repository.use(slug)
         favorites.use(slug)
+        groups.use(slug)
         routeUpdates.use(slug)
         Cities.show(slug)
         scope.launch {

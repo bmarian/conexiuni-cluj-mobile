@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.Instant
@@ -243,14 +244,23 @@ fun RowIcon(icon: ImageVector, container: Color, tint: Color, size: Dp = 36.dp) 
 }
 
 @Composable
-fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: Boolean = false, due: Boolean = false, mode: Mode = Mode.BUS) {
+fun TimePill(
+    text: String,
+    live: Boolean,
+    modifier: Modifier = Modifier,
+    extra: Boolean = false,
+    due: Boolean = false,
+    mode: Mode = Mode.BUS,
+    line: Pair<String, Color>? = null,
+    missed: Boolean = false,
+) {
     val colors = LocalLiveColors.current
     val solid = live && due
     val container by animateColorAsState(
         when {
             solid -> colors.content
             live -> colors.container
-            extra -> Color.Transparent
+            extra || missed -> Color.Transparent
             else -> MaterialTheme.colorScheme.surfaceContainerHighest
         },
         if (solid) tween(190, delayMillis = delayed(485L).toInt(), easing = LinearEasing) else snap(),
@@ -289,12 +299,14 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
     Row(
         modifier
             .popped(pill)
+            .graphicsLayer { alpha = if (missed) 0.55f else 1f }
             .clip(RoundedCornerShape(8.dp))
             .background(container)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(start = if (line != null) 3.dp else 8.dp, end = 8.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (line != null) 5.dp else 3.dp),
     ) {
+        if (line != null) StationLine(line.first, line.second)
         if (live) {
             Box(Modifier.size(10.dp), contentAlignment = Alignment.Center) {
                 androidx.compose.animation.AnimatedVisibility(!solid, enter = fadeIn(), exit = scaleOut(tween(140)) + fadeOut(tween(140))) {
@@ -315,11 +327,15 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
                 }
             }
         }
-        Ticker(
-            text,
-            style = TextStyle(fontSize = 13.sp, fontWeight = if (extra) FontWeight.Medium else FontWeight.Bold),
-            color = content,
-        )
+        if (missed) {
+            Text(text, color = content, fontSize = 13.sp, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.LineThrough)
+        } else {
+            Ticker(
+                text,
+                style = TextStyle(fontSize = 13.sp, fontWeight = if (extra) FontWeight.Medium else FontWeight.Bold),
+                color = content,
+            )
+        }
     }
 }
 

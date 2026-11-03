@@ -65,6 +65,8 @@ interface Navigator {
     fun news()
     fun destinations()
     fun destination(slug: String)
+    fun group(lines: String, replace: Boolean = false)
+    fun groupPick(lines: String, edit: String? = null, replace: Boolean = false)
 }
 
 /** Same keys as the website's /plan query. */
@@ -79,11 +81,12 @@ data class PlanQuery(
     val arriveBy: String? = null,
     val last: String? = null,
     val plan: String? = null,
+    val linii: String? = null,
 ) {
     private fun pairs() = listOf(
         "lat" to lat, "lon" to lon, "name" to name,
         "originLat" to originLat, "originLon" to originLon, "originName" to originName,
-        "time" to time, "arrive_by" to arriveBy, "last" to last, "plan" to plan,
+        "time" to time, "arrive_by" to arriveBy, "last" to last, "plan" to plan, "linii" to linii,
     ).filter { it.second != null }
 
     fun encode(): String = pairs().joinToString("&") { (k, v) -> "$k=${Uri.encode(v)}" }
@@ -102,6 +105,7 @@ data class PlanQuery(
             arriveBy = uri.getQueryParameter("arrive_by"),
             last = uri.getQueryParameter("last"),
             plan = uri.getQueryParameter("plan"),
+            linii = uri.getQueryParameter("linii"),
         )
 
         fun to(lat: Double, lon: Double, name: String, originLat: Double? = null, originLon: Double? = null, originName: String? = null) =

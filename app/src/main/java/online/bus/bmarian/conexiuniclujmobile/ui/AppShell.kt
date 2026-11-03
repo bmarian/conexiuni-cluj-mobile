@@ -118,6 +118,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapInsets
 import online.bus.bmarian.conexiuniclujmobile.ui.map.TransitMap
 import online.bus.bmarian.conexiuniclujmobile.ui.nav.NavigationScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.plan.PlanScreen
+import online.bus.bmarian.conexiuniclujmobile.ui.group.GroupPickScreen
+import online.bus.bmarian.conexiuniclujmobile.ui.group.GroupScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.route.RouteScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.settings.SettingsScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.shell.GreenFridayBanner
@@ -492,6 +494,18 @@ private fun AppNavHost(navController: NavHostController) {
                 )
             }
         }
+        composable("group?l={l}", arguments = listOf(navArgument("l") { type = NavType.StringType; defaultValue = "" })) { entry ->
+            Page { GroupScreen(entry.arguments?.getString("l").orEmpty()) }
+        }
+        composable(
+            "group-pick?l={l}&edit={edit}",
+            arguments = listOf(
+                navArgument("l") { type = NavType.StringType; defaultValue = "" },
+                navArgument("edit") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) { entry ->
+            Page { GroupPickScreen(entry.arguments?.getString("l").orEmpty(), entry.arguments?.getString("edit")) }
+        }
         composable(
             "plan?q={q}",
             arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" }),
@@ -571,6 +585,17 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
         go("to/${Uri.encode(slug)}")
     }
 
+    override fun group(lines: String, replace: Boolean) = open("group?l=${Uri.encode(lines)}", replace)
+
+    override fun groupPick(lines: String, edit: String?, replace: Boolean) =
+        open("group-pick?l=${Uri.encode(lines)}" + (edit?.let { "&edit=${Uri.encode(it)}" } ?: ""), replace)
+
+    private fun open(target: String, replace: Boolean) {
+        val current = nav.currentBackStackEntry?.destination
+        if (!replace || current == null) return go(target)
+        nav.navigate(target) { popUpTo(current.id) { inclusive = true } }
+    }
+
     private var lastTarget: String? = null
     private var lastAt = 0L
 
@@ -623,6 +648,10 @@ private suspend fun openLink(navigator: Navigator, uri: Uri) {
             navigator.route(routeId, direction, change = uri.getQueryParameter("change")?.toLongOrNull())
         }
         "plan" -> navigator.plan(PlanQuery.fromUri(uri))
+        "grup" -> {
+            val lines = uri.getQueryParameter("linii").orEmpty()
+            if (segments.getOrNull(1) == "alege") navigator.groupPick(lines) else navigator.group(lines)
+        }
         "spre", "to" -> segments.getOrNull(1)?.let(navigator::destination) ?: navigator.destinations()
         "destinatii", "destinations" -> navigator.destinations()
         "journey", "nav" -> JourneyManager.openNavigation()

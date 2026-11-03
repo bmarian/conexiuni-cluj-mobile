@@ -86,9 +86,17 @@ data class PlanResponse(
 
 enum class TimeMode(val key: String) { Now("now"), Leave("leave"), Arrive("arrive"), Last("last") }
 
-fun planQuery(from: Pair<Double, Double>, to: Pair<Double, Double>, mode: TimeMode, time: String, encode: (String) -> String): String {
+fun planQuery(
+    from: Pair<Double, Double>,
+    to: Pair<Double, Double>,
+    mode: TimeMode,
+    time: String,
+    encode: (String) -> String,
+    trips: List<String> = emptyList(),
+): String {
     val params = StringBuilder("plan?from_lat=${toFixed4(from.first)}&from_lng=${toFixed4(from.second)}")
     params.append("&to_lat=${toFixed4(to.first)}&to_lng=${toFixed4(to.second)}")
+    if (trips.isNotEmpty()) params.append("&trips=${encode(trips.joinToString(","))}")
     when {
         mode == TimeMode.Last -> params.append("&last=true")
         mode != TimeMode.Now && time.isNotEmpty() -> params.append("&time=${encode(time)}&arrive_by=${mode == TimeMode.Arrive}")

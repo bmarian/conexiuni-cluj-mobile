@@ -167,6 +167,8 @@
                 <data android:pathPattern="/.*/spre/.*" />
                 <data android:pathPattern="/.*/destinations" />
                 <data android:pathPattern="/.*/destinatii" />
+                <data android:pathPattern="/.*/grup" />
+                <data android:pathPattern="/.*/grup/alege" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

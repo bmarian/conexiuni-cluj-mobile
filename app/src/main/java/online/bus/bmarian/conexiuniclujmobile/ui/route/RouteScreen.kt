@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Close
@@ -110,6 +111,7 @@ import online.bus.bmarian.conexiuniclujmobile.journey.JourneyPoint
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyStop
 import online.bus.bmarian.conexiuniclujmobile.journey.ridePath
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.HourGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.IndexedStop
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
@@ -142,6 +144,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.stopsForDirection
 import online.bus.bmarian.conexiuniclujmobile.logic.todayTab
 import online.bus.bmarian.conexiuniclujmobile.logic.tripHourlyOffsets
 import online.bus.bmarian.conexiuniclujmobile.logic.tripStops
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
@@ -198,6 +201,12 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val activeChange by vm.activeChange.collectAsStateWithLifecycle()
     val hourly by vm.hourlyOffsets.collectAsStateWithLifecycle()
     val favoriteStops by Services.favorites.stops.collectAsStateWithLifecycle()
+    var counted by rememberSaveable(routeId) { mutableStateOf(false) }
+    LaunchedEffect(info, dir) {
+        if (counted || info == null || (dir != "0" && dir != "1")) return@LaunchedEffect
+        Services.groups.recordUse("lines", "$routeId/$dir")
+        counted = true
+    }
     val city by Cities.current.collectAsStateWithLifecycle()
     val favoriteRoutes by Services.favorites.routes.collectAsStateWithLifecycle()
     val followed by Services.routeUpdates.followed.collectAsStateWithLifecycle()
@@ -424,6 +433,9 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     ) {
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleRoute(routeId, dir)
+                    },
+                    ChipAction(stringResource(R.string.group_create), Icons.Rounded.Add) {
+                        Services.repository.network.index.value?.let { nav.groupPick(it.writeLines(listOf(GroupLine(routeId, dir)))) }
                     },
                     ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) {
                         share(context, Services.repository.network.index.value.linePath(routeId, dir))
