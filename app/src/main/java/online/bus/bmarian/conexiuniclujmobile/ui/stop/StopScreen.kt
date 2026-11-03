@@ -516,19 +516,15 @@ fun DepartureCard(
     val live = !departure.isStatic
     BusCard(
         live = live,
+        shortName = departure.shortName,
+        color = departure.color,
         destination = routeDestination(departure.longName),
         subtitle = routeOrigin(departure.longName),
         onClick = onClick,
         modifier = modifier,
         favorite = favorite,
         onLongClick = onLongClick,
-        badge = {
-            LineBadge(
-                departure.shortName, departure.color,
-                Modifier.sharedBadge(badgeKey(departure.routeId, departure.tripId)),
-                height = 36.dp, minWidth = 44.dp, corner = 12.dp,
-            )
-        },
+        badgeModifier = Modifier.sharedBadge(badgeKey(departure.routeId, departure.tripId)),
         flag = {
             if (reminded) {
                 Icon(Icons.Rounded.Alarm, stringResource(R.string.remind_saved), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)

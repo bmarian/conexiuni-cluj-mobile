@@ -34,17 +34,11 @@ fun NetworkIndex.readLines(raw: String): List<GroupLine> {
     return lines
 }
 
-fun NetworkIndex.readKey(key: String): List<GroupLine> = key.split(',').mapNotNull { part ->
-    val (id, direction) = part.split('/').takeIf { it.size == 2 } ?: return@mapNotNull null
-    val routeId = id.toIntOrNull()?.takeIf { route(it) != null } ?: return@mapNotNull null
-    GroupLine(routeId, direction).takeIf { direction == "0" || direction == "1" }
-}
-
 fun NetworkIndex.groupRoutes(lines: List<GroupLine>): List<NetworkRoute> = lines.mapNotNull { route(it.routeId) }
 
 fun groupLabel(routes: List<NetworkRoute>) = routes.joinToString(", ") { it.shortName }
 
-fun NetworkIndex.stopsOf(line: GroupLine): List<Int> =
+private fun NetworkIndex.stopsOf(line: GroupLine): List<Int> =
     route(line.routeId)?.trips?.firstOrNull { it.tripId == tripOf(line) }?.stopIds?.toList().orEmpty()
 
 /** The line's stop nearest you, never its last; its first without a location. */

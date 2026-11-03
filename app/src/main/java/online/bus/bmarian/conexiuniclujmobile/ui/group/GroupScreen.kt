@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Edit
@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -57,7 +58,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
 import online.bus.bmarian.conexiuniclujmobile.logic.groupLabel
-import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
 import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
@@ -65,6 +65,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
+import online.bus.bmarian.conexiuniclujmobile.ui.LoadingRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalLiveBeat
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
@@ -79,7 +80,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.stop.directedDestination
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 @Composable
-fun groupViewModel(raw: String): GroupViewModel = viewModel(key = "group-$raw") { GroupViewModel(raw) }
+fun groupViewModel(raw: String): GroupViewModel = viewModel(key = "group-$raw") { GroupViewModel(raw, createSavedStateHandle()) }
 
 fun groupPath(index: NetworkIndex, lines: List<GroupLine>) = "/grup?linii=" + index.writeLines(lines)
 
@@ -94,9 +95,9 @@ fun GroupScreen(raw: String) {
     LaunchedEffect(vm) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.live() } }
 
     val index by vm.index.collectAsStateWithLifecycle()
-    val lines by vm.lines.collectAsStateWithLifecycle()
+    val read by vm.lines.collectAsStateWithLifecycle()
+    val lines = read.orEmpty()
     val hidden by vm.hidden.collectAsStateWithLifecycle()
-    val boards by vm.boards.collectAsStateWithLifecycle()
     val ui by vm.ui.collectAsStateWithLifecycle()
     val beat by vm.beat.collectAsStateWithLifecycle()
     val layer by vm.mapLayer.collectAsStateWithLifecycle()
@@ -110,7 +111,6 @@ fun GroupScreen(raw: String) {
     DisposableEffect(owner) {
         map.claim(owner)
         map.linesApart = false
-        map.lineEnds = true
         onDispose { map.release(owner) }
     }
     LaunchedEffect(layer) {
@@ -145,31 +145,38 @@ fun GroupScreen(raw: String) {
                 }
             }
             item(key = "actions") {
+                val edit = ChipAction(stringResource(R.string.group_lines), Icons.Rounded.Edit) {
+                    index?.let { val written = it.writeLines(lines); nav.groupPick(written, edit = written.takeIf { group != null }, replace = true) }
+                }
                 ActionChips(
-                    listOf(
+                    if (read?.isEmpty() == true) listOf(edit) else listOf(
                         ChipAction(
                             stringResource(if (group != null) R.string.saved else R.string.save),
                             if (group != null) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             selected = group != null,
                             tint = if (group != null) Palette.Rose else Color.Unspecified,
                         ) { if (group != null) Services.groups.remove(lines) else naming = true },
-                        ChipAction(stringResource(R.string.group_lines), Icons.Rounded.Edit) {
-                            index?.let { val written = it.writeLines(lines); nav.groupPick(written, edit = written.takeIf { group != null }, replace = true) }
-                        },
+                        edit,
                         ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { path?.let { share(context, it) } },
                     ),
                     Modifier.padding(bottom = 8.dp),
                 )
             }
             item(key = "label") { DeparturesLabel(hint = false) }
-            itemsIndexed(lines, key = { _, it -> it.routeId }) { i, line ->
-                val route = index?.route(line.routeId) ?: return@itemsIndexed
-                val stopId = boards.getOrNull(i)
+            when {
+                read == null -> item(key = "loading") { LoadingRow() }
+                lines.isEmpty() -> item(key = "none") {
+                    Text(stringResource(R.string.w_no_results), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            items(lines, key = { it.routeId }) { line ->
+                val route = index?.route(line.routeId) ?: return@items
+                val row = ui?.rows?.firstOrNull { it.line == line }
                 GroupLineCard(
-                    route, line, stopId?.let { index?.stop(it)?.name }, ui?.departures?.getOrNull(i), ui?.now, line.routeId in hidden,
+                    route, line, row?.stopId?.let { index?.stop(it)?.name }, row, ui?.now, line.routeId in hidden,
                     onFlip = { vm.flip(line.routeId) },
                     onToggle = { vm.toggleHidden(line.routeId) },
-                ) { nav.route(line.routeId, line.direction, fromStopId = stopId) }
+                ) { nav.route(line.routeId, line.direction, fromStopId = row?.stopId) }
             }
             item { Box(Modifier.height(24.dp)) }
         }
@@ -189,20 +196,22 @@ private fun GroupLineCard(
     route: NetworkRoute,
     line: GroupLine,
     from: String?,
-    departure: StopDeparture?,
+    row: GroupRow?,
     now: LocalDateTime?,
     hidden: Boolean,
     onFlip: () -> Unit,
     onToggle: () -> Unit,
     onClick: () -> Unit,
 ) {
+    val departure = row?.departure
     BusCard(
         live = departure?.isStatic == false,
+        shortName = route.shortName,
+        color = route.color,
         destination = directedDestination(route.longName, line.direction),
         subtitle = from?.let { stringResource(R.string.w_from, it) }.orEmpty(),
         onClick = onClick,
         modifier = Modifier.alpha(if (hidden) 0.55f else 1f),
-        badge = { LineBadge(route.shortName, route.color, height = 36.dp, minWidth = 44.dp, corner = 12.dp) },
         trailing = {
             IconButton(onClick = onFlip) {
                 Icon(Icons.Rounded.SwapHoriz, stringResource(R.string.group_flip), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -218,7 +227,7 @@ private fun GroupLineCard(
     ) {
         if (departure != null && now != null) {
             DepartureTimes(departure, now, modeOf(route.type))
-        } else {
+        } else if (row != null) {
             Text(
                 stringResource(R.string.group_no_more),
                 Modifier.padding(top = 4.dp),

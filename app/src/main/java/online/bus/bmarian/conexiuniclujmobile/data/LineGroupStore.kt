@@ -28,6 +28,7 @@ class LineGroupStore(private val context: Context) {
 
     private fun readSaved(from: SharedPreferences): List<SavedGroup> =
         from.getString("saved", null)?.let { runCatching { Api.json.decodeFromString<List<SavedGroup>>(it) }.getOrNull() }.orEmpty()
+            .filter { it.lines.isNotEmpty() }
 
     private fun write(to: SharedPreferences, list: List<SavedGroup>) = to.edit { putString("saved", Api.json.encodeToString(list)) }
 
@@ -50,6 +51,7 @@ class LineGroupStore(private val context: Context) {
     fun find(lines: List<GroupLine>): SavedGroup? = groupKey(lines).let { key -> _saved.value.firstOrNull { it.key == key } }
 
     fun save(lines: List<GroupLine>, name: String?) {
+        if (lines.isEmpty()) return
         val list = _saved.value
         val known = find(lines)
         if (known != null) return persist(list.map { if (it == known) it.copy(name = name?.ifBlank { null }) else it })
