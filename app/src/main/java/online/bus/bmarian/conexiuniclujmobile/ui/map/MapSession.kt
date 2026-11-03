@@ -1396,7 +1396,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                     parts(line, color).map { (part, color) ->
                         Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply {
                             addStringProperty("color", "#%06X".format(0xFFFFFF and color))
-                            addNumberProperty("dash", line.dash)
+                            // In traffic colours a line drops the dash that told it apart from another line of its colour.
+                            addNumberProperty("dash", if (traffic[line.tripId].isNullOrEmpty()) line.dash else 0)
                             addNumberProperty("v", linesVersion)
                         }
                     }

@@ -12,17 +12,15 @@ import online.bus.bmarian.conexiuniclujmobile.logic.Usage
 import online.bus.bmarian.conexiuniclujmobile.logic.counted
 import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
 
-@Serializable
-data class GroupPlace(val name: String, val lat: Double, val lon: Double)
-
 /** Same shape as FavoriteGroup in stores/favorites.ts. */
 @Serializable
-data class SavedGroup(val lines: List<GroupLine>, val name: String? = null, val destination: GroupPlace? = null) {
+data class SavedGroup(val lines: List<GroupLine>, val name: String? = null) {
     val key get() = groupKey(lines)
 }
 
 class LineGroupStore(private val context: Context) {
-    private var city = Cities.current.value
+    var city = Cities.current.value
+        private set
     private var prefs = cityPrefs(context, "groups", city)
 
     private val _saved = MutableStateFlow(readSaved(prefs))
@@ -65,11 +63,6 @@ class LineGroupStore(private val context: Context) {
         val group = find(from) ?: return
         val key = groupKey(lines)
         persist(_saved.value.filterNot { it.key == key && it != group }.map { if (it == group) it.copy(lines = lines) else it })
-    }
-
-    fun setDestination(lines: List<GroupLine>, to: GroupPlace) {
-        val group = find(lines)?.takeIf { it.destination != to } ?: return
-        persist(_saved.value.map { if (it == group) it.copy(destination = to) else it })
     }
 
     fun reorder(list: List<SavedGroup>) = persist(list)

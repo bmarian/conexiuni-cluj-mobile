@@ -41,6 +41,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
 import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.Route
+import online.bus.bmarian.conexiuniclujmobile.data.SavedGroup
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
@@ -81,6 +82,7 @@ object WearLink {
     const val PATH_COLORS = "/sync/colors"
     const val PATH_CITY = "/sync/city"
     const val PATH_RECENTS = "/sync/recents"
+    const val PATH_GROUPS = "/sync/groups"
 
     fun favoritesPath(city: String) = if (city == Cities.DEFAULT) PATH_FAVORITES else "$PATH_FAVORITES/$city"
 
@@ -129,6 +131,7 @@ object WearLink {
             combine(Services.favorites.recents, Services.repository.stops, Services.repository.routes, ::watchRecents)
                 .filterNotNull().distinctUntilChanged().collect { publishRecents(app, it) }
         }
+        scope.launch { Services.groups.saved.collect { publishGroups(app, Services.groups.city, it) } }
     }
 
     fun refreshReach(context: Context) {
@@ -307,6 +310,15 @@ object WearLink {
     private suspend fun publishRecents(context: Context, list: List<WatchRecent>) {
         runCatching {
             val request = PutDataMapRequest.create("$PATH_RECENTS/${Services.favorites.city}").apply {
+                dataMap.putString("json", Api.json.encodeToString(list))
+            }.asPutDataRequest().setUrgent()
+            Wearable.getDataClient(context).putDataItem(request).await()
+        }
+    }
+
+    private suspend fun publishGroups(context: Context, city: String, list: List<SavedGroup>) {
+        runCatching {
+            val request = PutDataMapRequest.create("$PATH_GROUPS/$city").apply {
                 dataMap.putString("json", Api.json.encodeToString(list))
             }.asPutDataRequest().setUrgent()
             Wearable.getDataClient(context).putDataItem(request).await()

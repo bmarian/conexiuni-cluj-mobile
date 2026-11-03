@@ -388,10 +388,10 @@ fun TransitMap(
     LaunchedEffect(drawnLines, apart) { LineColors.draw(drawnLines, apart) }
     val base = LocalLineLooks.current
     val looks = remember(base, drawnLines, apart) { base.drawing(drawnLines, apart) }
-    val scene = remember(shownShapes, controller.directionArrowAtStart, nav, looks) {
+    val scene = remember(shownShapes, controller.directionArrowAtStart, controller.lineEnds, nav, looks) {
         val colored = shownShapes.map { MapShape(it.tripId, it.shortName, looks.hex(it.shortName, it.color) ?: it.color, it.points) }
         if (nav != null) buildScene(colored, terminals = false, arrows = false)
-        else buildScene(colored, terminals = controller.highlightedStops.isEmpty(), arrows = controller.directionArrowAtStart)
+        else buildScene(colored, terminals = controller.highlightedStops.isEmpty() || controller.lineEnds, arrows = controller.directionArrowAtStart)
     }
     val coloredVehicles = remember(shownVehicles, looks) {
         val apart = manyLines(shownVehicles.map { it.shortName })

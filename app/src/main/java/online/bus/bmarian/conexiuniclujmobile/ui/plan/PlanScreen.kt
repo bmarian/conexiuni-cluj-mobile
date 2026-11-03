@@ -107,7 +107,6 @@ import java.time.Instant
 import java.time.LocalDateTime
 import kotlin.math.max
 import kotlinx.coroutines.launch
-import online.bus.bmarian.conexiuniclujmobile.ui.group.LineChain
 import online.bus.bmarian.conexiuniclujmobile.ui.home.placePicks
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -167,7 +166,6 @@ private fun clock(ms: Long): String {
 @Composable
 fun PlanScreen(query: PlanQuery) {
     val vm = planViewModel(query)
-    val groupChain by vm.groupChain.collectAsStateWithLifecycle()
     val nav = LocalNavigator.current
     val map = LocalMap.current
     val context = LocalContext.current
@@ -319,7 +317,6 @@ fun PlanScreen(query: PlanQuery) {
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    if (groupChain.isNotEmpty()) LineChain(groupChain, Modifier.padding(top = 4.dp), small = true)
                 }
                 if (renaming) {
                     IconButton(onClick = {

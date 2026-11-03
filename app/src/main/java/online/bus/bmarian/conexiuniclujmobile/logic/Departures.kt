@@ -19,8 +19,8 @@ fun trackableTripIds(info: StopInfo): List<String> {
 }
 
 /** The stop's departures: the server's rows where the live feed has them, the timetable otherwise. */
-fun stopDepartures(info: StopInfo, live: LiveState?, now: LocalDateTime, nowMs: Long): List<StopDeparture> =
-    availableBusesForStop(info, now, STOP_HORIZON_MIN, DEPARTURES_SHOWN + 1).mapNotNull { departure ->
+fun stopDepartures(info: StopInfo, live: LiveState?, now: LocalDateTime, nowMs: Long, onlyTrip: String? = null): List<StopDeparture> =
+    availableBusesForStop(info, now, STOP_HORIZON_MIN, DEPARTURES_SHOWN + 1, onlyTrip).mapNotNull { departure ->
         val entries = live?.entriesAt(departure.tripId, info.stopId, nowMs)
         if (entries != null) {
             if (entries.isEmpty()) return@mapNotNull null
