@@ -5,9 +5,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableIntStateOf
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
-import online.bus.bmarian.conexiuniclujmobile.logic.chainOf
+import online.bus.bmarian.conexiuniclujmobile.logic.chainNear
 import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
-import online.bus.bmarian.conexiuniclujmobile.logic.legsNear
 import online.bus.bmarian.conexiuniclujmobile.logic.readKey
 import online.bus.bmarian.conexiuniclujmobile.logic.usageOrder
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
@@ -164,7 +163,7 @@ fun HomeScreen() {
             .sortedWith(compareBy(usageOrder(System.currentTimeMillis())) { it.value })
             .firstNotNullOfOrNull { (key, _) -> known.readKey(key).takeIf { it.isNotEmpty() } }
     }
-    fun chainFor(group: List<GroupLine>) = index?.let { it.chainOf(it.legsNear(group, fix?.lat, fix?.lon)) { _, color -> color } }.orEmpty()
+    fun chainFor(group: List<GroupLine>) = index?.chainNear(group, fix?.lat, fix?.lon).orEmpty()
     var namingSuggested by remember { mutableStateOf(false) }
 
     fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
@@ -352,12 +351,14 @@ fun HomeScreen() {
                 val plan = item.plan
                 val stop = item.stop
                 val route = item.route
+                val group = item.group
                 RecentRow(
                     item,
                     modifier = Modifier.animateItem(),
                     iconSize = 30.dp,
                     onClick = {
                         if (plan != null) openPlan(plan)
+                        else if (group != null) index?.let { nav.group(it.writeLines(group)) }
                         else {
                             Services.favorites.addRecent(item.recent)
                             if (stop != null) nav.stop(stop.stopId) else if (route != null) openRoute(route, "auto")

@@ -64,7 +64,7 @@ class Sync(private val context: Context) {
         val favorites = Services.favorites
         scope.launch {
             combine(favorites.routes, favorites.stops, favorites.plans, Services.routeUpdates.followed, Services.routeUpdates.seen) { _, _, _, _, _ -> }
-                .combine(favorites.recents) { _, _ -> }
+                .combine(combine(favorites.recents, Services.groups.saved) { _, _ -> }) { _, _ -> }
                 .drop(1).debounce(AFTER_EDIT_MS).collect { syncNow() }
         }
         val s = Services.settings

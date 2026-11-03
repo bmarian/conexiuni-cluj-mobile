@@ -41,12 +41,11 @@ import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanOption
 import online.bus.bmarian.conexiuniclujmobile.logic.PlanResponse
 import online.bus.bmarian.conexiuniclujmobile.logic.TimeMode
-import online.bus.bmarian.conexiuniclujmobile.logic.chainOf
+import online.bus.bmarian.conexiuniclujmobile.logic.chainNear
 import online.bus.bmarian.conexiuniclujmobile.logic.clampCoord4
 import online.bus.bmarian.conexiuniclujmobile.logic.dayTypeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.decodePolyline
 import online.bus.bmarian.conexiuniclujmobile.logic.formatLocalDateTime
-import online.bus.bmarian.conexiuniclujmobile.logic.legsNear
 import online.bus.bmarian.conexiuniclujmobile.logic.planQuery
 import online.bus.bmarian.conexiuniclujmobile.logic.readLines
 import online.bus.bmarian.conexiuniclujmobile.logic.serviceSlot
@@ -92,7 +91,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
     private val linii = query.linii
     private fun groupLines() = linii?.let { Services.repository.network.index.value?.readLines(it) }
     val groupChain: StateFlow<List<ChainLeg>> = combine(Services.repository.network.index, Services.location) { index, fix ->
-        if (index == null || linii == null) emptyList() else index.chainOf(index.legsNear(index.readLines(linii), fix?.lat, fix?.lon)) { _, color -> color }
+        if (index == null || linii == null) emptyList() else index.chainNear(index.readLines(linii), fix?.lat, fix?.lon)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val isCalculating = MutableStateFlow(false)

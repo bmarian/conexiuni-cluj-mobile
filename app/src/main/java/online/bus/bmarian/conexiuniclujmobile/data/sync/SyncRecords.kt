@@ -16,13 +16,14 @@ object SyncRecords {
     const val NEWS_CAP = 200
     const val DEVICE_CAP = 10
     const val RECENT_CAP = 10
+    const val GROUP_LINES_CAP = 10
     private const val MAX_INT = Int.MAX_VALUE.toLong()
     val LAT = 43.6..48.3
     val LON = 20.2..29.8
     val KINDS = listOf("web", "android", "wear")
 
-    data class Origin(val name: String, val lat: Double, val lon: Double)
-    data class Place(val name: String, val label: String, val lat: Double, val lon: Double, val origin: Origin? = null)
+    data class Spot(val name: String, val lat: Double, val lon: Double)
+    data class Place(val name: String, val label: String, val lat: Double, val lon: Double, val origin: Spot? = null)
     data class Line(val route: Long, val dir: String)
     data class City(val stops: List<Long>, val lines: List<Line>, val places: List<Place>, val followed: List<String>) {
         val isEmpty get() = stops.isEmpty() && lines.isEmpty() && places.isEmpty() && followed.isEmpty()
@@ -32,8 +33,11 @@ object SyncRecords {
         data class Stop(val id: Long) : RecentItem
         data class Line(val id: Long) : RecentItem
         data class Spot(val place: Place) : RecentItem
+        data class Group(val lines: List<SyncRecords.Line>) : RecentItem
     }
     data class Recents(val recent: List<RecentItem>)
+    data class Group(val lines: List<Line>, val name: String, val to: Spot? = null)
+    data class Groups(val groups: List<Group>)
     data class Options(val colorfulLines: Boolean, val city: String, val journeyVoice: Boolean?, val fullScreenAlarms: Boolean?, val traffic: Boolean?)
     data class Device(val id: String, val kind: String, val label: String, val pub: String)
     data class Devices(val devices: List<Device>)
@@ -131,7 +135,10 @@ object SyncRecords {
         is RecentItem.Stop -> "stop:${r.id}"
         is RecentItem.Line -> "line:${r.id}"
         is RecentItem.Spot -> "place:${placeId(r.place)}"
+        is RecentItem.Group -> "group:${linesId(r.lines)}"
     }
+    private fun linesId(lines: List<Line>) = lines.joinToString(",", transform = ::lineId)
+    fun groupId(g: Group) = linesId(g.lines)
 
     /** Parses, checks the rules and the canonical form; the version comes first, so a later shape is newer, not refused. */
     private fun <T> read(raw: String, parse: (JsonElement) -> T, write: (T) -> String): Read<T> = try {
@@ -154,19 +161,30 @@ object SyncRecords {
             label = text(f[1], 0, 40),
             lat = coordinate(f[2], LAT),
             lon = coordinate(f[3], LON),
-            origin = if (f.size == 7) Origin(text(f[4], 1, 100), coordinate(f[5], LAT), coordinate(f[6], LON)) else null,
+            origin = if (f.size == 7) parseSpot(f.drop(4)) else null,
         )
+    }
+
+    private fun parseSpot(f: List<JsonElement>) = Spot(text(f[0], 1, 100), coordinate(f[1], LAT), coordinate(f[2], LON))
+
+    private fun parseGroupLines(e: JsonElement?): List<Line> {
+        val lines = list(e, GROUP_LINES_CAP).map(::parseLine)
+        if (lines.isEmpty()) refuse()
+        unique(lines) { it.route.toString() }
+        return lines
+    }
+
+    private fun parseLine(l: JsonElement): Line {
+        val pair = list(l, 2)
+        val dir = (pair.getOrNull(1) as? JsonPrimitive)?.takeIf { it.isString }?.content
+        if (pair.size != 2 || (dir != "0" && dir != "1")) refuse()
+        return Line(integer(pair[0], 1, MAX_INT), dir)
     }
 
     private fun parseCity(record: JsonElement): City {
         val m = obj(record, "v", "stops", "lines", "places", "followed")
         val stops = list(m["stops"], CITY_CAP).map { integer(it, 1, MAX_INT) }
-        val lines = list(m["lines"], CITY_CAP).map { l ->
-            val pair = list(l, 2)
-            val dir = (pair.getOrNull(1) as? JsonPrimitive)?.takeIf { it.isString }?.content
-            if (pair.size != 2 || (dir != "0" && dir != "1")) refuse()
-            Line(integer(pair[0], 1, MAX_INT), dir)
-        }
+        val lines = list(m["lines"], CITY_CAP).map(::parseLine)
         val places = list(m["places"], CITY_CAP).map { parsePlace(list(it, 7)) }
         val followed = list(m["followed"], CITY_CAP).map { text(it, 1, 16) }
         unique(stops, ::stopId)
@@ -182,15 +200,15 @@ object SyncRecords {
 
     private fun <T> joined(items: List<T>, write: (T) -> String) = items.joinToString(",", "[", "]", transform = write)
 
-    private fun writePlace(p: Place): String {
-        val base = listOf(quote(p.name), quote(p.label), coord(p.lat), coord(p.lon))
-        val origin = p.origin?.let { listOf(quote(it.name), coord(it.lat), coord(it.lon)) }.orEmpty()
-        return (base + origin).joinToString(",", "[", "]")
-    }
+    private fun spotFields(s: Spot?) = s?.let { listOf(quote(it.name), coord(it.lat), coord(it.lon)) }.orEmpty()
+
+    private fun writePlace(p: Place) = (listOf(quote(p.name), quote(p.label), coord(p.lat), coord(p.lon)) + spotFields(p.origin)).joinToString(",", "[", "]")
+
+    private fun writeLine(l: Line) = "[${l.route},${quote(l.dir)}]"
 
     fun writeCity(r: City): String =
         "{\"v\":1,\"stops\":" + joined(r.stops, ::stopId) +
-            ",\"lines\":" + joined(r.lines) { "[${it.route},${quote(it.dir)}]" } +
+            ",\"lines\":" + joined(r.lines, ::writeLine) +
             ",\"places\":" + joined(r.places, ::writePlace) +
             ",\"followed\":" + joined(r.followed, ::quote) + "}"
 
@@ -220,6 +238,7 @@ object SyncRecords {
                 kind == "place" -> RecentItem.Spot(parsePlace(f.drop(1)))
                 kind == "stop" && f.size == 2 -> RecentItem.Stop(integer(f[1], 1, MAX_INT))
                 kind == "line" && f.size == 2 -> RecentItem.Line(integer(f[1], 1, MAX_INT))
+                kind == "group" && f.size == 2 -> RecentItem.Group(parseGroupLines(f[1]))
                 else -> refuse()
             }
         }
@@ -232,10 +251,29 @@ object SyncRecords {
             is RecentItem.Stop -> "[\"stop\",${it.id}]"
             is RecentItem.Line -> "[\"line\",${it.id}]"
             is RecentItem.Spot -> "[\"place\"," + writePlace(it.place).drop(1)
+            is RecentItem.Group -> "[\"group\"," + joined(it.lines, ::writeLine) + "]"
         }
     } + "}"
 
     fun readRecents(raw: String): Read<Recents> = read(raw, ::parseRecents, ::writeRecents)
+
+    val emptyGroups = Groups(emptyList())
+
+    private fun parseGroups(record: JsonElement): Groups {
+        val groups = list(obj(record, "v", "groups")["groups"], CITY_CAP).map { item ->
+            val f = list(item, 5)
+            if (f.size != 2 && f.size != 5) refuse()
+            Group(parseGroupLines(f[0]), text(f[1], 0, 40), if (f.size == 5) parseSpot(f.drop(2)) else null)
+        }
+        unique(groups, ::groupId)
+        return Groups(groups)
+    }
+
+    fun writeGroups(r: Groups): String = "{\"v\":1,\"groups\":" + joined(r.groups) {
+        (listOf(joined(it.lines, ::writeLine), quote(it.name)) + spotFields(it.to)).joinToString(",", "[", "]")
+    } + "}"
+
+    fun readGroups(raw: String): Read<Groups> = read(raw, ::parseGroups, ::writeGroups)
 
     private val ID_TEXT = Regex("^[A-Za-z0-9_-]{21}[AQgw]$")
 

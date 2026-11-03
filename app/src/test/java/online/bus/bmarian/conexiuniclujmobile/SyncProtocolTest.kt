@@ -89,6 +89,7 @@ class SyncProtocolTest {
         "news" -> SyncRecords.readNews(raw)
         "recents" -> SyncRecords.readRecents(raw)
         "options" -> SyncRecords.readOptions(raw)
+        "groups" -> SyncRecords.readGroups(raw)
         "devices" -> SyncRecords.readDevices(raw)
         else -> SyncRecords.readSettings(raw)
     }) {
@@ -140,6 +141,17 @@ class SyncProtocolTest {
                         value(SyncRecords.readRecents(c.str("remote"))),
                     )),
                 )
+                "groups" -> {
+                    val result = SyncMerge.mergeGroups(
+                        c.textOrNull("base")?.let { value(SyncRecords.readGroups(it)) } ?: SyncRecords.emptyGroups,
+                        value(SyncRecords.readGroups(c.str("local"))),
+                        value(SyncRecords.readGroups(c.str("remote"))),
+                    )
+                    assertEquals(about, c.str("merged"), SyncRecords.writeGroups(SyncRecords.Groups(result.merged)))
+                    val dropped = result.dropped.takeIf { it.isNotEmpty() }
+                        ?.let { SyncRecords.writeGroups(SyncRecords.Groups(it)).removePrefix("{\"v\":1,\"groups\":").dropLast(1) }
+                    assertEquals(about, c.jsonObject["dropped"]!!.jsonObject["groups"]?.toString(), dropped)
+                }
                 "options" -> assertEquals(
                     about, c.str("merged"),
                     SyncRecords.writeOptions(SyncMerge.mergeOptions(

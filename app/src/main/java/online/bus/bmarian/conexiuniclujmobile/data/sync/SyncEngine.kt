@@ -73,6 +73,26 @@ class SyncEngine(private val vault: SyncVault) {
         override fun empty(value: SyncRecords.Recents) = value.recent.isEmpty()
     }
 
+    private fun groupsKind(slug: String, run: Run) = object : Kind<SyncRecords.Groups> {
+        override fun read(raw: String) = SyncRecords.readGroups(raw)
+        override fun write(value: SyncRecords.Groups) = SyncRecords.writeGroups(value)
+        override fun local(base: SyncRecords.Groups?): SyncRecords.Groups? {
+            val local = SyncLocal.groupsFromLocal(slug)
+            if (local.groups.size > SyncRecords.CITY_CAP) {
+                run.problems += Problem.OverCap
+                return null
+            }
+            return local
+        }
+        override fun merge(base: SyncRecords.Groups?, local: SyncRecords.Groups, remote: SyncRecords.Groups): SyncRecords.Groups {
+            val result = SyncMerge.mergeGroups(base ?: SyncRecords.emptyGroups, local, remote)
+            run.dropped += result.dropped.size
+            return SyncRecords.Groups(result.merged)
+        }
+        override fun apply(value: SyncRecords.Groups) = SyncLocal.applyGroups(slug, value)
+        override fun empty(value: SyncRecords.Groups) = value.groups.isEmpty()
+    }
+
     private val optionsKind = object : Kind<SyncRecords.Options> {
         override fun read(raw: String) = SyncRecords.readOptions(raw)
         override fun write(value: SyncRecords.Options) = SyncRecords.writeOptions(value)
@@ -226,6 +246,7 @@ class SyncEngine(private val vault: SyncVault) {
                 step("city:$slug", cityKind(slug, run))
                 step("news:$slug", newsKind(slug))
                 step("recents:$slug", recentsKind(slug))
+                step("groups:$slug", groupsKind(slug, run))
             }
         } finally {
             vault.saveBases(run.bases)
@@ -266,7 +287,7 @@ class SyncEngine(private val vault: SyncVault) {
         val m = vault.membership() ?: throw Gone()
         val st = state(m)
         val keys = SyncCrypto.chainKeys(m.s)
-        val logicals = listOf(DEVICES, SETTINGS, OPTIONS) + SyncLocal.syncedCities().flatMap { listOf("city:$it", "news:$it", "recents:$it") }
+        val logicals = listOf(DEVICES, SETTINGS, OPTIONS) + SyncLocal.syncedCities().flatMap { listOf("city:$it", "news:$it", "recents:$it", "groups:$it") }
         val byName = logicals.associateBy { SyncCrypto.recordName(keys.names, it) }
         val run = Run(m, keys, mutableMapOf())
         val texts = linkedMapOf<String, String>()

@@ -16,19 +16,30 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.Recent
+import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
 import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.chainNear
+import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
+import online.bus.bmarian.conexiuniclujmobile.ui.group.LineChain
 
 private const val PICKS_SHOWN = 5
 
-class RecentItem(val recent: Recent, val plan: FavoritePlan? = null, val stop: Stop? = null, val route: Route? = null)
+class RecentItem(
+    val recent: Recent,
+    val plan: FavoritePlan? = null,
+    val stop: Stop? = null,
+    val route: Route? = null,
+    val group: List<GroupLine>? = null,
+)
 
 /** Port of useRecents. */
 fun recentItems(
@@ -44,6 +55,7 @@ fun recentItems(
             is RecentStop -> stops.find { it.stopId == recent.stopId }?.let { RecentItem(recent, stop = it) }
             is RecentRoute -> routes.find { it.routeId == recent.routeId }?.let { RecentItem(recent, route = it) }
             is RecentPlan -> recent.plan.takeIf { p -> online && favoritePlans.none { it.samePlace(p) } }?.let { RecentItem(recent, plan = it) }
+            is RecentGroup -> RecentItem(recent, group = recent.lines)
         }
     }.take(shown)
 
@@ -74,8 +86,25 @@ fun RecentRow(
     val plan = item.plan
     val stop = item.stop
     val route = item.route
+    val group = item.group
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val look = stop?.let { index?.look(it.stopId) }
+    if (group != null) {
+        val fix by Services.location.collectAsStateWithLifecycle()
+        val saved by Services.groups.saved.collectAsStateWithLifecycle()
+        FavoriteRow(
+            modifier = modifier,
+            icon = null,
+            title = saved.firstOrNull { it.key == groupKey(group) }?.name,
+            kicker = null,
+            lines = { LineChain(index?.chainNear(group, fix?.lat, fix?.lon).orEmpty(), small = true) },
+            removeLabel = stringResource(R.string.w_remove_from_recents),
+            onClick = onClick,
+            onRemove = { Services.favorites.removeRecent(item.recent) },
+            background = background,
+        )
+        return
+    }
     FavoriteRow(
         modifier = modifier,
         icon = {
