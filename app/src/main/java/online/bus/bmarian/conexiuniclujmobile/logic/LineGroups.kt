@@ -2,6 +2,7 @@ package online.bus.bmarian.conexiuniclujmobile.logic
 
 import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 
 // Port of utils/lineGroups.ts.
 
@@ -36,6 +37,7 @@ fun NetworkIndex.writeLines(lines: List<GroupLine>): String = lines.joinToString
 fun NetworkIndex.readLines(raw: String): List<GroupLine> {
     val lines = mutableListOf<GroupLine>()
     for (part in raw.split(',')) {
+        if (lines.size == SyncRecords.GROUP_LINES_CAP) break
         val direction = if (part.endsWith(INTORS)) "1" else "0"
         val slug = if (direction == "1") part.dropLast(INTORS.length) else part
         val routeId = (if (slug.startsWith("~")) slug.drop(1).toIntOrNull() else lineNamed(slug)) ?: continue
@@ -182,12 +184,14 @@ fun timeLegs(
     return out
 }
 
-fun NetworkIndex.chainOf(legs: List<Leg>, color: (String, String) -> String): List<ChainLeg> = legs.map { leg ->
+fun NetworkIndex.chainOf(legs: List<Leg>): List<ChainLeg> = legs.map { leg ->
     ChainLeg(
-        leg.lines.mapNotNull { l -> route(l.routeId)?.let { ChainLine(it.shortName, color(it.shortName, it.color)) } },
+        leg.lines.mapNotNull { l -> route(l.routeId)?.let { ChainLine(it.shortName, it.color) } },
         leg.alight != null,
     )
 }
+
+fun NetworkIndex.chainNear(lines: List<GroupLine>, lat: Double?, lon: Double?) = chainOf(legsNear(lines, lat, lon))
 
 fun chainText(chain: List<ChainLeg>) = chain.mapIndexed { i, leg ->
     (if (i == 0) "" else if (leg.change) " → " else " + ") + leg.lines.joinToString(" / ") { it.name }

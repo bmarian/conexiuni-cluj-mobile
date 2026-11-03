@@ -56,6 +56,7 @@ import kotlin.math.roundToInt
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
+import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.follow.clockOf
 import online.bus.bmarian.conexiuniclujmobile.logic.ChainLeg
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
@@ -138,7 +139,11 @@ fun GroupScreen(raw: String) {
     val key = groupKey(lines)
     val group = saved.firstOrNull { it.key == key }
 
-    LaunchedEffect(key) { if (lines.isNotEmpty()) Services.groups.recordUse("groups", key) }
+    LaunchedEffect(key) {
+        if (lines.isEmpty()) return@LaunchedEffect
+        Services.groups.recordUse("groups", key)
+        Services.favorites.addRecent(RecentGroup(lines))
+    }
 
     val owner = remember { Any() }
     DisposableEffect(owner) {
@@ -152,7 +157,7 @@ fun GroupScreen(raw: String) {
         map.highlightedStops = known.stops
     }
 
-    val chain = remember(index, legs) { index?.chainOf(legs) { _, color -> color }.orEmpty() }
+    val chain = remember(index, legs) { index?.chainOf(legs).orEmpty() }
     val path = index?.let { groupPath(it, lines) }
     var naming by remember { mutableStateOf(false) }
 

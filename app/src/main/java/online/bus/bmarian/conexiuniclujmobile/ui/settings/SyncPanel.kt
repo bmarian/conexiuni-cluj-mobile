@@ -469,6 +469,7 @@ private fun listName(list: String) = when (list) {
     "stops" -> R.string.w_favorite_stops
     "lines" -> R.string.w_favorite_routes
     "places" -> R.string.w_favorite_plans
+    "groups" -> R.string.group_title
     else -> R.string.w_followed_lines
 }
 

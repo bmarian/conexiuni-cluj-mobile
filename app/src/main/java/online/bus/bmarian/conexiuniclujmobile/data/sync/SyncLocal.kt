@@ -5,16 +5,21 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
+import online.bus.bmarian.conexiuniclujmobile.data.GroupPlace
 import online.bus.bmarian.conexiuniclujmobile.data.Recent
+import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
 import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
+import online.bus.bmarian.conexiuniclujmobile.data.SavedGroup
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.City
-import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Origin
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Group
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Place
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.RecentItem
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Spot
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import java.text.Normalizer
 import java.util.Locale
 
@@ -32,17 +37,17 @@ object SyncLocal {
 
     private fun coordsText(lat: Double, lon: Double) = String.format(Locale.ROOT, "%.4f, %.4f", lat, lon)
 
-    private fun toPlace(p: FavoritePlan): Place? {
-        val lat = SyncRecords.roundCoordinate(p.lat)
-        val lon = SyncRecords.roundCoordinate(p.lon)
+    private fun toSpot(name: String?, rawLat: Double, rawLon: Double): Spot? {
+        val lat = SyncRecords.roundCoordinate(rawLat)
+        val lon = SyncRecords.roundCoordinate(rawLon)
         if (lat !in SyncRecords.LAT || lon !in SyncRecords.LON) return null
-        val origin = if (p.originLat != null && p.originLon != null) {
-            val oLat = SyncRecords.roundCoordinate(p.originLat)
-            val oLon = SyncRecords.roundCoordinate(p.originLon)
-            if (oLat !in SyncRecords.LAT || oLon !in SyncRecords.LON) return null
-            Origin(cleanText(p.originName, 100).ifEmpty { coordsText(oLat, oLon) }, oLat, oLon)
-        } else null
-        return Place(cleanText(p.name, 100).ifEmpty { coordsText(lat, lon) }, cleanText(p.label, 40), lat, lon, origin)
+        return Spot(cleanText(name, 100).ifEmpty { coordsText(lat, lon) }, lat, lon)
+    }
+
+    private fun toPlace(p: FavoritePlan): Place? {
+        val spot = toSpot(p.name, p.lat, p.lon) ?: return null
+        val origin = if (p.originLat != null && p.originLon != null) toSpot(p.originName, p.originLat, p.originLon) ?: return null else null
+        return Place(spot.name, cleanText(p.label, 40), spot.lat, spot.lon, origin)
     }
 
     private fun toPlan(p: Place) = FavoritePlan(
@@ -87,18 +92,40 @@ object SyncLocal {
         is RecentStop -> RecentItem.Stop(r.stopId.toLong()).takeIf { it.id in validId }
         is RecentRoute -> RecentItem.Line(r.routeId.toLong()).takeIf { it.id in validId }
         is RecentPlan -> toPlace(r.plan)?.let(RecentItem::Spot)
+        is RecentGroup -> toLines(r.lines).takeIf { it.isNotEmpty() }?.let(RecentItem::Group)
     }
 
     private fun toRecent(item: RecentItem): Recent = when (item) {
         is RecentItem.Stop -> RecentStop(item.id.toInt())
         is RecentItem.Line -> RecentRoute(item.id.toInt())
         is RecentItem.Spot -> RecentPlan(toPlan(item.place))
+        is RecentItem.Group -> RecentGroup(fromLines(item.lines))
     }
 
     fun recentsFromLocal(slug: String) =
         SyncRecords.Recents(Services.favorites.saved(slug).recents.mapNotNull(::toRecentItem).distinctBy(SyncRecords::recentId))
 
     fun applyRecents(slug: String, r: SyncRecords.Recents) = Services.favorites.replaceRecents(slug, r.recent.map(::toRecent))
+
+    private fun toLines(lines: List<GroupLine>) = lines.filter { it.routeId.toLong() in validId && (it.direction == "0" || it.direction == "1") }
+        .map { SyncRecords.Line(it.routeId.toLong(), it.direction) }.distinctBy { it.route }.take(SyncRecords.GROUP_LINES_CAP)
+
+    private fun fromLines(lines: List<SyncRecords.Line>) = lines.map { GroupLine(it.route.toInt(), it.dir) }
+
+    private fun toGroup(g: SavedGroup): Group? {
+        val lines = toLines(g.lines).takeIf { it.isNotEmpty() } ?: return null
+        return Group(lines, cleanText(g.name, 40), g.destination?.let { toSpot(it.name, it.lat, it.lon) })
+    }
+
+    private fun fromGroup(g: Group) = SavedGroup(
+        fromLines(g.lines),
+        g.name.ifEmpty { null },
+        g.to?.let { GroupPlace(it.name, it.lat, it.lon) },
+    )
+
+    fun groupsFromLocal(slug: String) = SyncRecords.Groups(Services.groups.savedIn(slug).mapNotNull(::toGroup).distinctBy(SyncRecords::groupId))
+
+    fun applyGroups(slug: String, r: SyncRecords.Groups) = Services.groups.replaceSynced(slug, r.groups.map(::fromGroup))
 
     fun syncedCities(): List<String> = Cities.list.value.map { it.slug }
 
@@ -107,7 +134,8 @@ object SyncLocal {
     /** Lists already past their cap, which sync will not cut on its own. */
     fun overCaps(): List<OverCap> = syncedCities().flatMap { city ->
         val r = cityFromLocal(city)
-        listOf("stops" to r.stops.size, "lines" to r.lines.size, "places" to r.places.size, "followed" to r.followed.size)
+        val groups = groupsFromLocal(city).groups.size
+        listOf("stops" to r.stops.size, "lines" to r.lines.size, "places" to r.places.size, "followed" to r.followed.size, "groups" to groups)
             .filter { it.second > SyncRecords.CITY_CAP }.map { OverCap(city, it.first, it.second) }
     }
 

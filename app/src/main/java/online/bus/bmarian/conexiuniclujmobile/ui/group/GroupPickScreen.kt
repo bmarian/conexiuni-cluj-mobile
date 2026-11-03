@@ -42,6 +42,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.byModeThenNumber
 import online.bus.bmarian.conexiuniclujmobile.logic.legsNear
@@ -113,6 +114,7 @@ fun GroupPickScreen(raw: String, edit: String?) {
 
     fun toggle(routeId: Int, direction: String? = null) {
         chosen = if (isChosen(routeId)) chosen.orEmpty().filterNot { it.startsWith("$routeId/") }
+        else if (Services.favorites.atCap(chosen.orEmpty(), SyncRecords.GROUP_LINES_CAP)) chosen
         else chosen.orEmpty() + "$routeId/${direction ?: directionFor(routeId)}"
     }
 

@@ -1,13 +1,12 @@
 package online.bus.bmarian.conexiuniclujmobile.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
-import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
-import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.Usage
 import online.bus.bmarian.conexiuniclujmobile.logic.counted
@@ -26,22 +25,28 @@ class LineGroupStore(private val context: Context) {
     private var city = Cities.current.value
     private var prefs = cityPrefs(context, "groups", city)
 
-    private val _saved = MutableStateFlow(readSaved())
+    private val _saved = MutableStateFlow(readSaved(prefs))
     val saved: StateFlow<List<SavedGroup>> = _saved
 
-    private fun readSaved(): List<SavedGroup> =
-        prefs.getString("saved", null)?.let { runCatching { Api.json.decodeFromString<List<SavedGroup>>(it) }.getOrNull() }.orEmpty()
+    private fun readSaved(from: SharedPreferences): List<SavedGroup> =
+        from.getString("saved", null)?.let { runCatching { Api.json.decodeFromString<List<SavedGroup>>(it) }.getOrNull() }.orEmpty()
+
+    private fun write(to: SharedPreferences, list: List<SavedGroup>) = to.edit { putString("saved", Api.json.encodeToString(list)) }
 
     private fun persist(list: List<SavedGroup>) {
         _saved.value = list
-        prefs.edit { putString("saved", Api.json.encodeToString(list)) }
+        write(prefs, list)
     }
+
+    fun savedIn(city: String): List<SavedGroup> = if (city == this.city) _saved.value else readSaved(cityPrefs(context, "groups", city))
+
+    fun replaceSynced(city: String, list: List<SavedGroup>) = if (city == this.city) persist(list) else write(cityPrefs(context, "groups", city), list)
 
     fun use(slug: String) {
         if (slug == city) return
         city = slug
         prefs = cityPrefs(context, "groups", slug)
-        _saved.value = readSaved()
+        _saved.value = readSaved(prefs)
     }
 
     fun find(lines: List<GroupLine>): SavedGroup? = groupKey(lines).let { key -> _saved.value.firstOrNull { it.key == key } }
@@ -50,10 +55,7 @@ class LineGroupStore(private val context: Context) {
         val list = _saved.value
         val known = find(lines)
         if (known != null) return persist(list.map { if (it == known) it.copy(name = name?.ifBlank { null }) else it })
-        if (list.size >= SyncRecords.CITY_CAP) {
-            Services.settings.showToast(context.getString(R.string.w_limit_reached, SyncRecords.CITY_CAP))
-            return
-        }
+        if (Services.favorites.atCap(list)) return
         persist(list + SavedGroup(lines, name?.ifBlank { null }))
     }
 

@@ -11,12 +11,15 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
 
 @Serializable
 data class FavoriteRoute(val routeId: Int, val direction: String)
@@ -59,6 +62,10 @@ data class RecentStop(val stopId: Int) : Recent {
 
 data class RecentRoute(val routeId: Int) : Recent {
     override val key get() = "route-$routeId"
+}
+
+data class RecentGroup(val lines: List<GroupLine>) : Recent {
+    override val key get() = "group-${groupKey(lines)}"
 }
 
 /** Saved favorites of one city. */
@@ -125,9 +132,9 @@ class Favorites(private val context: Context) {
 
     private fun persist() = write(prefs, current())
 
-    private fun atCap(list: List<*>): Boolean {
-        if (list.size < SyncRecords.CITY_CAP) return false
-        Services.settings.showToast(context.getString(R.string.w_limit_reached, SyncRecords.CITY_CAP.toString()))
+    fun atCap(list: List<*>, cap: Int = SyncRecords.CITY_CAP): Boolean {
+        if (list.size < cap) return false
+        Services.settings.showToast(context.getString(R.string.w_limit_reached, cap.toString()))
         return true
     }
 
@@ -265,9 +272,11 @@ class Favorites(private val context: Context) {
                 val r = item as? JsonObject ?: return@mapNotNull null
                 val stopId = r.number("stopId")?.toInt()
                 val routeId = r.number("routeId")?.toInt()
+                val lines = r["lines"]?.let { runCatching { Api.json.decodeFromJsonElement<List<GroupLine>>(it) }.getOrNull() }
                 when {
                     stopId != null -> RecentStop(stopId)
                     routeId != null -> RecentRoute(routeId)
+                    !lines.isNullOrEmpty() -> RecentGroup(lines)
                     else -> parsePlans(JsonArray(listOf(r))).firstOrNull()?.let(::RecentPlan)
                 }
             }
@@ -279,6 +288,7 @@ class Favorites(private val context: Context) {
                     is RecentPlan -> Api.json.encodeToJsonElement(it.plan)
                     is RecentStop -> JsonObject(mapOf("stopId" to JsonPrimitive(it.stopId)))
                     is RecentRoute -> JsonObject(mapOf("routeId" to JsonPrimitive(it.routeId)))
+                    is RecentGroup -> JsonObject(mapOf("lines" to Api.json.encodeToJsonElement(it.lines)))
                 }
             },
         )

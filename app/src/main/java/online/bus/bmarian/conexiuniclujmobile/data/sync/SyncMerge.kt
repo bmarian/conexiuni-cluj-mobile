@@ -2,6 +2,8 @@ package online.bus.bmarian.conexiuniclujmobile.data.sync
 
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.City
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Device
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Group
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Groups
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Line
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.News
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Options
@@ -54,6 +56,16 @@ object SyncMerge {
         name = pick(base?.name, local.name, remote.name, base != null),
         label = pick(base?.label, local.label, remote.label, base != null),
     )
+
+    private fun toId(g: Group) = g.to?.let { listOf(it.name, it.lat, it.lon).joinToString("\n") }.orEmpty()
+
+    private fun mergeGroup(base: Group?, local: Group, remote: Group) = remote.copy(
+        name = pick(base?.name, local.name, remote.name, base != null),
+        to = if (pick(base?.let(::toId), toId(local), toId(remote), base != null) == toId(remote)) remote.to else local.to,
+    )
+
+    fun mergeGroups(base: Groups, local: Groups, remote: Groups): Merged<Group> =
+        mergeList(base.groups, local.groups, remote.groups, SyncRecords::groupId, ::mergeGroup, SyncRecords.CITY_CAP)
 
     private fun mergeDevice(base: Device?, local: Device, remote: Device): Device {
         if (base == null) return remote

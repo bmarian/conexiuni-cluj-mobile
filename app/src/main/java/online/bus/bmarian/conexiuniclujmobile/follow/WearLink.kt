@@ -36,6 +36,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
 import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.data.Recent
+import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
 import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
@@ -298,7 +299,7 @@ object WearLink {
                 is RecentStop -> stops.firstOrNull { it.stopId == recent.stopId }?.let { WatchRecent(stopId = it.stopId, label = it.name) }
                 is RecentRoute -> routes.firstOrNull { it.routeId == recent.routeId }
                     ?.let { WatchRecent(routeId = it.routeId, label = it.longName, shortName = it.shortName, color = it.color) }
-                is RecentPlan -> null
+                is RecentPlan, is RecentGroup -> null
             }
         }
     }
