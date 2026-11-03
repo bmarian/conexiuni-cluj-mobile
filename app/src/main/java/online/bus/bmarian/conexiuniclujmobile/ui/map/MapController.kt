@@ -56,6 +56,8 @@ class MapController {
     var vehicles by mutableStateOf<List<MapVehicle>>(emptyList())
     var highlightedStops by mutableStateOf<Map<Int, StopHighlight>>(emptyMap())
     var selectedStopId by mutableStateOf<Int?>(null)
+    /** Stations named beside their markers, as in a spider. */
+    var labelledStops by mutableStateOf<Set<Int>>(emptySet())
     var walkingPolylines by mutableStateOf<List<List<LatLon>>>(emptyList())
     var fitWalking by mutableStateOf(false)
     var fitNewShapes = true
@@ -136,6 +138,7 @@ class MapController {
         val vehicles: List<MapVehicle>,
         val highlightedStops: Map<Int, StopHighlight>,
         val selectedStopId: Int?,
+        val labelledStops: Set<Int>,
         val walkingPolylines: List<List<LatLon>>,
         val fitWalking: Boolean,
         val fitNewShapes: Boolean,
@@ -149,7 +152,7 @@ class MapController {
     )
 
     private fun save() = Owned(
-        shapes, vehicles, highlightedStops, selectedStopId, walkingPolylines, fitWalking, fitNewShapes,
+        shapes, vehicles, highlightedStops, selectedStopId, labelledStops, walkingPolylines, fitWalking, fitNewShapes,
         directionArrowAtStart, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
     )
 
@@ -161,6 +164,7 @@ class MapController {
         vehicles = owned.vehicles
         highlightedStops = owned.highlightedStops
         selectedStopId = owned.selectedStopId
+        labelledStops = owned.labelledStops
         walkingPolylines = owned.walkingPolylines
         fitWalking = owned.fitWalking
         fitNewShapes = owned.fitNewShapes
@@ -179,6 +183,7 @@ class MapController {
         }
         highlightedStops = emptyMap()
         selectedStopId = null
+        labelledStops = emptySet()
         walkingPolylines = emptyList()
         fitWalking = false
         fitNewShapes = true

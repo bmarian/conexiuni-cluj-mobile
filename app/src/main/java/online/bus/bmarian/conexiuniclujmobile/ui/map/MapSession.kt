@@ -35,9 +35,11 @@ import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.Area
 import online.bus.bmarian.conexiuniclujmobile.logic.AreaClusters
 import online.bus.bmarian.conexiuniclujmobile.logic.LONG_PACE
+import online.bus.bmarian.conexiuniclujmobile.logic.LabelSide
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.MapClusters
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.logic.Rect
 import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
 import online.bus.bmarian.conexiuniclujmobile.logic.SWEEP_MS
 import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
@@ -45,10 +47,14 @@ import online.bus.bmarian.conexiuniclujmobile.logic.SpiderPlace
 import online.bus.bmarian.conexiuniclujmobile.logic.StopClusters
 import online.bus.bmarian.conexiuniclujmobile.logic.StopGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.StopPoint
+import online.bus.bmarian.conexiuniclujmobile.logic.TILE_DP
 import online.bus.bmarian.conexiuniclujmobile.logic.VehicleTrack
+import online.bus.bmarian.conexiuniclujmobile.logic.boxAt
 import online.bus.bmarian.conexiuniclujmobile.logic.fixMs
 import online.bus.bmarian.conexiuniclujmobile.logic.groupName
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import online.bus.bmarian.conexiuniclujmobile.logic.labelBox
+import online.bus.bmarian.conexiuniclujmobile.logic.labelSidesClear
 import online.bus.bmarian.conexiuniclujmobile.logic.latOf
 import online.bus.bmarian.conexiuniclujmobile.logic.lonOf
 import online.bus.bmarian.conexiuniclujmobile.logic.lonPerDp
@@ -128,6 +134,7 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 
 private const val SRC_LINES = "ct-lines"
@@ -224,6 +231,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var hasVehicles = false
     private var selected: Stop? = null
     private var highlights: List<Pair<Stop, StopHighlight>> = emptyList()
+    private var labelled: Set<Int> = emptySet()
+    private var labelInsets = MapPadding(0f, 0f, 0f, 0f)
+    private var labelSides: Map<String, LabelSide> = emptyMap()
     private var scene = MapScene.Empty
     private var traffic: Map<String, List<TrafficStretch>> = emptyMap()
     private var walks: List<List<LatLon>> = emptyList()
@@ -343,6 +353,14 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun setHighlights(list: List<Pair<Stop, StopHighlight>>) {
         highlights = list
         applyHighlights()
+        refreshStops()
+    }
+
+    /** [insets] in px: the map's edges that sheets and bars cover. */
+    fun setLabelled(ids: Set<Int>, insets: MapPadding) {
+        if (ids == labelled && insets == labelInsets) return
+        labelled = ids
+        labelInsets = insets
         refreshStops()
     }
 
@@ -1194,6 +1212,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             aroundFor = null
             showAround(null)
         }
+        val sides = if (index == null) emptyMap() else labelSides(index, visible, zoom)
+        if (sides != labelSides) {
+            labelSides = sides
+            redraw = true
+        }
         val keys = visible.mapTo(HashSet()) { it.key }
         if (!redraw && keys == shownKeys) return
         shownKeys = keys
@@ -1218,21 +1241,57 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         motion.start()
     }
 
+    private fun labelledStop(index: MapClusters, group: StopGroup): Stop? =
+        if (group.stations.size == 1 && group.area == null) group.points.firstNotNullOfOrNull { stopsById[index.points[it].id]?.takeIf { s -> s.stopId in labelled } } else null
+
+    // Port of labelStations in MapComponent.vue: the side of its own marker each labelled station's name goes on.
+    private fun labelSides(index: MapClusters, visible: List<StopGroup>, zoom: Double): Map<String, LabelSide> {
+        if (labelled.isEmpty()) return emptyMap()
+        val named = visible.mapNotNull { group -> labelledStop(index, group)?.let { group to it } }
+        if (named.isEmpty()) return emptyMap()
+        val dp = TILE_DP * 2.0.pow(zoom)
+        fun spot(at: LatLon) = mercatorX(at.lon) * dp to mercatorY(at.lat) * dp
+        val obstacles = visible.map { group -> spot(index.at(group)).let { (x, y) -> boxAt(x, y, index.box(group)) } }
+        val places = named.map { (group, stop) ->
+            val (x, y) = spot(index.at(group))
+            val (width, height) = images.spiderLabel(stop.name)
+            SpiderPlace(x, y, index.box(group), width.toDouble(), height.toDouble())
+        }
+        val view = map.projection.visibleRegion.latLngBounds
+        val (west, north) = spot(LatLon(view.latitudeNorth, view.longitudeWest))
+        val (east, south) = spot(LatLon(view.latitudeSouth, view.longitudeEast))
+        val px = context.resources.displayMetrics.density
+        val area = Rect(west + labelInsets.left / px, north + labelInsets.top / px, east - labelInsets.right / px, south - labelInsets.bottom / px)
+        return named.zip(labelSidesClear(places, obstacles, area)) { (group, _), side -> group.key to side }.toMap()
+    }
+
     private fun stopFeatures(clusters: Clusters, group: StopGroup, dark: Boolean, used: MutableSet<String>): List<Feature> {
         val index = clusters.index ?: return emptyList()
         val leader = index.points[group.leader]
         val single = group.stations.size == 1 && group.area == null
-        fun feature(img: String, offsetY: Float, block: Feature.() -> Unit = {}) = Feature.fromGeometry(point(index.at(group))).apply {
+        fun feature(img: String, offsetY: Float, offsetX: Float = 0f, block: Feature.() -> Unit = {}) = Feature.fromGeometry(point(index.at(group))).apply {
             addStringProperty("img", img)
             addNumberProperty("z", if (single) 0 else 1)
-            addProperty("off", JsonArray().apply { add(0); add(offsetY) })
+            addProperty("off", JsonArray().apply { add(offsetX); add(offsetY) })
             addNumberProperty("opacity", 1)
             addNumberProperty("size", 1)
             block()
         }
         if (single) {
             val image = if (group.favorite) "hl-${StopHighlight.Favorite.name}" else stationImage(leader.id, false)
-            return listOf(feature(image, 0f) { addNumberProperty("id", leader.id) })
+            val icon = feature(image, 0f) { addNumberProperty("id", leader.id) }
+            val side = labelSides[group.key] ?: return listOf(icon)
+            val stop = labelledStop(index, group) ?: return listOf(icon)
+            val text = "grl-$dark-${stop.name}-0"
+            image(text) { images.groupLabel(stop.name, 0, dark) }
+            used += text
+            val (width, height) = images.spiderLabel(stop.name)
+            val box = labelBox(0.0, 0.0, index.box(group), width.toDouble(), height.toDouble(), side)
+            val label = feature(text, ((box.top + box.bottom) / 2).toFloat(), ((box.left + box.right) / 2).toFloat()) {
+                addNumberProperty("z", 1)
+                addBooleanProperty("label", true)
+            }
+            return listOf(icon, label)
         }
         val label = groupLabel(clusters, index, group)
         val icons = groupIcons(group)
