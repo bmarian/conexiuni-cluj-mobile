@@ -5,7 +5,6 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.FavoriteRoute
-import online.bus.bmarian.conexiuniclujmobile.data.GroupPlace
 import online.bus.bmarian.conexiuniclujmobile.data.Recent
 import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
@@ -114,14 +113,10 @@ object SyncLocal {
 
     private fun toGroup(g: SavedGroup): Group? {
         val lines = toLines(g.lines).takeIf { it.isNotEmpty() } ?: return null
-        return Group(lines, cleanText(g.name, 40), g.destination?.let { toSpot(it.name, it.lat, it.lon) })
+        return Group(lines, cleanText(g.name, 40))
     }
 
-    private fun fromGroup(g: Group) = SavedGroup(
-        fromLines(g.lines),
-        g.name.ifEmpty { null },
-        g.to?.let { GroupPlace(it.name, it.lat, it.lon) },
-    )
+    private fun fromGroup(g: Group) = SavedGroup(fromLines(g.lines), g.name.ifEmpty { null })
 
     fun groupsFromLocal(slug: String) = SyncRecords.Groups(Services.groups.savedIn(slug).mapNotNull(::toGroup).distinctBy(SyncRecords::groupId))
 

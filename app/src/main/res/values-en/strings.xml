@@ -153,10 +153,7 @@
     <string name="group_create">Create group</string>
     <string name="group_lines">Lines</string>
     <string name="group_chosen">Chosen</string>
-    <string name="group_connects">Connects with %1$s</string>
     <string name="group_often">Lines you use often</string>
-    <string name="group_meets_at">at %1$s</string>
-    <string name="group_change">Change at %1$s</string>
     <string name="group_show">Show</string>
     <string name="group_search">Search for a line</string>
     <string name="group_name_title">Name the group</string>
@@ -164,6 +161,7 @@
     <string name="group_rename">Rename</string>
     <string name="group_flip">Switch direction</string>
     <string name="group_remove_line">Remove line</string>
-    <string name="group_then">then</string>
     <string name="group_no_more">No more today</string>
+    <string name="group_show_line">Show on the map</string>
+    <string name="group_hide_line">Hide from the map</string>
 </resources>

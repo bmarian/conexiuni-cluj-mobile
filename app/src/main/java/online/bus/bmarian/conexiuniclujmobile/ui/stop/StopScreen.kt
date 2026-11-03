@@ -547,17 +547,23 @@ fun DepartureCard(
             }
         },
     ) {
-        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            departure.nextTimes.forEachIndexed { i, time ->
-                val label = minutesLabel(time.minutes, now)
-                TimePill(
-                    text = if (i == 0 && departure.isStatic) "~ $label" else label,
-                    live = i == 0 && live,
-                    extra = i > 0,
-                    due = i == 0 && live && time.minutes == 0,
-                    mode = mode,
-                )
-            }
+        DepartureTimes(departure, now, mode)
+    }
+}
+
+@Composable
+fun DepartureTimes(departure: StopDeparture, now: java.time.LocalDateTime, mode: Mode) {
+    val live = !departure.isStatic
+    Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        departure.nextTimes.forEachIndexed { i, time ->
+            val label = minutesLabel(time.minutes, now)
+            TimePill(
+                text = if (i == 0 && departure.isStatic) "~ $label" else label,
+                live = i == 0 && live,
+                extra = i > 0,
+                due = i == 0 && live && time.minutes == 0,
+                mode = mode,
+            )
         }
     }
 }

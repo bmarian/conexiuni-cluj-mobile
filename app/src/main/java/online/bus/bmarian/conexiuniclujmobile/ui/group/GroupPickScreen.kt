@@ -45,10 +45,8 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.byModeThenNumber
-import online.bus.bmarian.conexiuniclujmobile.logic.legsNear
 import online.bus.bmarian.conexiuniclujmobile.logic.lineUse
 import online.bus.bmarian.conexiuniclujmobile.logic.matching
-import online.bus.bmarian.conexiuniclujmobile.logic.meetingLines
 import online.bus.bmarian.conexiuniclujmobile.logic.readLines
 import online.bus.bmarian.conexiuniclujmobile.logic.usageOrder
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
@@ -56,7 +54,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
-import online.bus.bmarian.conexiuniclujmobile.ui.home.RESULTS_PER_KIND
 import online.bus.bmarian.conexiuniclujmobile.ui.home.SearchField
 import online.bus.bmarian.conexiuniclujmobile.ui.home.linesByMode
 import online.bus.bmarian.conexiuniclujmobile.ui.home.norm
@@ -71,7 +68,6 @@ fun GroupPickScreen(raw: String, edit: String?) {
     val nav = LocalNavigator.current
     val looks = LocalLineLooks.current
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
-    val fix by Services.location.collectAsStateWithLifecycle()
     val favorites by Services.favorites.routes.collectAsStateWithLifecycle()
     val recents by Services.favorites.recents.collectAsStateWithLifecycle()
     var chosen by rememberSaveable { mutableStateOf<List<String>?>(null) }
@@ -88,34 +84,26 @@ fun GroupPickScreen(raw: String, edit: String?) {
     fun usageOf(routeId: Int) = lineUsage.lineUse(routeId)
     val recentIds = recents.filterIsInstance<RecentRoute>().map { it.routeId }.toSet()
     fun isFavorite(routeId: Int) = favorites.any { it.routeId == routeId }
-    fun used(routeId: Int) = isFavorite(routeId) || routeId in recentIds || (usageOf(routeId)?.total ?: 0) > 0
     val byUse = compareBy(usageOrder(nowMs)) { r: Int -> usageOf(r) }.thenBy { if (isFavorite(it)) 0 else 1 }
 
-    val legs = known.legsNear(lines, fix?.lat, fix?.lon)
     val servable = remember(known) { linesByMode(known).flatMap { it.second } }
     val servableIds = servable.map { it.routeId }.toSet()
     fun isChosen(routeId: Int) = lines.any { it.routeId == routeId }
-    val first = legs.firstOrNull()?.lines?.firstOrNull()
-    val meeting = first?.let { known.meetingLines(it) }.orEmpty().filter { it.first.routeId in servableIds }
-    val connections = meeting.sortedWith(compareBy(byUse) { it.first.routeId })
-        .filterIndexed { i, (m, _) -> used(m.routeId) || isChosen(m.routeId) || i < RESULTS_PER_KIND }
-    val shown = connections.map { it.first.routeId }.toSet()
     val often = (lineUsage.keys.mapNotNull { it.substringBefore('/').toIntOrNull() } + favorites.map { it.routeId } + recentIds)
-        .distinct().filter { it in servableIds && it !in shown }
+        .distinct().filter { it in servableIds }
         .mapNotNull(known::route)
         .sortedWith(compareBy(byUse) { r: NetworkRoute -> r.routeId }.then(byModeThenNumber({ it.type }, { it.shortName })))
 
     fun directionFor(routeId: Int): String {
-        meeting.firstOrNull { it.first.routeId == routeId }?.let { return it.first.direction }
         val (u0, u1) = (lineUsage["$routeId/0"]?.total ?: 0) to (lineUsage["$routeId/1"]?.total ?: 0)
         if (u0 != u1) return if (u1 > u0) "1" else "0"
         return favorites.firstOrNull { it.routeId == routeId }?.direction ?: "0"
     }
 
-    fun toggle(routeId: Int, direction: String? = null) {
+    fun toggle(routeId: Int) {
         chosen = if (isChosen(routeId)) chosen.orEmpty().filterNot { it.startsWith("$routeId/") }
         else if (Services.favorites.atCap(chosen.orEmpty(), SyncRecords.GROUP_LINES_CAP)) chosen
-        else chosen.orEmpty() + "$routeId/${direction ?: directionFor(routeId)}"
+        else chosen.orEmpty() + "$routeId/${directionFor(routeId)}"
     }
 
     fun flip(routeId: Int) {
@@ -154,29 +142,19 @@ fun GroupPickScreen(raw: String, edit: String?) {
                 item(key = "chosen-label") { SubLabel(stringResource(R.string.group_chosen), Modifier.padding(top = 8.dp)) }
                 items(lines, key = { "chosen-${it.routeId}" }) { line ->
                     val route = known.route(line.routeId) ?: return@items
-                    val board = legs.flatMap { it.lines }.firstOrNull { it.routeId == line.routeId }
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         LineBadge(route.shortName, badgeColor(route), height = 32.dp, minWidth = 40.dp, corner = 10.dp)
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "→ ${directedDestination(route.longName, line.direction)}",
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            board?.let { known.stop(it.stopId) }?.let {
-                                Text(
-                                    stringResource(R.string.w_from, it.name),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                )
-                            }
-                        }
+                        Text(
+                            "→ ${directedDestination(route.longName, line.direction)}",
+                            Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                         IconButton(onClick = { flip(line.routeId) }) {
                             Icon(Icons.Rounded.SwapHoriz, stringResource(R.string.group_flip), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -187,26 +165,16 @@ fun GroupPickScreen(raw: String, edit: String?) {
                 }
             }
             if (query.isBlank()) {
-                if (connections.isNotEmpty() && first != null) {
-                    item(key = "connects") {
-                        SubLabel(stringResource(R.string.group_connects, known.route(first.routeId)?.shortName.orEmpty()), Modifier.padding(top = 8.dp))
-                    }
-                    items(connections, key = { "meet-${it.first.routeId}" }) { (m, _) ->
-                        val route = known.route(m.routeId) ?: return@items
-                        val meetsAt = stringResource(R.string.group_meets_at, known.stop(m.stopId)?.name.orEmpty())
-                        PickRow(route, badgeColor(route), meetsAt, isChosen(m.routeId)) { toggle(m.routeId, m.direction) }
-                    }
-                }
                 if (often.isNotEmpty()) {
                     item(key = "often") { SubLabel(stringResource(R.string.group_often), Modifier.padding(top = 8.dp)) }
                     items(often, key = { "often-${it.routeId}" }) { route ->
-                        PickRow(route, badgeColor(route), null, isChosen(route.routeId)) { toggle(route.routeId) }
+                        PickRow(route, badgeColor(route), isChosen(route.routeId)) { toggle(route.routeId) }
                     }
                 }
                 allLines(linesByMode(known), ::badgeColor, ::isChosen) { toggle(it.routeId) }
             } else {
                 items(found, key = { "found-${it.routeId}" }) { route ->
-                    PickRow(route, badgeColor(route), null, isChosen(route.routeId)) { toggle(route.routeId) }
+                    PickRow(route, badgeColor(route), isChosen(route.routeId)) { toggle(route.routeId) }
                 }
                 if (found.isEmpty()) {
                     item(key = "none") { Text(stringResource(R.string.w_no_results), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -229,22 +197,26 @@ private fun LazyListScope.allLines(
 ) {
     for ((mode, lines) in groups) {
         item(key = "mode-$mode") { SubLabel(stringResource(modeLines(mode)), Modifier.padding(top = 8.dp)) }
-        items(lines, key = { "all-${it.routeId}" }) { route -> PickRow(route, color(route), null, chosen(route.routeId)) { onToggle(route) } }
+        items(lines, key = { "all-${it.routeId}" }) { route -> PickRow(route, color(route), chosen(route.routeId)) { onToggle(route) } }
     }
 }
 
 @Composable
-private fun PickRow(route: NetworkRoute, color: String, subtitle: String?, checked: Boolean, onToggle: () -> Unit) {
+private fun PickRow(route: NetworkRoute, color: String, checked: Boolean, onToggle: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onToggle).heightIn(min = 60.dp).padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         LineBadge(route.shortName, color, height = 32.dp, minWidth = 40.dp, corner = 10.dp)
-        Column(Modifier.weight(1f)) {
-            Text(route.longName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
-        }
+        Text(
+            route.longName,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Checkbox(checked = checked, onCheckedChange = { onToggle() })
     }
 }

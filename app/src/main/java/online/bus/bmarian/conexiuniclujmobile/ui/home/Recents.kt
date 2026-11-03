@@ -23,13 +23,13 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
-import online.bus.bmarian.conexiuniclujmobile.logic.chainNear
+import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
 import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
-import online.bus.bmarian.conexiuniclujmobile.ui.group.LineChain
 
 private const val PICKS_SHOWN = 5
 
@@ -90,14 +90,13 @@ fun RecentRow(
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val look = stop?.let { index?.look(it.stopId) }
     if (group != null) {
-        val fix by Services.location.collectAsStateWithLifecycle()
         val saved by Services.groups.saved.collectAsStateWithLifecycle()
         FavoriteRow(
             modifier = modifier,
             icon = null,
             title = saved.firstOrNull { it.key == groupKey(group) }?.name,
             kicker = null,
-            lines = { LineChain(index?.chainNear(group, fix?.lat, fix?.lon).orEmpty(), small = true) },
+            lines = { LineBadges(index?.groupRoutes(group).orEmpty()) },
             removeLabel = stringResource(R.string.w_remove_from_recents),
             onClick = onClick,
             onRemove = { Services.favorites.removeRecent(item.recent) },

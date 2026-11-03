@@ -1,8 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.foundation.layout.Box
-import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
-import online.bus.bmarian.conexiuniclujmobile.logic.chainNear
+import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
@@ -61,6 +60,7 @@ import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
@@ -71,7 +71,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.follow.JourneyCard
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderRepeat
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
-import online.bus.bmarian.conexiuniclujmobile.ui.group.LineChain
 import online.bus.bmarian.conexiuniclujmobile.ui.longPressDrag
 import online.bus.bmarian.conexiuniclujmobile.ui.moved
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberReorderState
@@ -146,8 +145,6 @@ fun HomeScreen() {
     val groups by Services.groups.saved.collectAsStateWithLifecycle()
     val hasFavorites = shownFavorites > 0 || groups.isNotEmpty() || (online && favoritePlans.isNotEmpty())
     val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
-    val fix by Services.location.collectAsStateWithLifecycle()
-    fun chainFor(group: List<GroupLine>) = index?.chainNear(group, fix?.lat, fix?.lon).orEmpty()
 
     fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
 
@@ -248,7 +245,7 @@ fun HomeScreen() {
                             modifier = Modifier.reorderItem(groupReorder, group.key).longPressDrag(groupReorder, group.key),
                             icon = null,
                             title = group.name,
-                            lines = { LineChain(chainFor(group.lines), small = true) },
+                            lines = { LineBadges(index?.groupRoutes(group.lines).orEmpty()) },
                             kicker = null,
                             removeLabel = stringResource(R.string.w_remove_from_favorites),
                             onClick = { index?.let { nav.group(it.writeLines(group.lines)) } },
