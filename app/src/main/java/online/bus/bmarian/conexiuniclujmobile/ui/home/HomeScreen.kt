@@ -1,14 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.mutableIntStateOf
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.chainNear
-import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
-import online.bus.bmarian.conexiuniclujmobile.logic.readKey
-import online.bus.bmarian.conexiuniclujmobile.logic.usageOrder
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
@@ -77,7 +71,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.follow.JourneyCard
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderRepeat
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
-import online.bus.bmarian.conexiuniclujmobile.ui.group.GroupNameDialog
 import online.bus.bmarian.conexiuniclujmobile.ui.group.LineChain
 import online.bus.bmarian.conexiuniclujmobile.ui.longPressDrag
 import online.bus.bmarian.conexiuniclujmobile.ui.moved
@@ -150,21 +143,11 @@ fun HomeScreen() {
     val favoriteStops = remember(stopsById, favoriteStopIds) { favoriteStopIds.mapNotNull { stopsById[it] } }
     // Saved ones count until lines and stops load.
     val shownFavorites = if (routes.isEmpty() || stops.isEmpty()) favoriteRoutes.size + favoriteStopIds.size else chips.size + favoriteStops.size
-    val hasFavorites = shownFavorites > 0 || (online && favoritePlans.isNotEmpty())
-    val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
     val groups by Services.groups.saved.collectAsStateWithLifecycle()
+    val hasFavorites = shownFavorites > 0 || groups.isNotEmpty() || (online && favoritePlans.isNotEmpty())
+    val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
     val fix by Services.location.collectAsStateWithLifecycle()
-    var dismissals by remember { mutableIntStateOf(0) }
-    val suggested = remember(index, groups, dismissals) {
-        val known = index ?: return@remember null
-        val saved = groups.map { it.key }.toSet()
-        Services.groups.usage("groups").entries
-            .filter { (key, usage) -> !usage.dismissed && key !in saved && usage.total > 1 }
-            .sortedWith(compareBy(usageOrder(System.currentTimeMillis())) { it.value })
-            .firstNotNullOfOrNull { (key, _) -> known.readKey(key).takeIf { it.isNotEmpty() } }
-    }
     fun chainFor(group: List<GroupLine>) = index?.chainNear(group, fix?.lat, fix?.lon).orEmpty()
-    var namingSuggested by remember { mutableStateOf(false) }
 
     fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
 
@@ -232,49 +215,9 @@ fun HomeScreen() {
                 }
             }
         }
-        if (groups.isNotEmpty()) {
-            item(key = "groups-label") { SubLabel(stringResource(R.string.group_title), Modifier.padding(top = 12.dp)) }
-            item(key = "groups") {
-                Column {
-                    for (group in groups) key(group.key) {
-                        FavoriteRow(
-                            modifier = Modifier.reorderItem(groupReorder, group.key).longPressDrag(groupReorder, group.key),
-                            icon = null,
-                            title = group.name,
-                            lines = { LineChain(chainFor(group.lines), small = true) },
-                            kicker = null,
-                            removeLabel = stringResource(R.string.w_remove_from_favorites),
-                            onClick = { index?.let { nav.group(it.writeLines(group.lines)) } },
-                            onRemove = { Services.groups.remove(group.lines) },
-                        )
-                    }
-                }
-            }
-        }
-        suggested?.let { lines ->
-            item(key = "group-suggestion-label") {
-                SubLabel(stringResource(R.string.group_suggested), Modifier.padding(top = if (groups.isEmpty()) 12.dp else 8.dp))
-            }
-            item(key = "group-suggestion") {
-                FavoriteRow(
-                    modifier = Modifier,
-                    icon = null,
-                    title = null,
-                    lines = { LineChain(chainFor(lines), small = true) },
-                    kicker = null,
-                    removeLabel = stringResource(R.string.group_not_now),
-                    onClick = { index?.let { nav.group(it.writeLines(lines)) } },
-                    onRemove = {
-                        Services.groups.dismiss("groups", groupKey(lines))
-                        dismissals++
-                    },
-                    trailing = { TextButton(onClick = { namingSuggested = true }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.save)) } },
-                )
-            }
-        }
         if (chips.isNotEmpty()) {
             item(key = "routes-label") {
-                SubLabel(stringResource(R.string.w_favorite_routes), Modifier.padding(top = if (groups.isEmpty() && suggested == null) 12.dp else 8.dp))
+                SubLabel(stringResource(R.string.w_favorite_routes), Modifier.padding(top = 12.dp))
             }
             item(key = "routes") {
                 FlowRow(
@@ -296,8 +239,29 @@ fun HomeScreen() {
                 }
             }
         }
+        if (groups.isNotEmpty()) {
+            item(key = "groups-label") { SubLabel(stringResource(R.string.group_title), Modifier.padding(top = if (chips.isEmpty()) 12.dp else 8.dp)) }
+            item(key = "groups") {
+                Column {
+                    for (group in groups) key(group.key) {
+                        FavoriteRow(
+                            modifier = Modifier.reorderItem(groupReorder, group.key).longPressDrag(groupReorder, group.key),
+                            icon = null,
+                            title = group.name,
+                            lines = { LineChain(chainFor(group.lines), small = true) },
+                            kicker = null,
+                            removeLabel = stringResource(R.string.w_remove_from_favorites),
+                            onClick = { index?.let { nav.group(it.writeLines(group.lines)) } },
+                            onRemove = { Services.groups.remove(group.lines) },
+                        )
+                    }
+                }
+            }
+        }
         if (favoriteStops.isNotEmpty()) {
-            item(key = "stops-label") { SubLabel(stringResource(R.string.w_favorite_stops), Modifier.padding(top = if (chips.isEmpty()) 12.dp else 8.dp)) }
+            item(key = "stops-label") {
+                SubLabel(stringResource(R.string.w_favorite_stops), Modifier.padding(top = if (chips.isEmpty() && groups.isEmpty()) 12.dp else 8.dp))
+            }
             item(key = "stops") {
                 Column {
                     for (stop in favoriteStops) key(stop.stopId) {
@@ -383,14 +347,6 @@ fun HomeScreen() {
         item(key = "end") { Spacer(Modifier.height(24.dp)) }
     }
     reminding?.let { ReminderSheet(it) { reminding = null } }
-    if (namingSuggested) {
-        suggested?.let { lines ->
-            GroupNameDialog(chainFor(lines), null, onDismiss = { namingSuggested = false }) { name ->
-                Services.groups.save(lines, name)
-                namingSuggested = false
-            }
-        }
-    }
 }
 
 @Composable

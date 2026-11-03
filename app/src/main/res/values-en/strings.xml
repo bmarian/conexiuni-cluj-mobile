@@ -161,8 +161,6 @@
     <string name="group_search">Search for a line</string>
     <string name="group_name_title">Name the group</string>
     <string name="group_name">Name</string>
-    <string name="group_suggested">Suggested</string>
-    <string name="group_not_now">Don\'t show again</string>
     <string name="group_rename">Rename</string>
     <string name="group_flip">Switch direction</string>
     <string name="group_remove_line">Remove line</string>

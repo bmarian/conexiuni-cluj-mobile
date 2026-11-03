@@ -384,9 +384,10 @@ fun TransitMap(
     }
     val shownShapes = nav?.shapes ?: controller.shapes
     val drawnLines = remember(shownShapes) { shownShapes.filter { it.points.isNotEmpty() }.map { it.shortName to it.color } }
-    LaunchedEffect(drawnLines) { LineColors.draw(drawnLines) }
+    val apart = controller.linesApart
+    LaunchedEffect(drawnLines, apart) { LineColors.draw(drawnLines, apart) }
     val base = LocalLineLooks.current
-    val looks = remember(base, drawnLines) { base.drawing(drawnLines) }
+    val looks = remember(base, drawnLines, apart) { base.drawing(drawnLines, apart) }
     val scene = remember(shownShapes, controller.directionArrowAtStart, nav, looks) {
         val colored = shownShapes.map { MapShape(it.tripId, it.shortName, looks.hex(it.shortName, it.color) ?: it.color, it.points) }
         if (nav != null) buildScene(colored, terminals = false, arrows = false)

@@ -62,6 +62,7 @@ class MapController {
     var fitWalking by mutableStateOf(false)
     var fitNewShapes = true
     var directionArrowAtStart by mutableStateOf(false)
+    var linesApart by mutableStateOf(true)
 
     var pinnedLocation by mutableStateOf<MapPin?>(null)
     var customOrigin by mutableStateOf<MapPin?>(null)
@@ -143,6 +144,7 @@ class MapController {
         val fitWalking: Boolean,
         val fitNewShapes: Boolean,
         val directionArrowAtStart: Boolean,
+        val linesApart: Boolean,
         val pinnedLocation: MapPin?,
         val customOrigin: MapPin?,
         val onPinDragged: ((LatLon) -> Unit)?,
@@ -153,7 +155,7 @@ class MapController {
 
     private fun save() = Owned(
         shapes, vehicles, highlightedStops, selectedStopId, labelledStops, walkingPolylines, fitWalking, fitNewShapes,
-        directionArrowAtStart, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
+        directionArrowAtStart, linesApart, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
     )
 
     private fun restore(owned: Owned) {
@@ -169,6 +171,7 @@ class MapController {
         fitWalking = owned.fitWalking
         fitNewShapes = owned.fitNewShapes
         directionArrowAtStart = owned.directionArrowAtStart
+        linesApart = owned.linesApart
         pinnedLocation = owned.pinnedLocation
         customOrigin = owned.customOrigin
         onPinDragged = owned.onPinDragged
@@ -188,6 +191,7 @@ class MapController {
         fitWalking = false
         fitNewShapes = true
         directionArrowAtStart = false
+        linesApart = true
         pinnedLocation = null
         customOrigin = null
         onPinDragged = null

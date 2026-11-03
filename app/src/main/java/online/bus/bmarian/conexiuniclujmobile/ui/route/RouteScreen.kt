@@ -204,7 +204,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     var counted by rememberSaveable(routeId) { mutableStateOf(false) }
     LaunchedEffect(info, dir) {
         if (counted || info == null || (dir != "0" && dir != "1")) return@LaunchedEffect
-        Services.groups.recordUse("lines", "$routeId/$dir")
+        Services.groups.recordLineUse("$routeId/$dir")
         counted = true
     }
     val city by Cities.current.collectAsStateWithLifecycle()

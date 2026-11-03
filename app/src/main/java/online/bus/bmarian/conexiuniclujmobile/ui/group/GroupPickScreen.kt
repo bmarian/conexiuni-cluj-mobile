@@ -83,7 +83,7 @@ fun GroupPickScreen(raw: String, edit: String?) {
     val known = index ?: return
 
     // Read once so the lists don't reorder under the finger.
-    val lineUsage = remember { Services.groups.usage("lines") }
+    val lineUsage = remember { Services.groups.lineUsage() }
     val nowMs = remember { System.currentTimeMillis() }
     fun usageOf(routeId: Int) = lineUsage.lineUse(routeId)
     val recentIds = recents.filterIsInstance<RecentRoute>().map { it.routeId }.toSet()
@@ -122,7 +122,7 @@ fun GroupPickScreen(raw: String, edit: String?) {
         chosen = chosen.orEmpty().map { if (it.startsWith("$routeId/")) "$routeId/${if (it.endsWith("/0")) "1" else "0"}" else it }
     }
 
-    fun badgeColor(route: NetworkRoute) = looks.hex(route.shortName, route.color, apart = isChosen(route.routeId)) ?: route.color
+    fun badgeColor(route: NetworkRoute) = looks.hex(route.shortName, route.color) ?: route.color
 
     fun show() {
         if (lines.isEmpty()) return

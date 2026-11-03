@@ -111,9 +111,9 @@ fun LineChain(chain: List<ChainLeg>, modifier: Modifier = Modifier, small: Boole
             leg.lines.forEachIndexed { j, line ->
                 if (j > 0) Text("/", color = joint, fontSize = if (small) 12.sp else 18.sp, fontWeight = FontWeight.Medium)
                 if (small) {
-                    StationLine(line.name, looks.color(line.name, line.color, apart = true))
+                    StationLine(line.name, looks.color(line.name, line.color))
                 } else {
-                    LineBadge(line.name, looks.hex(line.name, line.color, apart = true) ?: line.color, height = 36.dp, minWidth = 44.dp, corner = 12.dp)
+                    LineBadge(line.name, looks.hex(line.name, line.color) ?: line.color, height = 36.dp, minWidth = 44.dp, corner = 12.dp)
                 }
             }
         }
@@ -139,15 +139,12 @@ fun GroupScreen(raw: String) {
     val key = groupKey(lines)
     val group = saved.firstOrNull { it.key == key }
 
-    LaunchedEffect(key) {
-        if (lines.isEmpty()) return@LaunchedEffect
-        Services.groups.recordUse("groups", key)
-        Services.favorites.addRecent(RecentGroup(lines))
-    }
+    LaunchedEffect(key) { if (lines.isNotEmpty()) Services.favorites.addRecent(RecentGroup(lines)) }
 
     val owner = remember { Any() }
     DisposableEffect(owner) {
         map.claim(owner)
+        map.linesApart = false
         onDispose { map.release(owner) }
     }
     LaunchedEffect(layer) {
@@ -284,7 +281,7 @@ private fun LegCard(index: NetworkIndex, leg: Leg, times: LegTimes, ui: GroupUi,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            fun badge(routeId: Int) = lineOf(routeId)?.takeIf { mixed }?.let { it.shortName to looks.color(it.shortName, it.color, apart = true) }
+            fun badge(routeId: Int) = lineOf(routeId)?.takeIf { mixed }?.let { it.shortName to looks.color(it.shortName, it.color) }
             times.missed?.let { m ->
                 TimePill(minutesLabel(minutes(m.at), ui.now), live = false, line = badge(m.routeId), missed = true)
             }
