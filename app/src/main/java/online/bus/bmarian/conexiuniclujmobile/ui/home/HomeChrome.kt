@@ -78,6 +78,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import kotlin.math.ceil
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkSmallFabRing
 
 @Composable
 fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifier) {
@@ -92,7 +94,7 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
     Column(modifier) {
         Surface(
             onClick = onSearch,
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(56.dp),
+            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(56.dp).darkRing(CircleShape),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 4.dp,
@@ -214,6 +216,7 @@ private fun UpdateBadge() {
 private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspecified, dot: Boolean = false, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
+        modifier = Modifier.darkRing(CircleShape),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 2.dp,
@@ -249,7 +252,7 @@ fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
             val colors = MaterialTheme.colorScheme
             SmallFloatingActionButton(
                 onClick = { Services.settings.setTraffic(!traffic) },
-                modifier = Modifier.squish(press, 0.85f).semantics { selected = traffic },
+                modifier = Modifier.squish(press, 0.85f).darkSmallFabRing().semantics { selected = traffic },
                 interactionSource = press,
                 containerColor = if (traffic) colors.secondaryContainer else colors.surfaceContainerHigh,
                 contentColor = if (traffic) colors.onSecondaryContainer else colors.onSurfaceVariant,
@@ -260,7 +263,7 @@ fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
             val press = remember { MutableInteractionSource() }
             SmallFloatingActionButton(
                 onClick = map::fitShapes,
-                modifier = Modifier.squish(press, 0.85f),
+                modifier = Modifier.squish(press, 0.85f).darkSmallFabRing(),
                 interactionSource = press,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -275,7 +278,7 @@ fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
                 spins++
                 map.centerOnUser()
             },
-            modifier = Modifier.squish(press, 0.85f),
+            modifier = Modifier.squish(press, 0.85f).darkRing(FloatingActionButtonDefaults.shape),
             interactionSource = press,
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.primary,

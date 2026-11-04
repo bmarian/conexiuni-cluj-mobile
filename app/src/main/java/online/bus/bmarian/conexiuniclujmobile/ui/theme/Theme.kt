@@ -1,6 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.theme
 
 import android.os.Build
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
@@ -14,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.toColorInt
 
@@ -105,9 +107,16 @@ private val DarkColors = darkColorScheme(
     surfaceDim = Color(0xFF121318),
     surfaceContainerLowest = Color(0xFF0D0E13),
     surfaceContainerLow = Color(0xFF1A1B21),
-    surfaceContainer = Color(0xFF1E1F25),
-    surfaceContainerHigh = Color(0xFF292A2F),
-    surfaceContainerHighest = Color(0xFF33343A),
+    surfaceContainer = Color(0xFF26272D),
+    surfaceContainerHigh = Color(0xFF2F3036),
+    surfaceContainerHighest = Color(0xFF393A40),
+)
+
+// The same lift the palette above gives M3's baseline dark containers, so wallpaper colours separate as well.
+private fun ColorScheme.liftedContainers(): ColorScheme = copy(
+    surfaceContainer = lerp(surfaceContainer, onSurface, 0.04f),
+    surfaceContainerHigh = lerp(surfaceContainerHigh, onSurface, 0.033f),
+    surfaceContainerHighest = lerp(surfaceContainerHighest, onSurface, 0.034f),
 )
 
 val LocalDarkTheme = staticCompositionLocalOf { false }
@@ -126,7 +135,7 @@ fun routeColor(hex: String?): Color =
 fun ConexiuniTheme(dark: Boolean, dynamic: Boolean = true, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val scheme = when {
-        dynamic && dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicDarkColorScheme(context)
+        dynamic && dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicDarkColorScheme(context).liftedContainers()
         dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
         dark -> DarkColors
         else -> LightColors

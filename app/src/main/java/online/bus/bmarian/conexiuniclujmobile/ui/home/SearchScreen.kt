@@ -91,6 +91,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.RouteRow
 import java.util.Locale
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
 
 fun planQueryFor(plan: FavoritePlan): PlanQuery {
     val withOrigin = plan.originLat != null && plan.originLon != null && !plan.originName.isNullOrEmpty()
@@ -105,6 +106,7 @@ fun planQueryFor(plan: FavoritePlan): PlanQuery {
 private const val RECENTS_SHOWN = 8
 private const val DOCKED_HEIGHT_RATIO = 2f / 3f
 private val DOCKED_MIN_HEIGHT = 240.dp
+private val DockedShape = RoundedCornerShape(28.dp)
 
 @Composable
 fun SearchOverlay(visible: Boolean, state: SearchState, docked: Boolean, modifier: Modifier = Modifier, onClose: (clear: Boolean) -> Unit) {
@@ -127,8 +129,8 @@ private fun SearchSurface(docked: Boolean, content: @Composable () -> Unit) {
     }
     BoxWithConstraints(Modifier.statusBarsPadding().padding(start = 16.dp, top = 8.dp, end = 16.dp)) {
         Surface(
-            Modifier.fillMaxWidth().heightIn(max = maxOf(DOCKED_MIN_HEIGHT, maxHeight * DOCKED_HEIGHT_RATIO)),
-            shape = RoundedCornerShape(28.dp),
+            Modifier.fillMaxWidth().heightIn(max = maxOf(DOCKED_MIN_HEIGHT, maxHeight * DOCKED_HEIGHT_RATIO)).darkRing(DockedShape),
+            shape = DockedShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 6.dp,
             content = content,
