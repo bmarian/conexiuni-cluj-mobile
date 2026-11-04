@@ -140,6 +140,10 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.ridesApart
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkSmallFabRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkEdge
+import online.bus.bmarian.conexiuniclujmobile.ui.SheetShape
 
 private val COMPASS_ROOM = 64.dp
 
@@ -360,7 +364,8 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
 
         SmallFloatingActionButton(
             onClick = { Services.settings.setJourneyVoice(!voice) },
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = with(density) { bannerBottom.toDp() } + COMPASS_ROOM, end = 16.dp),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = with(density) { bannerBottom.toDp() } + COMPASS_ROOM, end = 16.dp)
+                .darkSmallFabRing(),
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
         ) {
@@ -382,6 +387,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                         overview = true
                         map.overview()
                     },
+                    modifier = Modifier.darkSmallFabRing(),
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
                 ) { Icon(Icons.Rounded.Route, contentDescription = stringResource(R.string.nav_overview)) }
@@ -395,6 +401,7 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     },
                     icon = { Icon(Icons.Rounded.Navigation, null) },
                     text = { Text(stringResource(R.string.nav_recenter)) },
+                    modifier = Modifier.darkRing(FloatingActionButtonDefaults.extendedFabShape),
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = MaterialTheme.colorScheme.primary,
                 )
@@ -422,8 +429,9 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
         Surface(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(with(density) { drawerMax.toDp() })
                 .offset { IntOffset(0, (drawer.anchored.offset.takeUnless { it.isNaN() } ?: (drawerMax - headerPx - navBar)).roundToInt()) }
-                .then(rememberSheetGestures(drawer)),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                .then(rememberSheetGestures(drawer))
+                .darkEdge(SheetShape, dy = (-1).dp),
+            shape = SheetShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 8.dp,
         ) {

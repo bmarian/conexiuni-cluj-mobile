@@ -67,6 +67,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkEdge
 
 enum class SheetSnap { Peek, Half, Full }
 
@@ -75,6 +76,7 @@ val SHEET_HANDLE = 28.dp
 private val PEEK_CONTENT = 64.dp
 private val FlingThreshold = 400.dp
 private val ReverseSlop = 32.dp
+val SheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
 internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = pacedStiffness(795f))
 
@@ -280,8 +282,9 @@ fun BottomSheet(
                 .fillMaxSize()
                 .offset { IntOffset(0, state.offsetPx.roundToInt()) }
                 .then(rememberSheetGestures(state, drags))
-                .onFocusChanged { focused = it.hasFocus },
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                .onFocusChanged { focused = it.hasFocus }
+                .darkEdge(SheetShape, dy = (-1).dp),
+            shape = SheetShape,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shadowElevation = 6.dp,
             tonalElevation = 1.dp,
@@ -363,11 +366,13 @@ fun SideSheet(
 ) {
     state.updateAnchors(widthPx)
     val fling = androidx.compose.foundation.gestures.AnchoredDraggableDefaults.flingBehavior(state.anchored, animationSpec = SheetSpring)
+    val shape = if (draggable) RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp) else RoundedCornerShape(0.dp)
     Surface(
         modifier
             .offset { IntOffset((state.anchored.offset.takeUnless { it.isNaN() } ?: 0f).roundToInt(), 0) }
-            .anchoredDraggable(state.anchored, Orientation.Horizontal, enabled = draggable, flingBehavior = fling),
-        shape = if (draggable) RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp) else RoundedCornerShape(0.dp),
+            .anchoredDraggable(state.anchored, Orientation.Horizontal, enabled = draggable, flingBehavior = fling)
+            .darkEdge(shape, dx = 1.dp),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shadowElevation = 6.dp,
     ) { content() }
