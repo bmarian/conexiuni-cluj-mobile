@@ -112,12 +112,15 @@ private val DarkColors = darkColorScheme(
     surfaceContainerHighest = Color(0xFF393A40),
 )
 
-// The same lift the palette above gives M3's baseline dark containers, so wallpaper colours separate as well.
-private fun ColorScheme.liftedContainers(): ColorScheme = copy(
-    surfaceContainer = lerp(surfaceContainer, onSurface, 0.04f),
-    surfaceContainerHigh = lerp(surfaceContainerHigh, onSurface, 0.033f),
-    surfaceContainerHighest = lerp(surfaceContainerHighest, onSurface, 0.034f),
-)
+private fun ColorScheme.containersSpacedLike(model: ColorScheme): ColorScheme {
+    fun spaced(c: Color) =
+        lerp(surfaceContainerLow, onSurface, (c.red - model.surfaceContainerLow.red) / (model.onSurface.red - model.surfaceContainerLow.red))
+    return copy(
+        surfaceContainer = spaced(model.surfaceContainer),
+        surfaceContainerHigh = spaced(model.surfaceContainerHigh),
+        surfaceContainerHighest = spaced(model.surfaceContainerHighest),
+    )
+}
 
 val LocalDarkTheme = staticCompositionLocalOf { false }
 
@@ -135,7 +138,7 @@ fun routeColor(hex: String?): Color =
 fun ConexiuniTheme(dark: Boolean, dynamic: Boolean = true, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val scheme = when {
-        dynamic && dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicDarkColorScheme(context).liftedContainers()
+        dynamic && dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicDarkColorScheme(context).containersSpacedLike(DarkColors)
         dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
         dark -> DarkColors
         else -> LightColors
