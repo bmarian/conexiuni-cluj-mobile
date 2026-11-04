@@ -216,13 +216,12 @@ private fun UpdateBadge() {
 private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspecified, dot: Boolean = false, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.darkRing(CircleShape),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 2.dp,
     ) {
         Row(
-            Modifier.height(36.dp).padding(start = 12.dp, end = 14.dp),
+            Modifier.height(36.dp).darkRing(CircleShape).padding(start = 12.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
