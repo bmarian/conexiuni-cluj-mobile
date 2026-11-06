@@ -63,6 +63,7 @@
     <string name="w_favorite_stops">Stații preferate</string>
     <string name="w_favorite_plans">Destinații preferate</string>
     <string name="w_recent_destinations">Recente</string>
+    <string name="w_recent_kind_stop">Stație</string>
     <string name="w_remove_from_recents">Șterge din istoric</string>
     <string name="w_no_favorites">Nu ai preferate încă. Salvează o stație sau o linie ca să apară aici.</string>
     <string name="w_search_placeholder">Caută linii, stații sau locuri…</string>
@@ -73,6 +74,8 @@
     <string name="w_drop_pin">Alege pe hartă</string>
     <string name="w_dropped_pin">Indicator plasat</string>
     <string name="w_remove_from_favorites">Șterge din preferate</string>
+    <string name="w_removed_from_favorites">Șters din preferate</string>
+    <string name="w_undo">Anulează</string>
     <string name="w_service_suspended">Serviciu suspendat</string>
     <string name="w_trip_at">Plecare la %1$s</string>
     <string name="w_close_trip_view">Închide</string>

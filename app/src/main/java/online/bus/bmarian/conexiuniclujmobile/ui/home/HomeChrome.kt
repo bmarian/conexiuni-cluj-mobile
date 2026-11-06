@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -58,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,11 +89,10 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
     val cities by Cities.list.collectAsStateWithLifecycle()
     // The city's news, or changes to the lines followed here.
     val showNews = online && (followed.isNotEmpty() || cities.any { it.slug == city && it.news })
-    val places by Services.favorites.plans.collectAsStateWithLifecycle()
     Column(modifier) {
         Surface(
             onClick = onSearch,
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(56.dp).darkRing(CircleShape),
+            modifier = Modifier.searchPill(),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 4.dp,
@@ -107,23 +108,49 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (showNews) NewsButton(nav::news)
                 SettingsCog(nav::settings)
             }
         }
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (showNews) {
-                item(key = "news") {
-                    MapChip(Icons.Rounded.Newspaper, stringResource(R.string.w_news), dot = rememberNewsDot(), onClick = nav::news)
-                }
-            }
-            if (online) {
-                items(places, key = { "place-${it.lat}-${it.lon}-${it.originLat}" }) { place ->
-                    MapChip(Icons.Rounded.Place, place.label ?: place.name, tint = MaterialTheme.colorScheme.tertiary) { nav.plan(planQueryFor(place)) }
-                }
-            }
+    }
+}
+
+internal fun Modifier.searchPill() = padding(horizontal = 16.dp).fillMaxWidth().height(56.dp).darkRing(CircleShape)
+
+@Composable
+private fun NewsButton(onClick: () -> Unit) {
+    val dot = rememberNewsDot()
+    IconButton(onClick = onClick) {
+        Box {
+            Icon(Icons.Rounded.Newspaper, stringResource(R.string.w_news))
+            if (dot) NewsDot(Modifier.align(Alignment.TopEnd))
+        }
+    }
+}
+
+@Composable
+private fun NewsDot(modifier: Modifier) = Box(
+    modifier.size(8.dp).clip(CircleShape).background(Color(0xFFEAB308)).border(1.5.dp, MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
+)
+
+@Composable
+fun PlaceChips(modifier: Modifier = Modifier) {
+    val nav = LocalNavigator.current
+    val online by Services.online.collectAsStateWithLifecycle()
+    val places by Services.favorites.plans.collectAsStateWithLifecycle()
+    if (!online || places.isEmpty()) return
+    LazyRow(
+        modifier,
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(places, key = { "place-${it.lat}-${it.lon}-${it.originLat}" }) { place ->
+            MapChip(
+                Icons.Rounded.Place,
+                place.label ?: place.name,
+                from = place.originName,
+                tint = MaterialTheme.colorScheme.tertiary,
+            ) { nav.plan(planQueryFor(place)) }
         }
     }
 }
@@ -210,26 +237,29 @@ private fun UpdateBadge() {
 }
 
 @Composable
-private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspecified, dot: Boolean = false, onClick: () -> Unit) {
+private fun MapChip(icon: ImageVector, label: String, from: String?, tint: Color, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
+        modifier = Modifier.widthIn(max = 260.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 2.dp,
     ) {
         Row(
             Modifier.height(36.dp).darkRing(CircleShape).padding(start = 12.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box {
-                Icon(icon, null, Modifier.size(18.dp), tint = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else tint)
-                if (dot) {
-                    Box(
-                        Modifier.align(Alignment.TopEnd).size(8.dp).clip(CircleShape).background(Color(0xFFEAB308))
-                            .border(1.5.dp, MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
-                    )
-                }
+            Icon(icon, null, Modifier.size(18.dp), tint = tint)
+            if (from != null) {
+                Text(
+                    "$from →",
+                    Modifier.widthIn(max = 110.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

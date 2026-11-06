@@ -63,6 +63,7 @@
     <string name="w_favorite_stops">Favorite stops</string>
     <string name="w_favorite_plans">Favorite destinations</string>
     <string name="w_recent_destinations">Recents</string>
+    <string name="w_recent_kind_stop">Stop</string>
     <string name="w_remove_from_recents">Remove from recents</string>
     <string name="w_no_favorites">No favorites yet. Save a stop or a line to see it here.</string>
     <string name="w_search_placeholder">Search lines, stops, places…</string>
@@ -73,6 +74,8 @@
     <string name="w_drop_pin">Choose on map</string>
     <string name="w_dropped_pin">Dropped pin</string>
     <string name="w_remove_from_favorites">Remove from favorites</string>
+    <string name="w_removed_from_favorites">Removed from favorites</string>
+    <string name="w_undo">Undo</string>
     <string name="w_service_suspended">Service suspended</string>
     <string name="w_trip_at">Departing %1$s</string>
     <string name="w_close_trip_view">Close</string>
