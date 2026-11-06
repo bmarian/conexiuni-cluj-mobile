@@ -158,6 +158,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
 import online.bus.bmarian.conexiuniclujmobile.ui.MessageText
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.Ticker
+import online.bus.bmarian.conexiuniclujmobile.ui.TrafficNote
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
@@ -167,6 +168,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberCascade
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberJams
 import online.bus.bmarian.conexiuniclujmobile.ui.share
 import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
@@ -333,6 +335,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val lineColor = LocalLineLooks.current.color(route.shortName, route.color)
     val outgoing = dir == "0"
     val tripId = tripIdFor(routeId, dir)
+    val jam = rememberJams()(tripId, null)
     val hourlyTrip = remember(hourly, stops, tripId) { tripHourlyOffsets(hourly, tripId, stops) }
     val chips = remember(route, selectedTab, outgoing, hourlyTrip, stops, now, calendar) {
         if (now == null) emptyList() else chipsForDay(route.timetable, selectedTab, outgoing, hourlyTrip, stops, now, calendar)
@@ -461,6 +464,14 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         if (stops.isEmpty()) {
             item { MessageText(stringResource(R.string.w_no_schedule), Modifier.padding(top = 16.dp)) }
         } else {
+            jam?.let {
+                item(key = "traffic") {
+                    TrafficNote(
+                        it, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                        between = true, style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),

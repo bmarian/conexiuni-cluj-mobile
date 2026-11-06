@@ -30,7 +30,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
-import online.bus.bmarian.conexiuniclujmobile.data.TrafficStretch
+import online.bus.bmarian.conexiuniclujmobile.data.Traffic
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.logic.Area
 import online.bus.bmarian.conexiuniclujmobile.logic.AreaClusters
@@ -39,6 +39,8 @@ import online.bus.bmarian.conexiuniclujmobile.logic.LabelSide
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.MapClusters
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.logic.RAILS
+import online.bus.bmarian.conexiuniclujmobile.logic.RAIL_GAP
 import online.bus.bmarian.conexiuniclujmobile.logic.Rect
 import online.bus.bmarian.conexiuniclujmobile.logic.RoutePath
 import online.bus.bmarian.conexiuniclujmobile.logic.SWEEP_MS
@@ -48,6 +50,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.StopClusters
 import online.bus.bmarian.conexiuniclujmobile.logic.StopGroup
 import online.bus.bmarian.conexiuniclujmobile.logic.StopPoint
 import online.bus.bmarian.conexiuniclujmobile.logic.TILE_DP
+import online.bus.bmarian.conexiuniclujmobile.logic.TrafficRun
 import online.bus.bmarian.conexiuniclujmobile.logic.VehicleTrack
 import online.bus.bmarian.conexiuniclujmobile.logic.boxAt
 import online.bus.bmarian.conexiuniclujmobile.logic.fixMs
@@ -63,9 +66,9 @@ import online.bus.bmarian.conexiuniclujmobile.logic.mercatorY
 import online.bus.bmarian.conexiuniclujmobile.logic.modeMask
 import online.bus.bmarian.conexiuniclujmobile.logic.modesIn
 import online.bus.bmarian.conexiuniclujmobile.logic.paced
-import online.bus.bmarian.conexiuniclujmobile.logic.paintedParts
 import online.bus.bmarian.conexiuniclujmobile.logic.partBetween
 import online.bus.bmarian.conexiuniclujmobile.logic.pathThrough
+import online.bus.bmarian.conexiuniclujmobile.logic.railParts
 import online.bus.bmarian.conexiuniclujmobile.logic.roundedHull
 import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsClear
 import online.bus.bmarian.conexiuniclujmobile.logic.spiderLegsToward
@@ -116,6 +119,7 @@ import org.maplibre.android.style.layers.PropertyFactory.iconTranslateAnchor
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
+import org.maplibre.android.style.layers.PropertyFactory.lineGapWidth
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
@@ -138,6 +142,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 private const val SRC_LINES = "ct-lines"
+private const val LINE_WIDTH = 5f
 private const val SRC_WALKS = "ct-walks"
 private const val SRC_STOPS = "ct-stops"
 private const val SRC_HIGHLIGHTS = "ct-highlights"
@@ -150,6 +155,7 @@ private const val SRC_PINS = "ct-pins"
 private const val SRC_AREA = "ct-area"
 private const val SRC_SPIDER = "ct-spider"
 private const val SRC_SWEEP = "ct-sweep"
+private const val SRC_RAILS = "ct-rails"
 private const val SRC_RIPPLE = "ct-ripple"
 
 private const val LAYER_STOPS = "ct-stops"
@@ -235,7 +241,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var labelInsets = MapPadding(0f, 0f, 0f, 0f)
     private var labelSides: Map<String, LabelSide> = emptyMap()
     private var scene = MapScene.Empty
-    private var traffic: Map<String, List<TrafficStretch>> = emptyMap()
+    private var traffic: Map<String, Traffic> = emptyMap()
+    private var rails: List<List<TrafficRun>> = emptyList()
+    private var growing: Set<Int> = emptySet()
+    private var grown = 0f
     private var walks: List<List<LatLon>> = emptyList()
     private var pins: List<PinMark> = emptyList()
     private var me: Fix? = null
@@ -370,6 +379,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val saved = drawnFavorites
         scene = value
         drawnFavorites = favorites
+        rails = railRuns()
+        growing = emptySet()
         stopSweep()
         pendingGrow = null
         // A grow still waiting for the camera drew its stops at size 0.
@@ -425,6 +436,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             interpolator = AccelerateDecelerateInterpolator()
             addUpdateListener { a -> paint(a.animatedValue as Float) }
             doOnEnd {
+                growing = emptySet()
                 applyLines()
                 sweepLeft = true
                 recolor = null
@@ -443,7 +455,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val fresh = after.lines.indices.filter { after.lines[it].points !in known && after.lines[it].dash == 0 && after.lines[it].points.size >= 2 }
         if (fresh.isEmpty()) return false
         val grows = fresh.map { after.lines[it] to lineArgb(after.lines[it].color) }
-        applyLines(hidden = fresh.toSet())
+        growing = fresh.toSet()
+        grown = 0f
+        applyLines(hidden = growing)
         sweepLeft = false
         paintSweep(emptyList())
         reveal.grow(
@@ -457,7 +471,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             sweep { done ->
                 reveal.draw(done)
                 motion.start()
-                paintSweep(grows.flatMap { (line, color) -> parts(line, color, done) })
+                paintSweep(grows.map { (line, color) -> partBetween(line.points, 0f, done) to color })
+                grown = done
+                applyRails()
             }
         }
         // Posted, so a fit asked for in the same update is already aiming.
@@ -551,7 +567,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val same = before.lines.size == after.lines.size &&
             before.lines.zip(after.lines).all { (a, b) -> a.points === b.points && a.dash == b.dash }
         if (!same) return false
-        val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 && traffic[after.lines[it].tripId].isNullOrEmpty() }
+        val changed = after.lines.indices.filter { before.lines[it].color != after.lines[it].color && after.lines[it].dash == 0 }
         if (changed.isEmpty()) return false
         val sweeps = changed.map { i ->
             val line = after.lines[i]
@@ -567,13 +583,24 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         return true
     }
 
-    fun setTraffic(value: Map<String, List<TrafficStretch>>) {
+    fun setTraffic(value: Map<String, Traffic>) {
+        if (value == traffic) return
         traffic = value
-        if (recolor == null && pendingGrow == null) applyLines()
+        rails = railRuns()
+        applyRails()
     }
 
-    /** The line in its traffic colours where measured, [color] between, up to the share [done] of its length. */
-    private fun parts(line: SceneLine, color: Int, done: Float = 1f) = paintedParts(line.points, color, trafficRuns(traffic[line.tripId].orEmpty(), line.points), done)
+    private fun railRuns() = scene.lines.map { trafficRuns(traffic[it.tripId]?.stretches.orEmpty(), it.points) }
+
+    private fun applyRails() = source(SRC_RAILS)?.setGeoJson(
+        FeatureCollection.fromFeatures(
+            scene.lines.zip(rails).withIndex().flatMap { (i, line) ->
+                railParts(line.first.points, line.second, if (i in growing) grown else 1f).map { (part, band) ->
+                    Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply { addNumberProperty("band", band) }
+                }
+            },
+        ),
+    )
 
     fun setWalks(list: List<List<LatLon>>) {
         if (list == walks) return
@@ -912,7 +939,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     private fun addLayers(style: Style, dark: Boolean) {
         listOf(
-            SRC_LINES, SRC_SWEEP, SRC_RIPPLE, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED,
+            SRC_RAILS, SRC_LINES, SRC_SWEEP, SRC_RIPPLE, SRC_WALKS, SRC_STOPS, SRC_HIGHLIGHTS, SRC_SELECTED,
             SRC_ENDS, SRC_BADGES, SRC_ARROWS, SRC_VEHICLES, SRC_PINS, SRC_AREA, SRC_SPIDER,
         ).forEach { style.addSource(GeoJsonSource(it)) }
         addBaseImages(style, dark)
@@ -922,6 +949,17 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val lastGround = layers.indexOfLast { it !is SymbolLayer && !it.id.startsWith("boundary") }
         val firstLabel = layers.drop(lastGround + 1).firstOrNull { it is SymbolLayer }?.id
         fun under(layer: Layer) = if (firstLabel != null) style.addLayerBelow(layer, firstLabel) else style.addLayer(layer)
+        RAILS.forEach { rail ->
+            under(
+                LineLayer("ct-rails-${rail.band}", SRC_RAILS).withProperties(
+                    lineColor(rail.color),
+                    lineWidth(rail.width),
+                    lineGapWidth(LINE_WIDTH + 2 * RAIL_GAP),
+                    lineCap(Property.LINE_CAP_ROUND),
+                    lineJoin(Property.LINE_JOIN_ROUND),
+                ).withFilter(eq(get("band"), literal(rail.band))),
+            )
+        }
         under(
             LineLayer("ct-lines-casing", SRC_LINES).withProperties(
                 lineColor(if (dark) MapColors.InkDark.toArgb() else android.graphics.Color.WHITE),
@@ -934,19 +972,19 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         DUPLICATE_DASH_PATTERNS.forEachIndexed { i, pattern ->
             val layer = LineLayer("ct-lines-$i", SRC_LINES).withProperties(
                 lineColor(toColor(get("color"))),
-                lineWidth(5f),
+                lineWidth(LINE_WIDTH),
                 lineOpacity(0.9f),
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
             ).withFilter(eq(get("dash"), literal(i)))
             // Dash arrays are in line widths.
-            if (pattern.isNotEmpty()) layer.setProperties(lineDasharray(pattern.map { it / 5f }.toTypedArray()))
+            if (pattern.isNotEmpty()) layer.setProperties(lineDasharray(pattern.map { it / LINE_WIDTH }.toTypedArray()))
             under(layer)
         }
         under(
             LineLayer("ct-sweep", SRC_SWEEP).withProperties(
                 lineColor(toColor(get("color"))),
-                lineWidth(5f),
+                lineWidth(LINE_WIDTH),
                 lineOpacity(0.9f),
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
@@ -1392,18 +1430,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         linesVersion++
         src.setGeoJson(
             FeatureCollection.fromFeatures(
-                scene.lines.zip(colors).filterIndexed { i, _ -> i !in hidden }.flatMap { (line, color) ->
-                    parts(line, color).map { (part, color) ->
-                        Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply {
-                            addStringProperty("color", "#%06X".format(0xFFFFFF and color))
-                            // In traffic colours a line drops the dash that told it apart from another line of its colour.
-                            addNumberProperty("dash", if (traffic[line.tripId].isNullOrEmpty()) line.dash else 0)
-                            addNumberProperty("v", linesVersion)
-                        }
+                scene.lines.zip(colors).filterIndexed { i, (line, _) -> line.points.size >= 2 && i !in hidden }.map { (line, color) ->
+                    Feature.fromGeometry(LineString.fromLngLats(line.points.map(::point))).apply {
+                        addStringProperty("color", "#%06X".format(0xFFFFFF and color))
+                        addNumberProperty("dash", line.dash)
+                        addNumberProperty("v", linesVersion)
                     }
                 },
             ),
         )
+        applyRails()
         return true
     }
 

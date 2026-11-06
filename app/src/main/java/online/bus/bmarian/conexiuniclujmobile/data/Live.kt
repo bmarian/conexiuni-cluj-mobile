@@ -6,6 +6,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import okhttp3.OkHttpClient
@@ -42,6 +44,7 @@ data class LiveSnapshot(
     @SerialName("as_of") val asOf: Long,
     val rows: List<LiveRow> = emptyList(),
     val vehicles: List<Vehicle> = emptyList(),
+    val traffic: Map<String, Traffic> = emptyMap(),
 )
 
 @Serializable
@@ -52,11 +55,17 @@ private data class LiveDelta(
     @SerialName("as_of") val asOf: Long,
     val rows: List<LiveRow> = emptyList(),
     val vehicles: LiveVehicleDelta = LiveVehicleDelta(),
+    val traffic: Map<String, Traffic>? = null,
 )
 
 fun liveRowKey(tripId: String, stopId: Int) = "$tripId@$stopId"
 
-class LiveState(val asOfMs: Long, val rows: Map<String, LiveRow>, val vehiclesByTrip: Map<String, List<Vehicle>>) {
+class LiveState(
+    val asOfMs: Long,
+    val rows: Map<String, LiveRow>,
+    val vehiclesByTrip: Map<String, List<Vehicle>>,
+    val traffic: Map<String, Traffic> = emptyMap(),
+) {
     /** The minutes a screen shows for the row's entries at [nowMs]; null without a row. */
     fun entriesAt(tripId: String, stopId: Int, nowMs: Long): List<ShownEntry>? {
         val row = rows[liveRowKey(tripId, stopId)] ?: return null
@@ -80,6 +89,7 @@ class LiveMerge {
     private val rows = LinkedHashMap<String, LiveRow>()
     private val vehicles = LinkedHashMap<Int, Vehicle>()
     private var asOfMs = 0L
+    private var traffic = emptyMap<String, Traffic>()
 
     fun apply(snapshot: LiveSnapshot): LiveState {
         rows.clear()
@@ -87,10 +97,11 @@ class LiveMerge {
         snapshot.rows.forEach { rows[liveRowKey(it.tripId, it.stopId)] = it }
         snapshot.vehicles.forEach { vehicles[it.id] = it }
         asOfMs = snapshot.asOf * 1000
+        traffic = snapshot.traffic
         return state()
     }
 
-    private fun state() = LiveState(asOfMs, rows.toMap(), vehicles.values.groupBy { it.tripId.orEmpty() })
+    private fun state() = LiveState(asOfMs, rows.toMap(), vehicles.values.groupBy { it.tripId.orEmpty() }, traffic)
 
     fun apply(type: String?, data: String): LiveState? {
         when (type) {
@@ -101,6 +112,7 @@ class LiveMerge {
                 delta.vehicles.upsert.forEach { vehicles[it.id] = it }
                 delta.vehicles.remove.forEach { vehicles.remove(it) }
                 asOfMs = delta.asOf * 1000
+                delta.traffic?.let { traffic = it }
             }
             else -> return null
         }
@@ -149,6 +161,11 @@ object LiveStream {
             delay(backoff)
             backoff = min(backoff * 2, 30_000L)
         }
+    }.published()
+
+    private fun Flow<LiveState>.published(): Flow<LiveState> {
+        val key = Any()
+        return onEach { LiveTraffic.publish(key, it.traffic) }.onCompletion { LiveTraffic.publish(key, null) }
     }
 
     private fun connection(q: String, city: String): Flow<LiveState> = callbackFlow {

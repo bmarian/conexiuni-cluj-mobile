@@ -35,7 +35,6 @@ import androidx.compose.material.icons.rounded.Newspaper
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Traffic
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -59,8 +58,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -241,23 +238,7 @@ private fun MapChip(icon: ImageVector, label: String, tint: Color = Color.Unspec
 
 @Composable
 fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
-    val city by Cities.current.collectAsStateWithLifecycle()
-    val cities by Cities.list.collectAsStateWithLifecycle()
-    val traffic by Services.settings.traffic.collectAsStateWithLifecycle()
-    val canTraffic = map.shapes.isNotEmpty() && cities.any { it.slug == city && it.traffic }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
-        AnimatedVisibility(canTraffic, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
-            val press = remember { MutableInteractionSource() }
-            val colors = MaterialTheme.colorScheme
-            SmallFloatingActionButton(
-                onClick = { Services.settings.setTraffic(!traffic) },
-                modifier = Modifier.squish(press, 0.85f).darkSmallFabRing().semantics { selected = traffic },
-                interactionSource = press,
-                containerColor = if (traffic) colors.secondaryContainer else colors.surfaceContainerHigh,
-                contentColor = if (traffic) colors.onSecondaryContainer else colors.onSurfaceVariant,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
-            ) { Icon(Icons.Rounded.Traffic, contentDescription = stringResource(R.string.w_traffic)) }
-        }
         AnimatedVisibility(map.shapes.isNotEmpty(), enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
             val press = remember { MutableInteractionSource() }
             SmallFloatingActionButton(

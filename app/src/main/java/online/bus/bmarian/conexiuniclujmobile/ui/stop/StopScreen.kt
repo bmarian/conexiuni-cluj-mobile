@@ -83,6 +83,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
+import online.bus.bmarian.conexiuniclujmobile.data.Jam
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
 import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
 import online.bus.bmarian.conexiuniclujmobile.data.directionFromTripId
@@ -124,6 +125,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
+import online.bus.bmarian.conexiuniclujmobile.ui.TrafficNote
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocation
@@ -136,6 +138,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.modeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.popped
+import online.bus.bmarian.conexiuniclujmobile.ui.rememberJams
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberPop
 import online.bus.bmarian.conexiuniclujmobile.ui.route.RouteHandoff
 import online.bus.bmarian.conexiuniclujmobile.ui.share
@@ -234,6 +237,7 @@ fun StopScreen(stopId: Int) {
         ui?.departures?.sortedWith(compareBy({ if (vm.isDepartureFavorite(it)) 0 else 1 }, { it.minutesLeft }))
     }
     val keyedDepartures = remember(departures) { departures?.let { list -> withUniqueKeys(list) { it.tripId } } }
+    val jamAhead = rememberJams()
 
     fun platformOf(departure: StopDeparture) = if (departure.stopId != 0) departure.stopId else stopId
 
@@ -389,6 +393,7 @@ fun StopScreen(stopId: Int) {
                             DepartureCard(
                                 departure, ui!!.now, vm.isDepartureFavorite(departure),
                                 mode = Services.repository.network.index.value?.route(departure.routeId)?.type?.let(::modeOf) ?: Mode.BUS,
+                                jam = jamAhead(departure.tripId, platform),
                                 remindOn = following != null || clocked.isNotEmpty(),
                                 reminded = forBus.any { !it.once },
                                 onRemind = {
@@ -508,6 +513,7 @@ fun DepartureCard(
     mode: Mode = Mode.BUS,
     remindOn: Boolean = false,
     reminded: Boolean = false,
+    jam: Jam? = null,
     onRemind: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -544,6 +550,7 @@ fun DepartureCard(
         },
     ) {
         DepartureTimes(departure, now, mode)
+        jam?.let { TrafficNote(it, Modifier.padding(top = 4.dp)) }
     }
 }
 
