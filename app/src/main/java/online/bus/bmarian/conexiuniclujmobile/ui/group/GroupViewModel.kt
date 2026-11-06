@@ -40,7 +40,8 @@ class GroupRow(val line: GroupLine, val stopId: Int?, val departure: StopDepartu
 
 class GroupUi(val rows: List<GroupRow>, val now: LocalDateTime)
 
-class GroupMapLayer(val shapes: List<MapShape>, val vehicles: List<MapVehicle>)
+/** [boarding]: where the shown lines' times are from. */
+class GroupMapLayer(val shapes: List<MapShape>, val vehicles: List<MapVehicle>, val boarding: Set<Int>)
 
 private const val LINII = "linii"
 
@@ -88,7 +89,7 @@ class GroupViewModel(raw: String, private val state: SavedStateHandle) : ViewMod
         GroupUi(rows, now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val mapLayer: StateFlow<GroupMapLayer?> = combine(index, shown, shapes, live) { index, shown, shapes, live ->
+    val mapLayer: StateFlow<GroupMapLayer?> = combine(index, shown, shapes, live, boarding) { index, shown, shapes, live, boarding ->
         if (index == null) return@combine null
         val drawn = shown.mapNotNull { line ->
             val route = index.route(line.routeId) ?: return@mapNotNull null
@@ -99,7 +100,8 @@ class GroupViewModel(raw: String, private val state: SavedStateHandle) : ViewMod
             val route = index.route(line.routeId) ?: return@flatMap emptyList()
             live?.vehicles(tripOf(line)).orEmpty().map { MapVehicle("${it.id}", it, route.shortName, route.color, it.heading, faded = it.atStand) }
         }
-        GroupMapLayer(drawn, buses)
+        val stops = boarding.mapNotNullTo(LinkedHashSet()) { (line, stopId) -> stopId?.takeIf { line in shown } }
+        GroupMapLayer(drawn, buses, stops)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     suspend fun live() = coroutineScope {
