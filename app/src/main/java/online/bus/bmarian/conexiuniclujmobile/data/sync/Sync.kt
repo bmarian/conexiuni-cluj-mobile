@@ -72,6 +72,7 @@ class Sync(private val context: Context) {
             combine(s.theme, s.locale, s.autoCenterOnMe, s.autoFitMap, s.colorfulLines) { _, _, _, _, _ -> }
                 .combine(combine(s.journeyVoice, s.fullScreenAlarms, s.traffic, Cities.choice) { _, _, _, _ -> }) { _, _ -> }
                 .combine(s.regions) { _, regions -> s.regionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY, regions) }
+                .combine(combine(s.homeOrder, s.homeCollapsed, ::Pair)) { _, _ -> }
                 .drop(1).debounce(AFTER_EDIT_MS).collect { if (_withSettings.value) syncNow() }
         }
     }

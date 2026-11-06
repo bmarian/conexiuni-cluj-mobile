@@ -4,6 +4,8 @@ import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.City
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Device
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Group
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Groups
+import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Home
+import online.bus.bmarian.conexiuniclujmobile.logic.HomeSections
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Line
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.News
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Options
@@ -108,6 +110,14 @@ object SyncMerge {
         val had = base.recent.map(SyncRecords::recentId).toSet()
         val (known, fresh) = merged.partition { SyncRecords.recentId(it) in had }
         return Recents((fresh + known).take(SyncRecords.RECENT_CAP))
+    }
+
+    fun mergeHome(base: Home?, local: Home, remote: Home): Home {
+        val from = base ?: SyncRecords.emptyHome
+        fun ids(pick: (Home) -> List<String>, mine: Home, theirs: Home) =
+            mergeList(pick(from), pick(mine), pick(theirs), { it }, ::same, SyncRecords.HOME_CAP).merged
+        val untouched = base == null && remote.order == HomeSections.ALL
+        return Home(if (untouched) ids(Home::order, remote, local) else ids(Home::order, local, remote), ids(Home::collapsed, local, remote))
     }
 
     fun mergeOptions(base: Options?, local: Options, remote: Options): Options {

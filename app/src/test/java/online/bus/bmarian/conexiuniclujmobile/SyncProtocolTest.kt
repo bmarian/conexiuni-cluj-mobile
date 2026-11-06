@@ -90,6 +90,7 @@ class SyncProtocolTest {
         "recents" -> SyncRecords.readRecents(raw)
         "options" -> SyncRecords.readOptions(raw)
         "groups" -> SyncRecords.readGroups(raw)
+        "home" -> SyncRecords.readHome(raw)
         "devices" -> SyncRecords.readDevices(raw)
         else -> SyncRecords.readSettings(raw)
     }) {
@@ -152,6 +153,14 @@ class SyncProtocolTest {
                         ?.let { SyncRecords.writeGroups(SyncRecords.Groups(it)).removePrefix("{\"v\":1,\"groups\":").dropLast(1) }
                     assertEquals(about, c.jsonObject["dropped"]!!.jsonObject["groups"]?.toString(), dropped)
                 }
+                "home" -> assertEquals(
+                    about, c.str("merged"),
+                    SyncRecords.writeHome(SyncMerge.mergeHome(
+                        c.textOrNull("base")?.let { value(SyncRecords.readHome(it)) },
+                        value(SyncRecords.readHome(c.str("local"))),
+                        value(SyncRecords.readHome(c.str("remote"))),
+                    )),
+                )
                 "options" -> assertEquals(
                     about, c.str("merged"),
                     SyncRecords.writeOptions(SyncMerge.mergeOptions(

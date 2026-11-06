@@ -17,6 +17,7 @@ object SyncRecords {
     const val DEVICE_CAP = 10
     const val RECENT_CAP = 10
     const val GROUP_LINES_CAP = 10
+    const val HOME_CAP = 20
     private const val MAX_INT = Int.MAX_VALUE.toLong()
     val LAT = 43.6..48.3
     val LON = 20.2..29.8
@@ -38,6 +39,7 @@ object SyncRecords {
     data class Recents(val recent: List<RecentItem>)
     data class Group(val lines: List<Line>, val name: String, val to: Spot? = null)
     data class Groups(val groups: List<Group>)
+    data class Home(val order: List<String>, val collapsed: List<String>)
     data class Options(val colorfulLines: Boolean, val city: String, val journeyVoice: Boolean?, val fullScreenAlarms: Boolean?, val traffic: Boolean?)
     data class Device(val id: String, val kind: String, val label: String, val pub: String)
     data class Devices(val devices: List<Device>)
@@ -258,6 +260,7 @@ object SyncRecords {
     fun readRecents(raw: String): Read<Recents> = read(raw, ::parseRecents, ::writeRecents)
 
     val emptyGroups = Groups(emptyList())
+    val emptyHome = Home(emptyList(), emptyList())
 
     private fun parseGroups(record: JsonElement): Groups {
         val groups = list(obj(record, "v", "groups")["groups"], CITY_CAP).map { item ->
@@ -324,4 +327,15 @@ object SyncRecords {
             ",\"journeyVoice\":${r.journeyVoice},\"fullScreenAlarms\":${r.fullScreenAlarms},\"traffic\":${r.traffic}}"
 
     fun readOptions(raw: String): Read<Options> = read(raw, ::parseOptions, ::writeOptions)
+
+    private fun sections(e: JsonElement?): List<String> = list(e, HOME_CAP).map { text(it, 1, 20) }.also { ids -> unique(ids) { it } }
+
+    private fun parseHome(record: JsonElement): Home {
+        val m = obj(record, "v", "order", "collapsed")
+        return Home(sections(m["order"]), sections(m["collapsed"]))
+    }
+
+    fun writeHome(r: Home): String = "{\"v\":1,\"order\":" + joined(r.order, ::quote) + ",\"collapsed\":" + joined(r.collapsed, ::quote) + "}"
+
+    fun readHome(raw: String): Read<Home> = read(raw, ::parseHome, ::writeHome)
 }
