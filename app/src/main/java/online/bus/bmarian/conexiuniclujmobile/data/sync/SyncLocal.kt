@@ -19,6 +19,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Place
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.RecentItem
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords.Spot
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.HomeSections
 import java.text.Normalizer
 import java.util.Locale
 
@@ -155,6 +156,17 @@ object SyncLocal {
         if (s.regionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY) != r.greenFriday) {
             s.setRegionSetting(Cities.DEFAULT, RegionSettings.GREEN_FRIDAY, r.greenFriday)
         }
+    }
+
+    fun homeFromLocal(): SyncRecords.Home {
+        val s = Services.settings
+        return SyncRecords.Home(s.homeOrder.value, s.homeCollapsed.value.toList())
+    }
+
+    fun applyHome(r: SyncRecords.Home) {
+        val s = Services.settings
+        if (HomeSections.order(r.order) != s.homeOrder.value) s.setHomeOrder(r.order)
+        if (r.collapsed.toSet() != s.homeCollapsed.value) s.setHomeCollapsed(r.collapsed.toSet())
     }
 
     fun optionsFromLocal(): SyncRecords.Options {

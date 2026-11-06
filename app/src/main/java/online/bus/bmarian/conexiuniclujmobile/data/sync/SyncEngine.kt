@@ -102,6 +102,15 @@ class SyncEngine(private val vault: SyncVault) {
         override fun apply(value: SyncRecords.Options) = SyncLocal.applyOptions(value)
     }
 
+    private val homeKind = object : Kind<SyncRecords.Home> {
+        override fun read(raw: String) = SyncRecords.readHome(raw)
+        override fun write(value: SyncRecords.Home) = SyncRecords.writeHome(value)
+        override fun local(base: SyncRecords.Home?) = SyncLocal.homeFromLocal()
+        override fun merge(base: SyncRecords.Home?, local: SyncRecords.Home, remote: SyncRecords.Home) =
+            SyncMerge.mergeHome(base, local, remote)
+        override fun apply(value: SyncRecords.Home) = SyncLocal.applyHome(value)
+    }
+
     private val settingsKind = object : Kind<SyncRecords.Settings> {
         override fun read(raw: String) = SyncRecords.readSettings(raw)
         override fun write(value: SyncRecords.Settings) = SyncRecords.writeSettings(value)
@@ -241,6 +250,7 @@ class SyncEngine(private val vault: SyncVault) {
             if (withSettings) {
                 step(SETTINGS, settingsKind)
                 step(OPTIONS, optionsKind)
+                step(HOME, homeKind)
             }
             for (slug in SyncLocal.syncedCities()) {
                 step("city:$slug", cityKind(slug, run))
@@ -287,7 +297,8 @@ class SyncEngine(private val vault: SyncVault) {
         val m = vault.membership() ?: throw Gone()
         val st = state(m)
         val keys = SyncCrypto.chainKeys(m.s)
-        val logicals = listOf(DEVICES, SETTINGS, OPTIONS) + SyncLocal.syncedCities().flatMap { listOf("city:$it", "news:$it", "recents:$it", "groups:$it") }
+        val logicals = listOf(DEVICES, SETTINGS, OPTIONS, HOME) +
+            SyncLocal.syncedCities().flatMap { listOf("city:$it", "news:$it", "recents:$it", "groups:$it") }
         val byName = logicals.associateBy { SyncCrypto.recordName(keys.names, it) }
         val run = Run(m, keys, mutableMapOf())
         val texts = linkedMapOf<String, String>()
@@ -355,5 +366,6 @@ class SyncEngine(private val vault: SyncVault) {
         const val DEVICES = "devices"
         const val SETTINGS = "settings"
         const val OPTIONS = "options"
+        const val HOME = "home"
     }
 }

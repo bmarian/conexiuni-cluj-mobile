@@ -114,11 +114,12 @@ class Settings(private val context: Context) {
     private val _homeCollapsed = MutableStateFlow(savedList("home.collapsed").toSet())
     val homeCollapsed: StateFlow<Set<String>> = _homeCollapsed
 
-    fun toggleHomeSection(id: String) {
-        val next = _homeCollapsed.value.let { if (id in it) it - id else it + id }
-        _homeCollapsed.value = next
-        prefs.edit { putString("home.collapsed", next.joinToString(",")) }
+    fun setHomeCollapsed(ids: Set<String>) {
+        _homeCollapsed.value = ids
+        prefs.edit { putString("home.collapsed", ids.joinToString(",")) }
     }
+
+    fun toggleHomeSection(id: String) = setHomeCollapsed(_homeCollapsed.value.let { if (id in it) it - id else it + id })
 
     // Saved as "{city}:{key}"; Cluj's were saved before cities under the bare key.
     private fun regionKey(city: String, key: String) = "$city:$key"
