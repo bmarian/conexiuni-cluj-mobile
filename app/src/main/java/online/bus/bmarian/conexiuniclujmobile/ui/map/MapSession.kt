@@ -224,6 +224,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var shownGroups: Map<String, StopGroup> = emptyMap()
     private var shownFeatures: Map<String, List<Feature>> = emptyMap()
     private val groupImages = HashSet<String>()
+    private val imageBytes = HashMap<String, Int>()
+    private val spareImages = SpareImages(context)
     private val fades = MarkerFades()
     private var spider: MapSpider? = null
     private var around: MapSpider? = null
@@ -304,6 +306,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         map.setStyle(Style.Builder().fromJson(MapStyles.json(context, dark))) { loaded ->
             style = loaded
             addedImages.clear()
+            imageBytes.clear()
+            spareImages.clear()
             fades.clearLeaving()
             spider = null
             around = null
@@ -1081,7 +1085,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
     private fun image(name: String, make: () -> android.graphics.Bitmap) {
         val style = style ?: return
-        if (addedImages.add(name)) style.addImage(name, make())
+        if (!addedImages.add(name)) return
+        val bitmap = make()
+        imageBytes[name] = bitmap.byteCount
+        style.addImage(name, bitmap)
     }
 
     private fun source(id: String): GeoJsonSource? = style?.getSourceAs(id)
@@ -1269,9 +1276,13 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         fades.forget(built.keys)
         shownFeatures = built
         val kept = used + fades.leavingImages().filter { it in groupImages }
+        kept.forEach(spareImages::take)
         for (name in groupImages - kept) {
-            style?.removeImage(name)
-            addedImages.remove(name)
+            for (gone in spareImages.drop(name, imageBytes[name] ?: 0)) {
+                style?.removeImage(gone)
+                addedImages.remove(gone)
+                imageBytes.remove(gone)
+            }
         }
         groupImages.clear()
         groupImages += kept
@@ -1375,6 +1386,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         val src = source(SRC_STOPS) ?: return
         val live = shownFeatures.flatMap { (key, features) ->
             val look = fades.look(key, now)
+            // stopFeatures builds them at rest.
+            if (look.atRest) return@flatMap features
             features.map { f ->
                 copy(f).apply {
                     addNumberProperty("opacity", look.opacity)
@@ -1382,7 +1395,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 }
             }
         }
-        src.setGeoJson(FeatureCollection.fromFeatures(fades.leaving(now) + live))    }
+        src.setGeoJson(FeatureCollection.fromFeatures(fades.leaving(now) + live))
+    }
 
     private fun pushSpider(now: Long) {
         val features = folding.flatMap { it.features(now) } + listOfNotNull(around, spider).flatMap { it.features(now) }

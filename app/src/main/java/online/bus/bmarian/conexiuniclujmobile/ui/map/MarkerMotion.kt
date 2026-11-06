@@ -57,7 +57,9 @@ internal class FrameLoop(private val frame: (Long) -> Boolean) : Choreographer.F
     }
 }
 
-internal class MarkerLook(val opacity: Float, val scale: Float, val bodyScale: Float)
+internal class MarkerLook(val opacity: Float, val scale: Float, val bodyScale: Float) {
+    val atRest get() = opacity == 1f && scale == 1f && bodyScale == 1f
+}
 
 internal class MarkerFades {
     private class Hide(val from: Float, val to: Float, val start: Long)
@@ -113,7 +115,7 @@ internal class MarkerFades {
     /** [MarkerLook.scale] also pulses; [MarkerLook.bodyScale] is for parts that only pop in. */
     fun look(key: String, now: Long): MarkerLook {
         val enter = entered[key]?.let { Snappy.transform(progress(it, now, ENTER_MS)) } ?: 1f
-        val pop = ENTER_SCALE + (1 - ENTER_SCALE) * enter
+        val pop = if (enter == 1f) 1f else ENTER_SCALE + (1 - ENTER_SCALE) * enter
         val pulse = pulsed[key]?.let { pulseScale(progress(it, now, PULSE_MS)) } ?: 1f
         return MarkerLook(enter * hideOpacity(key, now), pop * pulse, pop)
     }
