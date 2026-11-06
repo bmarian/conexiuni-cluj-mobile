@@ -199,6 +199,7 @@ fun StopListBuses(
                         .border(2.dp, Color.White, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
+                    Icon(ModeGlyphs.vector(mode), null, Modifier.size(12.dp).offset(y = 1.dp), tint = Color.Black.copy(alpha = 0.5f))
                     Icon(ModeGlyphs.vector(mode), null, Modifier.size(12.dp), tint = Color.White)
                 }
             }

@@ -3,15 +3,19 @@ package online.bus.bmarian.conexiuniclujmobile.ui.map
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.ui.ModeGlyphs
 import online.bus.bmarian.conexiuniclujmobile.ui.drawModeGlyph
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineShadow
 
 // Port of the artwork in utils/mapIcons.ts.
 object Glyphs {
@@ -86,6 +90,7 @@ fun DrawScope.stopMarker(
     mode: Mode = Mode.BUS,
     heart: Boolean = false,
     path: Path? = null,
+    lineShadow: Boolean = false,
 ) {
     val r = diameter / 2
     drawCircle(Color.Black.copy(alpha = 0.18f * shadow), r + 1.dp.toPx(), center + Offset(0f, 1.dp.toPx()))
@@ -94,6 +99,10 @@ fun DrawScope.stopMarker(
     translate(center.x - glyph / 2, center.y - glyph / 2) {
         scale(glyph / 24f, glyph / 24f, pivot = Offset.Zero) {
             when {
+                path != null && lineShadow -> drawIntoCanvas { canvas ->
+                    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+                    canvas.nativeCanvas.drawPath(path.asAndroidPath(), paint.lineShadow(density * 24f / glyph))
+                }
                 path != null -> drawPath(path, Color.White)
                 heart -> drawPath(ModeGlyphs.path(ModeGlyphs.HEART), Color.White)
                 else -> drawModeGlyph(mode, Color.White)
