@@ -71,6 +71,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LocalMap
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.MenuAction
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
+import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.share
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.BusCard
@@ -111,12 +112,14 @@ fun GroupScreen(raw: String) {
     DisposableEffect(owner) {
         map.claim(owner)
         map.linesApart = false
+        map.lineEnds = true
         onDispose { map.release(owner) }
     }
     LaunchedEffect(layer) {
         val known = layer ?: return@LaunchedEffect
         map.showShapes(known.shapes)
         map.vehicles = known.vehicles
+        map.highlightedStops = known.boarding.associateWith { StopHighlight.Green }
     }
 
     val routes = remember(index, lines) { index?.groupRoutes(lines).orEmpty() }
