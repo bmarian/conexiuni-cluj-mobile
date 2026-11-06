@@ -57,7 +57,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +67,7 @@ import online.bus.bmarian.conexiuniclujmobile.AppUpdates
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
+import online.bus.bmarian.conexiuniclujmobile.logic.placeIcon
 import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
@@ -145,12 +145,8 @@ fun PlaceChips(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(places, key = { "place-${it.lat}-${it.lon}-${it.originLat}" }) { place ->
-            MapChip(
-                Icons.Rounded.Place,
-                place.label ?: place.name,
-                from = place.originName,
-                tint = MaterialTheme.colorScheme.tertiary,
-            ) { nav.plan(planQueryFor(place)) }
+            val label = placeIcon(place.label ?: place.name)
+            MapChip(label.icon, label.name, from = place.originName) { nav.plan(planQueryFor(place)) }
         }
     }
 }
@@ -237,7 +233,7 @@ private fun UpdateBadge() {
 }
 
 @Composable
-private fun MapChip(icon: ImageVector, label: String, from: String?, tint: Color, onClick: () -> Unit) {
+private fun MapChip(emoji: String?, label: String, from: String?, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier.widthIn(max = 260.dp),
@@ -249,7 +245,8 @@ private fun MapChip(icon: ImageVector, label: String, from: String?, tint: Color
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Icon(icon, null, Modifier.size(18.dp), tint = tint)
+            if (emoji != null) Text(emoji, style = MaterialTheme.typography.bodyLarge)
+            else Icon(Icons.Rounded.Place, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
             if (from != null) {
                 Text(
                     "$from →",

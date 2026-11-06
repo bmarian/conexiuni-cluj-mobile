@@ -81,6 +81,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.reorderItem
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.Removal
+import online.bus.bmarian.conexiuniclujmobile.logic.placeIcon
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.foundation.layout.heightIn
 import online.bus.bmarian.conexiuniclujmobile.data.SavedGroup
@@ -432,15 +433,26 @@ private fun FavoriteStopRow(stop: Stop, look: StationLook?, modifier: Modifier, 
 )
 
 @Composable
-private fun FavoritePlanRow(plan: FavoritePlan, modifier: Modifier, lifted: Boolean, onClick: () -> Unit) = FavoriteRow(
-    modifier = modifier,
-    icon = { RowIcon(Icons.Rounded.Map, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, size = 30.dp) },
-    title = plan.label ?: plan.name,
-    titlePrefix = if (plan.label == null && plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
-    kicker = if (plan.label == null) plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" } else null,
-    onClick = onClick,
-    background = rowBackground(lifted),
-)
+private fun FavoritePlanRow(plan: FavoritePlan, modifier: Modifier, lifted: Boolean, onClick: () -> Unit) {
+    val label = placeIcon(plan.label ?: plan.name)
+    FavoriteRow(
+        modifier = modifier,
+        icon = {
+            RowIcon(
+                Icons.Rounded.Map,
+                MaterialTheme.colorScheme.tertiaryContainer,
+                MaterialTheme.colorScheme.onTertiaryContainer,
+                size = 30.dp,
+                emoji = label.icon,
+            )
+        },
+        title = label.name,
+        titlePrefix = if (plan.label == null && plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
+        kicker = if (plan.label == null) plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" } else null,
+        onClick = onClick,
+        background = rowBackground(lifted),
+    )
+}
 
 @Composable
 fun FavoriteRow(
