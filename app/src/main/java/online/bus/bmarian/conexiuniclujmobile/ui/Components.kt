@@ -33,6 +33,8 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.em
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
@@ -236,12 +238,13 @@ fun LoadFailed(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun RowIcon(icon: ImageVector, container: Color, tint: Color, size: Dp = 36.dp) {
+fun RowIcon(icon: ImageVector, container: Color, tint: Color, size: Dp = 36.dp, emoji: String? = null) {
     Box(
         Modifier.size(size).clip(CircleShape).background(container),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, Modifier.size(size * 0.5f), tint = tint)
+        if (emoji != null) Text(emoji, fontSize = with(LocalDensity.current) { (size * 0.5f).toSp() }, lineHeight = 1.em)
+        else Icon(icon, null, Modifier.size(size * 0.5f), tint = tint)
     }
 }
 
