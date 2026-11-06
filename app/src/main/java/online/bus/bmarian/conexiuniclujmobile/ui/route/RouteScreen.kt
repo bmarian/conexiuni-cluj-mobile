@@ -176,6 +176,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineInk
 
 @Composable
 fun routeViewModel(routeId: Int, direction: String, fromStopId: Int?, changeId: Long?): RouteViewModel =
@@ -883,7 +884,7 @@ fun RouteChangeBanner(change: RouteChange, onDismiss: () -> Unit) {
         Modifier.fillMaxWidth().background(line.copy(alpha = 0.10f)).padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            Icon(Icons.Rounded.Notifications, null, Modifier.size(20.dp).padding(top = 2.dp), tint = line)
+            Icon(Icons.Rounded.Notifications, null, Modifier.size(20.dp).padding(top = 2.dp), tint = lineInk(line, MaterialTheme.colorScheme.onSurface))
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Row {
                     Text(changeTitle(change, context), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)

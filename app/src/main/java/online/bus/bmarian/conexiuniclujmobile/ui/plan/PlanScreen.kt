@@ -85,6 +85,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
@@ -146,6 +147,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineInk
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineNumberShadow
 import online.bus.bmarian.conexiuniclujmobile.ui.timelineDraw
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
 
@@ -673,11 +676,12 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
         val key = "detail-${plan.key}-$legIdx"
         val open = key in expanded
         TimelineRow(top = Rail.Walk, bottom = Rail.Ride(color), dot = TimelineDot.Station, color = color) {
+            val ink = lineInk(color, MaterialTheme.colorScheme.onSurface)
             FlowRow(verticalArrangement = Arrangement.Center) {
                 Text(
                     "${stringResource(R.string.w_plan_boarding).uppercase()} ",
                     style = MaterialTheme.typography.labelSmall,
-                    color = color,
+                    color = ink,
                     fontWeight = FontWeight.Bold,
                 )
                 val shown = if (open) leg.lines else leg.lines.take(4)
@@ -686,10 +690,10 @@ private fun PlanLegs(vm: PlanViewModel, plan: PlanOption, expanded: Set<String>,
                         vm.line(routeId)?.shortName.orEmpty(),
                         Modifier.clickable { nav.route(routeId, if (trips[routeId]?.endsWith("_1") == true) "1" else "0") },
                         style = MaterialTheme.typography.labelSmall,
-                        color = color,
+                        color = ink,
                         fontWeight = FontWeight.Black,
                     )
-                    if (rIdx < shown.lastIndex) Text(" / ", style = MaterialTheme.typography.labelSmall, color = color)
+                    if (rIdx < shown.lastIndex) Text(" / ", style = MaterialTheme.typography.labelSmall, color = ink)
                 }
                 if (leg.lines.size > 4) {
                     Text(
@@ -851,7 +855,8 @@ private fun PlanCard(
                         val key = "list-${plan.key}-$lIdx"
                         val open = key in expanded
                         val names = (if (open) leg.lines else leg.lines.take(3)).joinToString("/") { vm.line(it)?.shortName.orEmpty() }
-                        Chip(names, vm.line(leg.lines.firstOrNull()).let { lineColor(it?.shortName, it?.color, vm.linesApart(plan)) }, Color.White)
+                        val fill = vm.line(leg.lines.firstOrNull()).let { lineColor(it?.shortName, it?.color, vm.linesApart(plan)) }
+                        Chip(names, fill, Color.White, lineNumberShadow())
                         if (leg.lines.size > 3) {
                             Text(
                                 if (open) "«" else "+${leg.lines.size - 3}",
@@ -934,9 +939,9 @@ private fun PlanCard(
 }
 
 @Composable
-private fun Chip(text: String, background: Color, content: Color) {
+private fun Chip(text: String, background: Color, content: Color, shadow: Shadow? = null) {
     Box(Modifier.clip(RoundedCornerShape(8.dp)).background(background).padding(horizontal = 8.dp, vertical = 4.dp)) {
-        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = content)
+        Text(text, style = MaterialTheme.typography.labelLarge.copy(shadow = shadow), fontWeight = FontWeight.Black, color = content)
     }
 }
 

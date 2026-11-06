@@ -33,6 +33,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.SPIDER_LABEL_GAP_DP
 import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
 import online.bus.bmarian.conexiuniclujmobile.logic.spiderRadius
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineNumberShadow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import kotlin.math.ceil
 import kotlin.math.max
@@ -225,12 +226,13 @@ internal class MapImages(context: Context) {
 
     /** Port of lineEndIcon: a station marker in the line's colour. */
     fun end(color: String) = draw(28f, 28f) {
-        stopMarker(center, 24.dp.toPx(), if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color), 14.dp.toPx(), path = Glyphs.flag)
+        val fill = if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color)
+        stopMarker(center, 24.dp.toPx(), fill, 14.dp.toPx(), path = Glyphs.flag, lineShadow = true)
     }
 
     /** Port of lineStartIcon: the app's line badges in the station markers' outline, centred on the start. */
     fun badge(routes: List<Pair<String, String>>): Bitmap {
-        val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White)
+        val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White, shadow = lineNumberShadow(density.density))
         val layouts = routes.map { measurer.measure(it.first, style) }
         val d = density.density
         val h = 24f
@@ -291,7 +293,14 @@ internal class MapImages(context: Context) {
             label.length >= 3 -> 9.sp
             else -> 11.sp
         }
-        val layout = measurer.measure(label, TextStyle(fontSize = size, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = (-0.025f).em))
+        val style = TextStyle(
+            fontSize = size,
+            fontWeight = FontWeight.Black,
+            color = Color.White,
+            letterSpacing = (-0.025f).em,
+            shadow = lineNumberShadow(density),
+        )
+        val layout = measurer.measure(label, style)
         drawText(layout, topLeft = Offset(at.x - layout.size.width / 2f, at.y - layout.size.height / 2f))
     }
 

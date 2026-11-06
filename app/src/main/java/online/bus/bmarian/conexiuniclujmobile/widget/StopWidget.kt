@@ -2,6 +2,7 @@ package online.bus.bmarian.conexiuniclujmobile.widget
 
 import android.content.Context
 import android.content.Intent
+import android.util.TypedValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,7 +29,6 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
-import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -43,18 +43,17 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.MainActivity
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.Links
+import online.bus.bmarian.conexiuniclujmobile.follow.NotificationArt
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.ownHex
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import java.time.Instant
 import java.time.format.DateTimeFormatter
-import androidx.compose.ui.graphics.Color
+import kotlin.math.roundToInt
 
 @Serializable
 data class WidgetRow(val line: String, val color: String, val destination: String, val times: List<String>, val live: Boolean)
@@ -100,7 +99,7 @@ class StopWidget : GlanceAppWidget() {
             when {
                 rows == null -> Text(context.getString(R.string.widget_loading), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant))
                 rows.isEmpty() -> Text(context.getString(R.string.widget_no_departures), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant))
-                else -> rows.take(4).forEach { row -> DepartureRow(row) }
+                else -> rows.take(4).forEach { row -> DepartureRow(context, row) }
             }
             if (updated != null) {
                 Spacer(GlanceModifier.defaultWeight())
@@ -113,14 +112,20 @@ class StopWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun DepartureRow(row: WidgetRow) {
+    private fun DepartureRow(context: Context, row: WidgetRow) {
         Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                GlanceModifier.width(44.dp).height(24.dp).cornerRadius(7.dp).background(ColorProvider(routeColor(ownHex(row.line, row.color)))),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(row.line, style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp, color = ColorProvider(Color.White)), maxLines = 1)
-            }
+            // Glance text has no shadow.
+            val metrics = context.resources.displayMetrics
+            val badge = NotificationArt.badgeBitmap(
+                row.line,
+                ownHex(row.line, row.color),
+                (44 * metrics.density).roundToInt(),
+                (24 * metrics.density).roundToInt(),
+                7 * metrics.density,
+                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13f, metrics),
+                metrics.density,
+            )
+            Image(ImageProvider(badge), row.line, GlanceModifier.width(44.dp).height(24.dp))
             Text(
                 "→ ${row.destination}",
                 GlanceModifier.defaultWeight().padding(horizontal = 8.dp),

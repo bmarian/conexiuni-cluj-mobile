@@ -30,6 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,6 +73,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.formatMinutesFromNow
 import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineNumberShadow
 
 @Composable
 fun cityName(): String {
@@ -108,6 +110,7 @@ fun LineBadge(
             Modifier.padding(horizontal = 6.dp),
             color = Color.White,
             fontSize = (height.value * 0.45f).sp,
+            style = LocalTextStyle.current.copy(shadow = lineNumberShadow()),
             fontWeight = FontWeight.Black,
             maxLines = 1,
         )

@@ -1,6 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.follow
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -12,6 +13,7 @@ import android.util.LruCache
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.createBitmap
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineShadow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import kotlin.math.roundToInt
 
@@ -25,21 +27,26 @@ internal object NotificationArt {
     /** The app's line badge, for the large icon. */
     fun badge(context: Context, shortName: String, color: String?): Icon = cached("badge|$shortName|$color") {
         val size = context.resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width)
-        val bitmap = createBitmap(size, size)
+        Icon.createWithBitmap(badgeBitmap(shortName, color, size, size, size * 0.22f, size * 0.42f, context.resources.displayMetrics.density))
+    }
+
+    fun badgeBitmap(shortName: String, color: String?, widthPx: Int, heightPx: Int, cornerPx: Float, textPx: Float, density: Float): Bitmap {
+        val bitmap = createBitmap(widthPx, heightPx)
         val canvas = Canvas(bitmap)
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = routeColor(color).toArgb() }
-        canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), size * 0.22f, size * 0.22f, fill)
+        canvas.drawRoundRect(RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat()), cornerPx, cornerPx, fill)
         val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = Color.WHITE
             typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Typeface.create(Typeface.DEFAULT, 900, false) else Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.CENTER
-            textSize = size * 0.42f
+            textSize = textPx
+            lineShadow(density)
         }
-        val room = size * 0.84f
-        val width = text.measureText(shortName)
-        if (width > room) text.textSize *= room / width
-        canvas.drawText(shortName, size / 2f, size / 2f - (text.descent() + text.ascent()) / 2f, text)
-        Icon.createWithBitmap(bitmap)
+        val room = widthPx * 0.84f
+        val measured = text.measureText(shortName)
+        if (measured > room) text.textSize *= room / measured
+        canvas.drawText(shortName, widthPx / 2f, heightPx / 2f - (text.descent() + text.ascent()) / 2f, text)
+        return bitmap
     }
 
     /** A side-on bus in the line's colour for the progress tracker, 40×20 dp. */
