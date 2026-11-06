@@ -156,6 +156,9 @@
     <string name="map_more_stations">și încă %d</string>
     <string name="line_ends_here">capăt de linie</string>
     <string name="group_title">Linii grupate</string>
+    <string name="home_sections_arrange">Reordonează secțiunile</string>
+    <string name="home_section_expanded">extinsă</string>
+    <string name="home_section_collapsed">restrânsă</string>
     <string name="group_create">Creează grup</string>
     <string name="group_lines">Linii</string>
     <string name="group_chosen">Alese</string>

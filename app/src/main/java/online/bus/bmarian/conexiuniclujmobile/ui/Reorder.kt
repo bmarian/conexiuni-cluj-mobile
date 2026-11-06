@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -14,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -87,22 +89,25 @@ fun <K : Any> Modifier.reorderItem(state: ReorderState<K>, key: K): Modifier = t
 @Composable
 fun <K : Any> Modifier.longPressDrag(state: ReorderState<K>, key: K): Modifier {
     val haptics = LocalHapticFeedback.current
-    return pointerInput(key) {
-        try {
-            detectDragGesturesAfterLongPress(
-                onDragStart = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    state.start(key)
-                },
-                onDragEnd = { state.end() },
-                onDragCancel = { state.end() },
-            ) { change, delta ->
-                change.consume()
-                state.drag(delta)
-            }
-        } finally {
-            if (state.dragging == key) state.end()
-        }
+    return reorderDrag(state, key, afterLongPress = true) { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+}
+
+fun <K : Any> Modifier.dragToReorder(state: ReorderState<K>, key: K): Modifier = reorderDrag(state, key, afterLongPress = false) {}
+
+private fun <K : Any> Modifier.reorderDrag(state: ReorderState<K>, key: K, afterLongPress: Boolean, onStart: () -> Unit) = pointerInput(key) {
+    val start = { _: Offset ->
+        onStart()
+        state.start(key)
+    }
+    val end = { state.end() }
+    val move = { change: PointerInputChange, delta: Offset ->
+        change.consume()
+        state.drag(delta)
+    }
+    try {
+        if (afterLongPress) detectDragGesturesAfterLongPress(start, end, end, move) else detectDragGestures(start, end, end, move)
+    } finally {
+        if (state.dragging == key) state.end()
     }
 }
 
