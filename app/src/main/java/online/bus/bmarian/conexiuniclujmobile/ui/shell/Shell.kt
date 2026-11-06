@@ -40,10 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import java.time.DayOfWeek
@@ -107,6 +106,8 @@ private class ToastVisuals(val toast: Toast) : SnackbarVisuals {
     override val duration = if (toast.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short
 }
 
+private val ECO = Color(0xFF2E9E57)
+
 /** Dismissal keyed by the city's date, as on the website. */
 @Composable
 fun GreenFridayBanner() {
@@ -117,31 +118,28 @@ fun GreenFridayBanner() {
     val todayKey = today.toString()
     var dismissed by remember { mutableStateOf(prefs.getString("dismissed", null) == todayKey) }
     if (!isFriday || dismissed) return
+    val colors = MaterialTheme.colorScheme
     Row(
         Modifier
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp)
             .fillMaxWidth()
-            .background(Brush.linearGradient(listOf(Color(0xFFDCFCE7), Color(0xFFD1FAE5))))
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            .background(lerp(colors.surfaceContainer, ECO, 0.09f), RoundedCornerShape(20.dp))
+            .padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF10B981)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Eco, null, tint = Color.White)
+        Box(Modifier.size(40.dp).background(lerp(colors.surfaceContainerHigh, ECO, 0.24f), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Eco, null, Modifier.size(20.dp), tint = lerp(colors.onSurface, ECO, 0.75f))
         }
         Column(Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.w_green_friday_title),
-                color = Color(0xFF065F46),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.ExtraBold,
-            )
-            Text(stringResource(R.string.w_green_friday_desc), color = Color(0xFF047857), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.w_green_friday_title), color = colors.onSurface, style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.w_green_friday_desc), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         }
         IconButton(onClick = {
             prefs.edit { putString("dismissed", todayKey) }
             dismissed = true
         }) {
-            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.w_dismiss), tint = Color(0xFF059669))
+            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.w_dismiss), Modifier.size(18.dp), tint = colors.outline)
         }
     }
 }

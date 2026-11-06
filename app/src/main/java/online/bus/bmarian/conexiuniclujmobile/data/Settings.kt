@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.logic.HomeSections
 import java.util.Locale
 
 enum class ThemeMode(val key: String) {
@@ -98,6 +99,26 @@ class Settings(private val context: Context) {
     fun setTraffic(v: Boolean) = set(traffic, "traffic", v)
     fun setJourneyVoice(v: Boolean) = set(journeyVoice, "journeyVoice", v)
     fun setFullScreenAlarms(v: Boolean) = set(fullScreenAlarms, "fullScreenAlarms", v)
+
+    private fun savedList(key: String) = prefs.getString(key, null)?.split(',')?.filter(String::isNotEmpty).orEmpty()
+
+    private val _homeOrder = MutableStateFlow(HomeSections.order(savedList("home.order")))
+    val homeOrder: StateFlow<List<String>> = _homeOrder
+
+    fun setHomeOrder(order: List<String>) {
+        val next = HomeSections.order(order)
+        _homeOrder.value = next
+        prefs.edit { putString("home.order", next.joinToString(",")) }
+    }
+
+    private val _homeCollapsed = MutableStateFlow(savedList("home.collapsed").toSet())
+    val homeCollapsed: StateFlow<Set<String>> = _homeCollapsed
+
+    fun toggleHomeSection(id: String) {
+        val next = _homeCollapsed.value.let { if (id in it) it - id else it + id }
+        _homeCollapsed.value = next
+        prefs.edit { putString("home.collapsed", next.joinToString(",")) }
+    }
 
     // Saved as "{city}:{key}"; Cluj's were saved before cities under the bare key.
     private fun regionKey(city: String, key: String) = "$city:$key"

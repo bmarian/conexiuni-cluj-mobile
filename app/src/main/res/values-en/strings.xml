@@ -150,6 +150,9 @@
     <string name="map_more_stations" tools:ignore="PluralsCandidate">and %d more</string>
     <string name="line_ends_here">last stop</string>
     <string name="group_title">Line groups</string>
+    <string name="home_sections_arrange">Reorder sections</string>
+    <string name="home_section_expanded">expanded</string>
+    <string name="home_section_collapsed">collapsed</string>
     <string name="group_create">Create group</string>
     <string name="group_lines">Lines</string>
     <string name="group_chosen">Chosen</string>
