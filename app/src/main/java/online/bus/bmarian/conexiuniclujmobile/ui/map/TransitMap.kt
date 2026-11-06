@@ -72,9 +72,6 @@ import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
-import online.bus.bmarian.conexiuniclujmobile.data.Cities
-import online.bus.bmarian.conexiuniclujmobile.data.TRAFFIC_REFRESH_MS
-import online.bus.bmarian.conexiuniclujmobile.data.TrafficStretch
 import online.bus.bmarian.conexiuniclujmobile.data.Bounds
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
@@ -88,6 +85,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.pathOf
 import online.bus.bmarian.conexiuniclujmobile.logic.wheelchairAccess
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
 import online.bus.bmarian.conexiuniclujmobile.ui.ModeBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.shownTraffic
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LineColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.manyLines
@@ -400,16 +398,7 @@ fun TransitMap(
         }
     }
     LaunchedEffect(session, scene) { session?.setScene(scene, looks.favoriteNames, grow = nav == null) }
-    val trafficOn by Services.settings.traffic.collectAsStateWithLifecycle()
-    val lineTrips = remember(shownShapes) { shownShapes.map { it.tripId }.filter { it.isNotEmpty() }.distinct().sorted() }
-    val traffic by produceState(emptyMap<String, List<TrafficStretch>>(), lineTrips, city, trafficOn) {
-        value = emptyMap()
-        if (!trafficOn || lineTrips.isEmpty() || Cities.info(city)?.traffic != true) return@produceState
-        while (true) {
-            value = runCatching { Api.traffic(lineTrips, city).lines }.getOrDefault(emptyMap())
-            delay(TRAFFIC_REFRESH_MS)
-        }
-    }
+    val traffic = shownTraffic()
     LaunchedEffect(session, traffic) { session?.setTraffic(traffic) }
     LaunchedEffect(session, shownWalks) { session?.setWalks(shownWalks) }
     val vehicleTrips = remember(shownVehicles) { shownVehicles.mapNotNull { it.vehicle.tripId }.distinct().sorted() }

@@ -145,8 +145,11 @@ class NetworkIndex(val bundle: NetworkBundle) {
 
     fun route(shortName: String): NetworkRoute? = routeByShortName[shortName]
 
-    fun shapeHash(tripId: String): String? =
-        routeIdFromTripId(tripId)?.let { routeById[it] }?.trips?.firstOrNull { it.tripId == tripId }?.shapeHash
+    private fun trip(tripId: String) = routeIdFromTripId(tripId)?.let { routeById[it] }?.trips?.firstOrNull { it.tripId == tripId }
+
+    fun shapeHash(tripId: String): String? = trip(tripId)?.shapeHash
+
+    fun tripStopIds(tripId: String): List<Int> = trip(tripId)?.stopIds?.asList().orEmpty()
 
     fun stopTimes(route: NetworkRoute, dayType: String, hour: Int): List<StopTime> {
         val offsets = route.offsets[dayType]?.getOrNull(hour)

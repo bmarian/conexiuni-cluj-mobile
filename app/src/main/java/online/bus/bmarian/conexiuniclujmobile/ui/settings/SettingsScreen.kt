@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Traffic
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -104,7 +105,9 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
     val locale by settings.locale.collectAsStateWithLifecycle()
     val theme by settings.theme.collectAsStateWithLifecycle()
     val colorful by settings.colorfulLines.collectAsStateWithLifecycle()
+    val traffic by settings.traffic.collectAsStateWithLifecycle()
     val city by Cities.current.collectAsStateWithLifecycle()
+    val cities by Cities.list.collectAsStateWithLifecycle()
     val regions by settings.regions.collectAsStateWithLifecycle()
     val center by settings.autoCenterOnMe.collectAsStateWithLifecycle()
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
@@ -177,6 +180,12 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
                 Icons.Rounded.Palette, stringResource(R.string.w_colorful_lines), stringResource(R.string.w_colorful_lines_desc), colorful,
                 onChange = settings::setColorfulLines,
             )
+            if (cities.firstOrNull { it.slug == city }?.traffic == true) {
+                Toggle(
+                    Icons.Rounded.Traffic, stringResource(R.string.w_traffic), stringResource(R.string.w_traffic_desc), traffic,
+                    onChange = settings::setTraffic,
+                )
+            }
 
             Section(stringResource(R.string.w_settings_map))
             Toggle(
