@@ -14,11 +14,11 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -107,17 +107,6 @@ internal class MapImages(context: Context) {
         return (cols * CELL_DP + (cols - 1) * PILL_GAP_DP + 2 * PILL_PAD_DP) to (rows * CELL_DP + (rows - 1) * PILL_GAP_DP + 2 * PILL_PAD_DP)
     }
 
-    private fun label(name: String, more: Int, dark: Boolean): AnnotatedString = AnnotatedString.Builder().apply {
-        pushStyle(SpanStyle(color = if (dark) MapColors.Paper else MapColors.InkDark))
-        append(name)
-        pop()
-        if (more > 0) {
-            pushStyle(SpanStyle(color = if (dark) MapColors.ShapeFallback else MapColors.Gray))
-            append(" +$more")
-            pop()
-        }
-    }.toAnnotatedString()
-
     /** Port of clusterIconBox in utils/mapIcons.ts: the pill on its centre, the label under it. */
     fun groupBox(icons: Int, name: String, more: Int): ClusterBox {
         val (w, h) = pillSize(icons)
@@ -150,10 +139,17 @@ internal class MapImages(context: Context) {
     }
 
     private fun DrawScope.groupText(name: String, more: Int, dark: Boolean, topLeft: Offset) {
-        // Span colours win over drawText's colour, so the halo is drawn from the plain text.
-        val halo = measurer.measure(if (more > 0) "$name +$more" else name, labelStyle)
-        drawText(halo, color = if (dark) MapColors.InkDark else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
-        drawText(measurer.measure(label(name, more, dark), labelStyle), topLeft = topLeft)
+        val text = measurer.measure(if (more > 0) "$name +$more" else name, labelStyle)
+        drawText(text, color = if (dark) MapColors.InkDark else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
+        val ink = if (dark) MapColors.Paper else MapColors.InkDark
+        // Fill must be explicit: drawText keeps the halo's Stroke otherwise.
+        if (more == 0) {
+            drawText(text, color = ink, topLeft = topLeft, drawStyle = Fill)
+            return
+        }
+        val split = topLeft.x + (text.getHorizontalPosition(name.length, true) + text.getHorizontalPosition(name.length + 1, true)) / 2
+        clipRect(right = split) { drawText(text, color = ink, topLeft = topLeft, drawStyle = Fill) }
+        clipRect(left = split) { drawText(text, color = if (dark) MapColors.ShapeFallback else MapColors.Gray, topLeft = topLeft, drawStyle = Fill) }
     }
 
     /** Centred on the pill, with room for its shadow on both sides. */
