@@ -1,6 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -25,6 +27,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
 import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
+import online.bus.bmarian.conexiuniclujmobile.logic.groupLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
@@ -81,8 +84,10 @@ fun RecentRow(
     modifier: Modifier = Modifier,
     iconSize: Dp,
     background: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    byKind: Boolean = false,
     onClick: () -> Unit,
 ) {
+    if (byKind) return RecentKindRow(item, modifier, iconSize, background, onClick)
     val plan = item.plan
     val stop = item.stop
     val route = item.route
@@ -122,6 +127,47 @@ fun RecentRow(
         titlePrefix = if (plan?.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
         kicker = plan?.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" },
         lines = if (stop != null) ({ StationLines(look) }) else null,
+        removeLabel = stringResource(R.string.w_remove_from_recents),
+        onClick = onClick,
+        onRemove = { Services.favorites.removeRecent(item.recent) },
+        background = background,
+    )
+}
+
+@Composable
+private fun RecentKindRow(item: RecentItem, modifier: Modifier, iconSize: Dp, background: Color, onClick: () -> Unit) {
+    val plan = item.plan
+    val stop = item.stop
+    val route = item.route
+    val group = item.group
+    val index by Services.repository.network.index.collectAsStateWithLifecycle()
+    val saved by Services.groups.saved.collectAsStateWithLifecycle()
+    val title = when {
+        plan != null -> plan.name
+        stop != null -> stop.name
+        route != null -> route.shortName
+        group != null -> saved.firstOrNull { it.key == groupKey(group) }?.name ?: groupLabel(index?.groupRoutes(group).orEmpty())
+        else -> ""
+    }
+    val kind = when {
+        plan != null -> plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" } ?: stringResource(R.string.w_plan_to)
+        stop != null -> stringResource(R.string.w_recent_kind_stop)
+        route != null -> stringResource(R.string.w_route)
+        else -> stringResource(R.string.group_title)
+    }
+    FavoriteRow(
+        modifier = modifier,
+        icon = {
+            RowIcon(
+                if (plan != null) Icons.Rounded.Map else Icons.Rounded.History,
+                MaterialTheme.colorScheme.surfaceContainerHighest,
+                MaterialTheme.colorScheme.onSurfaceVariant,
+                size = iconSize,
+            )
+        },
+        title = title,
+        subtitle = kind,
+        kicker = null,
         removeLabel = stringResource(R.string.w_remove_from_recents),
         onClick = onClick,
         onRemove = { Services.favorites.removeRecent(item.recent) },

@@ -104,6 +104,8 @@ import online.bus.bmarian.conexiuniclujmobile.logic.delayed
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocationDialog
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeChrome
+import online.bus.bmarian.conexiuniclujmobile.ui.home.DragGhost
+import online.bus.bmarian.conexiuniclujmobile.ui.home.RemoveBar
 import online.bus.bmarian.conexiuniclujmobile.ui.home.HomeRequests
 import online.bus.bmarian.conexiuniclujmobile.ui.destinations.DestinationScreen
 import online.bus.bmarian.conexiuniclujmobile.ui.destinations.DestinationsScreen
@@ -392,6 +394,11 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                         navBottom = bottom
                     },
                 )
+            }
+            if (atHome) {
+                val place = Modifier.align(Alignment.TopStart)
+                RemoveBar(if (side) place.besidePanel(sidePanel, maxWidth = 520.dp) else place.fillMaxWidth())
+                DragGhost()
             }
             OfflinePill(
                 online,

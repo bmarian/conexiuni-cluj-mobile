@@ -80,9 +80,16 @@ import online.bus.bmarian.conexiuniclujmobile.ui.rememberReorderState
 import online.bus.bmarian.conexiuniclujmobile.ui.reorderItem
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
+import online.bus.bmarian.conexiuniclujmobile.ui.Removal
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.foundation.layout.heightIn
+import online.bus.bmarian.conexiuniclujmobile.data.SavedGroup
+import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
+import online.bus.bmarian.conexiuniclujmobile.data.StationLook
+import online.bus.bmarian.conexiuniclujmobile.data.Stop
 
 /** One chip per line: both directions saved show as one and open the direction nearest the user. */
-private class RouteChip(val route: Route, val label: String, val favorites: List<FavoriteRoute>) {
+private class RouteChip(val route: Route, val parts: List<String>, val both: Boolean, val favorites: List<FavoriteRoute>) {
     val direction get() = favorites.singleOrNull()?.direction ?: "auto"
 }
 
@@ -133,13 +140,14 @@ fun HomeScreen() {
             val i = longName.lastIndexOf(" - ")
             val origin = if (i >= 0) longName.substring(0, i) else ""
             val end = if (i >= 0) longName.substring(i + 3) else longName
-            val label = when {
-                origin.isEmpty() -> if (favorites.size > 1) longName else "→ $end"
-                favorites.size > 1 -> "$origin ⇄ $end"
-                favorites[0].direction == "1" -> "→ $origin"
-                else -> "→ $end"
+            val both = favorites.size > 1
+            val parts = when {
+                origin.isEmpty() -> listOf(if (both) longName else "→\u00a0$end")
+                both -> listOf(origin, end)
+                favorites[0].direction == "1" -> listOf("→\u00a0$origin")
+                else -> listOf("→\u00a0$end")
             }
-            RouteChip(route, label, favorites)
+            RouteChip(route, parts, both && origin.isNotEmpty(), favorites)
         }
     }
     val favoriteStops = remember(stopsById, favoriteStopIds) { favoriteStopIds.mapNotNull { stopsById[it] } }
@@ -166,12 +174,38 @@ fun HomeScreen() {
         if (online) nav.plan(planQueryFor(plan))
     }
 
-    val routeReorder = rememberReorderState(chips.map { it.route.routeId }) { from, to ->
+    val removedLabel = stringResource(R.string.w_removed_from_favorites)
+    val undoLabel = stringResource(R.string.w_undo)
+    fun dropped(remove: () -> Unit) = FavoriteRemoval.dropped(removedLabel, undoLabel, remove)
+
+    val routeReorder = rememberReorderState(
+        chips.map { it.route.routeId },
+        Removal(FavoriteRemoval::holdStart, { routeId: Int ->
+            dropped { Services.favorites.reorderRoutes(Services.favorites.routes.value.filter { it.routeId != routeId }) }
+        }) { routeId -> chips.find { it.route.routeId == routeId }?.let { FavoriteRouteChip(it, Modifier.fillMaxSize(), onClick = {}) } },
+    ) { from, to ->
         Services.favorites.reorderRoutes(chips.moved(from, to).flatMap { it.favorites })
     }
-    val stopReorder = rememberReorderState(favoriteStopIds) { from, to -> Services.favorites.reorderStops(favoriteStopIds.moved(from, to)) }
-    val planReorder = rememberReorderState(favoritePlans.map(::planKey)) { from, to -> Services.favorites.reorderPlans(favoritePlans.moved(from, to)) }
-    val groupReorder = rememberReorderState(groups.map { it.key }) { from, to -> Services.groups.reorder(groups.moved(from, to)) }
+    val stopReorder = rememberReorderState(
+        favoriteStopIds,
+        Removal(FavoriteRemoval::holdStart, { stopId: Int -> dropped { Services.favorites.reorderStops(Services.favorites.stops.value - stopId) } }) { stopId ->
+            stopsById[stopId]?.let { FavoriteStopRow(it, index?.look(it.stopId), Modifier, lifted = true) {} }
+        },
+    ) { from, to -> Services.favorites.reorderStops(favoriteStopIds.moved(from, to)) }
+    val planReorder = rememberReorderState(
+        favoritePlans.map(::planKey),
+        Removal(FavoriteRemoval::holdStart, { planId: String ->
+            dropped { Services.favorites.reorderPlans(Services.favorites.plans.value.filter { planKey(it) != planId }) }
+        }) { planId -> favoritePlans.find { planKey(it) == planId }?.let { FavoritePlanRow(it, Modifier, lifted = true) {} } },
+    ) { from, to -> Services.favorites.reorderPlans(favoritePlans.moved(from, to)) }
+    val groupReorder = rememberReorderState(
+        groups.map { it.key },
+        Removal(FavoriteRemoval::holdStart, { key: String ->
+            dropped { Services.groups.reorder(Services.groups.saved.value.filter { it.key != key }) }
+        }) { key ->
+            groups.find { it.key == key }?.let { FavoriteGroupRow(it, index, Modifier, lifted = true) {} }
+        },
+    ) { from, to -> Services.groups.reorder(groups.moved(from, to)) }
 
     val sectionOrder by Services.settings.homeOrder.collectAsStateWithLifecycle()
     val collapsedSections by Services.settings.homeCollapsed.collectAsStateWithLifecycle()
@@ -214,6 +248,7 @@ fun HomeScreen() {
             )
         }
 
+        item(key = "places") { PlaceChips() }
         if (arranging) {
             item(key = "arrange-bar") { ArrangeBar(onSave = { arranging = false }) }
         }
@@ -267,58 +302,33 @@ fun HomeScreen() {
                                 chip = chip,
                                 modifier = Modifier.weight(1f).reorderItem(routeReorder, routeId).longPressDrag(routeReorder, routeId),
                                 onClick = { openRoute(chip.route, chip.direction) },
-                                onRemove = { chip.favorites.forEach { Services.favorites.toggleRoute(it.routeId, it.direction) } },
                             )
                         }
                         if (chips.size % 2 == 1) Spacer(Modifier.weight(1f))
                     }
                     HomeSections.GROUPS -> for (group in groups) key(group.key) {
-                        FavoriteRow(
-                            modifier = Modifier.reorderItem(groupReorder, group.key).longPressDrag(groupReorder, group.key),
-                            icon = null,
-                            title = group.name,
-                            lines = { LineBadges(index?.groupRoutes(group.lines).orEmpty()) },
-                            kicker = null,
-                            removeLabel = stringResource(R.string.w_remove_from_favorites),
-                            onClick = { index?.let { nav.group(it.writeLines(group.lines)) } },
-                            onRemove = { Services.groups.remove(group.lines) },
-                            background = rowBackground(groupReorder.dragging == group.key),
-                        )
+                        FavoriteGroupRow(
+                            group,
+                            index,
+                            Modifier.reorderItem(groupReorder, group.key).longPressDrag(groupReorder, group.key),
+                            lifted = groupReorder.dragging == group.key,
+                        ) { index?.let { nav.group(it.writeLines(group.lines)) } }
                     }
                     HomeSections.STOPS -> for (stop in favoriteStops) key(stop.stopId) {
-                        val look = index?.look(stop.stopId)
-                        FavoriteRow(
-                            modifier = Modifier.reorderItem(stopReorder, stop.stopId).longPressDrag(stopReorder, stop.stopId),
-                            icon = { StationIcon(look, size = 30.dp) },
-                            title = stop.name,
-                            lines = { StationLines(look) },
-                            kicker = null,
-                            removeLabel = stringResource(R.string.w_remove_from_favorites),
-                            onClick = { nav.stop(stop.stopId) },
-                            onRemove = { Services.favorites.toggleStop(stop.stopId) },
-                            background = rowBackground(stopReorder.dragging == stop.stopId),
-                        )
+                        FavoriteStopRow(
+                            stop,
+                            index?.look(stop.stopId),
+                            Modifier.reorderItem(stopReorder, stop.stopId).longPressDrag(stopReorder, stop.stopId),
+                            lifted = stopReorder.dragging == stop.stopId,
+                        ) { nav.stop(stop.stopId) }
                     }
                     HomeSections.PLACES -> for (plan in favoritePlans) key(planKey(plan)) {
                         val planId = planKey(plan)
-                        FavoriteRow(
-                            modifier = Modifier.reorderItem(planReorder, planId).longPressDrag(planReorder, planId),
-                            icon = {
-                                RowIcon(
-                                    Icons.Rounded.Map,
-                                    MaterialTheme.colorScheme.tertiaryContainer,
-                                    MaterialTheme.colorScheme.onTertiaryContainer,
-                                    size = 30.dp,
-                                )
-                            },
-                            title = plan.label ?: plan.name,
-                            titlePrefix = if (plan.label == null && plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
-                            kicker = if (plan.label == null) plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" } else null,
-                            removeLabel = stringResource(R.string.w_remove_from_favorites),
-                            onClick = { openPlan(plan) },
-                            onRemove = { Services.favorites.togglePlan(plan) },
-                            background = rowBackground(planReorder.dragging == planId),
-                        )
+                        FavoritePlanRow(
+                            plan,
+                            Modifier.reorderItem(planReorder, planId).longPressDrag(planReorder, planId),
+                            lifted = planReorder.dragging == planId,
+                        ) { openPlan(plan) }
                     }
                     HomeSections.RECENTS -> for (item in recents) key(item.recent.key) {
                         val plan = item.plan
@@ -329,6 +339,7 @@ fun HomeScreen() {
                             item,
                             iconSize = 30.dp,
                             background = Color.Transparent,
+                            byKind = true,
                             onClick = {
                                 if (plan != null) openPlan(plan)
                                 else if (group != null) index?.let { nav.group(it.writeLines(group)) }
@@ -364,12 +375,7 @@ fun HomeScreen() {
 private fun rowBackground(lifted: Boolean) = if (lifted) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent
 
 @Composable
-private fun FavoriteRouteChip(
-    chip: RouteChip,
-    modifier: Modifier,
-    onClick: () -> Unit,
-    onRemove: () -> Unit,
-) {
+private fun FavoriteRouteChip(chip: RouteChip, modifier: Modifier, onClick: () -> Unit) {
     val press = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
@@ -378,22 +384,25 @@ private fun FavoriteRouteChip(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         interactionSource = press,
     ) {
-        Row(Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            LineBadge(chip.route.shortName, chip.route.color, height = 28.dp, minWidth = 36.dp, corner = 8.dp)
-            Text(
-                chip.label,
-                Modifier.weight(1f).padding(start = 8.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.w_remove_from_favorites),
-                    Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.outline,
+        Row(Modifier.padding(start = 10.dp, end = 12.dp, top = 6.dp, bottom = 6.dp).heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                LineBadge(chip.route.shortName, chip.route.color, height = 28.dp, minWidth = 36.dp, corner = 8.dp)
+                if (chip.both) Icon(Icons.Rounded.SwapHoriz, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (chip.both) {
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    for (part in chip.parts) {
+                        Text(part, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            } else {
+                Text(
+                    chip.parts.first(),
+                    Modifier.weight(1f).padding(start = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -401,15 +410,49 @@ private fun FavoriteRouteChip(
 }
 
 @Composable
+private fun FavoriteGroupRow(group: SavedGroup, index: NetworkIndex?, modifier: Modifier, lifted: Boolean, onClick: () -> Unit) = FavoriteRow(
+    modifier = modifier,
+    icon = null,
+    title = group.name,
+    lines = { LineBadges(index?.groupRoutes(group.lines).orEmpty()) },
+    kicker = null,
+    onClick = onClick,
+    background = rowBackground(lifted),
+)
+
+@Composable
+private fun FavoriteStopRow(stop: Stop, look: StationLook?, modifier: Modifier, lifted: Boolean, onClick: () -> Unit) = FavoriteRow(
+    modifier = modifier,
+    icon = { StationIcon(look, size = 30.dp) },
+    title = stop.name,
+    lines = { StationLines(look) },
+    kicker = null,
+    onClick = onClick,
+    background = rowBackground(lifted),
+)
+
+@Composable
+private fun FavoritePlanRow(plan: FavoritePlan, modifier: Modifier, lifted: Boolean, onClick: () -> Unit) = FavoriteRow(
+    modifier = modifier,
+    icon = { RowIcon(Icons.Rounded.Map, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, size = 30.dp) },
+    title = plan.label ?: plan.name,
+    titlePrefix = if (plan.label == null && plan.originName != null) stringResource(R.string.w_plan_to) + ": " else null,
+    kicker = if (plan.label == null) plan.originName?.let { "${stringResource(R.string.w_plan_from)}: $it" } else null,
+    onClick = onClick,
+    background = rowBackground(lifted),
+)
+
+@Composable
 fun FavoriteRow(
     modifier: Modifier,
     icon: (@Composable () -> Unit)?,
     title: String?,
     kicker: String?,
-    removeLabel: String,
     onClick: () -> Unit,
-    onRemove: () -> Unit,
+    removeLabel: String? = null,
+    onRemove: () -> Unit = {},
     titlePrefix: String? = null,
+    subtitle: String? = null,
     lines: (@Composable () -> Unit)? = null,
     background: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     trailing: (@Composable () -> Unit)? = null,
@@ -442,11 +485,24 @@ fun FavoriteRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            subtitle?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             lines?.let { Box(Modifier.padding(top = if (title != null) 4.dp else 0.dp)) { it() } }
         }
         trailing?.invoke()
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Rounded.Close, contentDescription = removeLabel, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+        if (removeLabel != null) {
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Rounded.Close, contentDescription = removeLabel, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+            }
+        } else {
+            Spacer(Modifier.size(12.dp))
         }
     }
 }
