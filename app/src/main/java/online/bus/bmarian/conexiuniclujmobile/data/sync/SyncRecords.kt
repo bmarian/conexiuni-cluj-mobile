@@ -317,16 +317,27 @@ object SyncRecords {
 
     private fun maybeBool(e: JsonElement?): Boolean? = if (e is JsonNull) null else bool(e)
 
-    private fun parseOptions(record: JsonElement): Options {
-        val m = obj(record, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms", "traffic")
-        return Options(bool(m["colorfulLines"]), text(m["city"], 0, 40), maybeBool(m["journeyVoice"]), maybeBool(m["fullScreenAlarms"]), maybeBool(m["traffic"]))
+    private val optionKeys = arrayOf("v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms")
+
+    private fun parseOptions(record: JsonElement, withTraffic: Boolean = true): Options {
+        val m = if (withTraffic) obj(record, *optionKeys, "traffic") else obj(record, *optionKeys)
+        return Options(
+            bool(m["colorfulLines"]), text(m["city"], 0, 40), maybeBool(m["journeyVoice"]), maybeBool(m["fullScreenAlarms"]),
+            if (withTraffic) maybeBool(m["traffic"]) else null,
+        )
     }
 
-    fun writeOptions(r: Options): String =
+    fun writeOptions(r: Options, withTraffic: Boolean = true): String =
         "{\"v\":1,\"colorfulLines\":${r.colorfulLines},\"city\":${quote(r.city)}" +
-            ",\"journeyVoice\":${r.journeyVoice},\"fullScreenAlarms\":${r.fullScreenAlarms},\"traffic\":${r.traffic}}"
+            ",\"journeyVoice\":${r.journeyVoice},\"fullScreenAlarms\":${r.fullScreenAlarms}" +
+            (if (withTraffic) ",\"traffic\":${r.traffic}}" else "}")
 
-    fun readOptions(raw: String): Read<Options> = read(raw, ::parseOptions, ::writeOptions)
+    /** A record from before traffic existed reads as traffic unknown; the next write adds the key. */
+    fun readOptions(raw: String): Read<Options> =
+        when (val current = read(raw, { parseOptions(it) }, { writeOptions(it) })) {
+            Read.Refused -> read(raw, { parseOptions(it, false) }, { writeOptions(it, false) })
+            else -> current
+        }
 
     private fun sections(e: JsonElement?): List<String> = list(e, HOME_CAP).map { text(it, 1, 20) }.also { ids -> unique(ids) { it } }
 
