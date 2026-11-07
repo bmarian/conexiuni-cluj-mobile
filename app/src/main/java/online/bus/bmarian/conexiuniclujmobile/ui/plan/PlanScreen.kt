@@ -98,6 +98,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -108,6 +109,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import kotlin.math.max
 import kotlinx.coroutines.launch
+import online.bus.bmarian.conexiuniclujmobile.logic.placeIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.home.placePicks
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.R
@@ -285,6 +287,7 @@ fun PlanScreen(query: PlanQuery) {
     }
 
     val listState = rememberLazyListState()
+    val favoriteName = favoriteLabel?.let(::placeIcon)
     Column(Modifier.fillMaxSize()) {
     SheetTopBar(favoriteLabel ?: destName.ifEmpty { null }, listState.pastHeader())
     LazyColumn(Modifier.weight(1f), state = listState) {
@@ -295,7 +298,9 @@ fun PlanScreen(query: PlanQuery) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.tertiary), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Map, null, tint = MaterialTheme.colorScheme.onTertiary)
+                    val emoji = favoriteName?.icon
+                    if (emoji != null) Text(emoji, fontSize = 24.sp)
+                    else Icon(Icons.Rounded.Map, null, tint = MaterialTheme.colorScheme.onTertiary)
                 }
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.w_plan_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
@@ -313,7 +318,7 @@ fun PlanScreen(query: PlanQuery) {
                         )
                     } else {
                         Text(
-                            favoriteLabel ?: destName.ifEmpty { stringResource(R.string.w_plan_title_generic) },
+                            favoriteName?.name ?: destName.ifEmpty { stringResource(R.string.w_plan_title_generic) },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
