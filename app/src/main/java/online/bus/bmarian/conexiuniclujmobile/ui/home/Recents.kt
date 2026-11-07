@@ -1,8 +1,10 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.AltRoute
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -159,7 +161,12 @@ private fun RecentKindRow(item: RecentItem, modifier: Modifier, iconSize: Dp, ba
         modifier = modifier,
         icon = {
             RowIcon(
-                if (plan != null) Icons.Rounded.Map else Icons.Rounded.History,
+                when {
+                    plan != null -> Icons.Rounded.Map
+                    stop != null -> Icons.Rounded.Place
+                    route != null -> Icons.Rounded.Route
+                    else -> Icons.Rounded.AltRoute
+                },
                 MaterialTheme.colorScheme.surfaceContainerHighest,
                 MaterialTheme.colorScheme.onSurfaceVariant,
                 size = iconSize,
