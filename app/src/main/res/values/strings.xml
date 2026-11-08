@@ -16,9 +16,6 @@
     <string name="eta_minutes" translatable="false">%1$d min</string>
     <string name="now">acum</string>
     <string name="more_options">Mai multe opțiuni</string>
-    <string name="open_on_watch">Deschide pe ceas</string>
-    <string name="opened_on_watch">Deschis pe ceas</string>
-    <string name="no_watch">Niciun ceas în apropiere</string>
     <string name="add_to_home">Adaugă pe ecranul de pornire</string>
     <string name="refresh">Reîmprospătează</string>
     <string name="journey_card_label">Călătorie</string>
@@ -151,8 +148,6 @@
     <string name="locating">Calculez drumul până la stație</string>
     <string name="app_version">Versiunea %1$s</string>
     <string name="update_question">Vrei să actualizezi aplicația?</string>
-    <string name="watch_install_question">Vrei să instalezi aplicația pe ceas?</string>
-    <string name="watch_install">Instalează</string>
     <string name="map_more_stations">și încă %d</string>
     <string name="line_ends_here">capăt de linie</string>
     <string name="group_title">Linii grupate</string>

@@ -40,7 +40,7 @@ private const val STOP_INFO_REFRESH_MS = 120_000L
 private const val SOON_MINUTES = 2
 private const val GIVE_UP_MS = 90 * 60_000L
 
-/** Follows every bus in [FollowManager.follows] that's local, each on its own card. */
+/** Follows every bus in [FollowManager.follows], each on its own card. */
 class FollowService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val jobs = mutableMapOf<String, Job>()
@@ -58,7 +58,7 @@ class FollowService : Service() {
         scope.launch {
             FollowManager.follows.collect { list ->
                 val ids = list.mapTo(HashSet()) { it.id }
-                jobs.keys.filter { it !in ids }.forEach { finish(it, "stopped", done = null) }
+                jobs.keys.filter { it !in ids }.forEach { finish(it, done = null) }
             }
         }
     }
@@ -67,7 +67,7 @@ class FollowService : Service() {
         lastStartId = startId
         val id = intent?.getStringExtra(EXTRA_ID)
         // Restarted by the system after its process was killed: pick the follows back up.
-        val states = if (id == null) FollowManager.restore(this) else FollowManager.follows.value.filter { it.id == id && !it.remote }
+        val states = if (id == null) FollowManager.restore(this) else FollowManager.follows.value.filter { it.id == id }
         states.forEach(::begin)
         if (jobs.isEmpty()) {
             // Stopped before it started; the system still wants it in the foreground once.
@@ -80,10 +80,7 @@ class FollowService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
-        for ((id, state) in latest) {
-            WearLink.sendState(this, state.toSync(end = "stopped"))
-            FollowManager.ended(this, id)
-        }
+        for (id in latest.keys) FollowManager.ended(this, id)
         super.onDestroy()
     }
 
@@ -103,7 +100,6 @@ class FollowService : Service() {
             ServiceCompat.startForeground(this, FollowNotifications.slot(shown), cards.getValue(shown), TYPE)
             manager.notify(FollowNotifications.slot(state.id), card)
         }
-        WearLink.sendState(this, state.toSync())
         jobs[state.id] = scope.launch { track(state) }
     }
 
@@ -200,7 +196,6 @@ class FollowService : Service() {
         )
         latest[id] = state
         FollowManager.put(state)
-        WearLink.sendState(this, state.toSync(alert = alert))
         val card = FollowNotifications.ongoing(this, state, alert)
         cards[id] = card
         manager.notify(FollowNotifications.slot(id), card)
@@ -208,13 +203,13 @@ class FollowService : Service() {
 
     private fun end(id: String, reason: String) {
         val state = latest[id] ?: return
-        finish(id, reason, FollowNotifications.done(this, state.followed, reason))
+        finish(id, FollowNotifications.done(this, state.followed, reason))
     }
 
     /** [done] is posted over the card, or the card just goes. */
-    private fun finish(id: String, reason: String, done: Notification?) {
+    private fun finish(id: String, done: Notification?) {
         val job = jobs.remove(id) ?: return
-        latest.remove(id)?.let { WearLink.sendState(this, it.toSync(end = reason)) }
+        latest.remove(id)
         cards.remove(id)
         FollowManager.ended(this, id)
         val slot = FollowNotifications.slot(id)

@@ -1,7 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.follow
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Button
@@ -43,9 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowState
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.follow.clockOf
-import online.bus.bmarian.conexiuniclujmobile.follow.leaveText
 import online.bus.bmarian.conexiuniclujmobile.follow.minutesUntil
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
@@ -72,20 +68,12 @@ fun rememberWithNotifications(): (() -> Unit) -> Unit {
     }
 }
 
-suspend fun openOnWatch(context: Context, path: String) {
-    val opened = WearLink.openOnWatch(context, path)
-    Services.settings.showToast(context.getString(if (opened) R.string.opened_on_watch else R.string.no_watch))
-}
-
 @Composable
 fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val followed = state.followed
     val now = rememberNow()
     val clock by Services.clock.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     val press = remember { MutableInteractionSource() }
-    // A reminder still waiting for the user to set off.
-    val leave = state.leaveAt?.let { at -> state.minutes?.let { leaveText(context, followed.shortName, it, at, state.walkMinutes, clock).first } }
     Card(
         onClick = onOpen,
         modifier = modifier.fillMaxWidth().squish(press),
@@ -100,13 +88,13 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(
-                        if (leave != null) Icons.AutoMirrored.Rounded.DirectionsWalk else Icons.Rounded.NotificationsActive,
+                        Icons.Rounded.NotificationsActive,
                         null,
                         Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     Text(
-                        leave ?: stringResource(R.string.following),
+                        stringResource(R.string.following),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )

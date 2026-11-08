@@ -37,7 +37,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.LightMode
@@ -45,7 +44,6 @@ import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Traffic
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,7 +84,6 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
@@ -94,7 +91,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
-import online.bus.bmarian.conexiuniclujmobile.ui.buzz
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 @Composable
@@ -113,7 +109,6 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
     val fit by settings.autoFitMap.collectAsStateWithLifecycle()
     val alarms by settings.fullScreenAlarms.collectAsStateWithLifecycle()
     val update by AppUpdates.available.collectAsStateWithLifecycle()
-    val watchApp by WearLink.watchWithoutApp.collectAsStateWithLifecycle()
     val sheet = LocalSheet.current
     val scope = rememberCoroutineScope()
     val updateFlow = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
@@ -149,14 +144,6 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
                 onYes = { scope.launch { AppUpdates.update(updateFlow) } },
                 onNo = AppUpdates::decline,
             ) { RisingArrow(tint = it) }
-            Prompt(
-                watchApp && !update,
-                stringResource(R.string.watch_install_question),
-                Icons.Rounded.Download,
-                stringResource(R.string.watch_install),
-                onYes = { WearLink.installOnWatch(context) },
-                onNo = { WearLink.skipWatchApp(context) },
-            ) { Icon(Icons.Rounded.Watch, null, Modifier.buzz(), tint = it) }
 
             Section(stringResource(R.string.w_language))
             if (locale == "en") {

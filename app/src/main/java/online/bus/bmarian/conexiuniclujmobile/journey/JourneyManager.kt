@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import java.util.UUID
@@ -55,7 +54,6 @@ data class Journey(
     val endsAtStop get() = destination.id == legs.last().alighting.id
 }
 
-@Serializable
 data class JourneySync(
     val id: String,
     val title: String,
@@ -66,16 +64,12 @@ data class JourneySync(
     val arrivalAt: Long? = null,
     val stepIndex: Int = 0,
     val alert: Boolean = false,
-    val end: Boolean = false,
     val stepType: String? = null,
     val legIndex: Int = 0,
     val stopsLeft: Int? = null,
     val totalStops: Int? = null,
     val etaAt: Long? = null,
     val progress: Float? = null,
-    val lat: Double? = null,
-    val lon: Double? = null,
-    val bearing: Float? = null,
 ) {
     /** Waiting at the stop: the bus's countdown is the whole story, so it's shown instead of [detail]. */
     val countsDown get() = stepType == StepType.WAIT && arrivalAt != null
@@ -135,8 +129,6 @@ object JourneyManager {
             navigating.value = false
             return false
         }
-        WearLink.sendJourneyPlan(context, journey)
-        WearLink.showOnWatch(context, "/journey")
         return true
     }
 
@@ -154,17 +146,7 @@ object JourneyManager {
         nextRequests.value++
     }
 
-    internal fun onRemoteStop(context: Context, id: String) {
-        if (state.value?.id == id) stop(context)
-    }
-
-    internal fun onPlanRequest(context: Context, id: String) {
-        val current = journey.value ?: return
-        if (id.isEmpty() || id == current.id) WearLink.sendJourneyPlan(context, current)
-    }
-
-    internal fun publish(context: Context, sync: JourneySync) {
-        if (!sync.end) mutableState.value = sync
-        WearLink.sendJourney(context, sync)
+    internal fun publish(sync: JourneySync) {
+        mutableState.value = sync
     }
 }

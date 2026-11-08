@@ -94,9 +94,6 @@ class Favorites(private val context: Context) {
     private val _recents = MutableStateFlow(initial.recents)
     val recents: StateFlow<List<Recent>> = _recents
 
-    /** The city whose stops or lines changed, for the watch. */
-    var onSharedChange: ((String) -> Unit)? = null
-
     private fun read(prefs: SharedPreferences): SavedFavorites {
         fun get(key: String): JsonElement? =
             prefs.getString(key, null)?.let { runCatching { Api.json.parseToJsonElement(it) }.getOrNull() }
@@ -145,7 +142,6 @@ class Favorites(private val context: Context) {
         if (stopId !in _stops.value && atCap(_stops.value)) return
         _stops.value = if (stopId in _stops.value) _stops.value - stopId else _stops.value + stopId
         persist()
-        onSharedChange?.invoke(city)
     }
 
     /** Devices may have saved different platforms of one station: every one of them goes. */
@@ -159,7 +155,6 @@ class Favorites(private val context: Context) {
         if (fav !in _routes.value && atCap(_routes.value)) return
         _routes.value = if (fav in _routes.value) _routes.value - fav else _routes.value + fav
         persist()
-        onSharedChange?.invoke(city)
     }
 
     fun togglePlan(plan: FavoritePlan) {
@@ -179,24 +174,10 @@ class Favorites(private val context: Context) {
     fun reorderRoutes(list: List<FavoriteRoute>) {
         _routes.value = list
         persist()
-        onSharedChange?.invoke(city)
     }
 
     fun reorderStops(list: List<Int>) {
         _stops.value = list
-        persist()
-        onSharedChange?.invoke(city)
-    }
-
-    fun replaceShared(city: String, stops: List<Int>, routes: List<FavoriteRoute>) {
-        if (city != this.city) {
-            val prefs = cityPrefs(context, "favorites", city)
-            val saved = read(prefs)
-            write(prefs, SavedFavorites(routes, stops, saved.plans, saved.recents))
-            return
-        }
-        _stops.value = stops
-        _routes.value = routes
         persist()
     }
 
@@ -223,7 +204,6 @@ class Favorites(private val context: Context) {
             show(saved)
             persist()
         }
-        onSharedChange?.invoke(city)
     }
 
     fun replaceRecents(city: String, recents: List<Recent>) {

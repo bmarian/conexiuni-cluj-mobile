@@ -119,7 +119,7 @@ class JourneyService : Service() {
         val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
             (if (located) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
         val first = describe(parsed, null, null, System.currentTimeMillis())
-        JourneyManager.publish(this, first)
+        JourneyManager.publish(first)
         ServiceCompat.startForeground(this, JOURNEY_NOTIFICATION_ID, JourneyNotifications.ongoing(this, parsed, first, progress(parsed, null)), type)
         job?.cancel()
         job = scope.launch { run(parsed) }
@@ -130,9 +130,6 @@ class JourneyService : Service() {
         scope.cancel()
         voice?.close()
         val current = journey
-        if (current != null && !ended) {
-            JourneyManager.publish(this, JourneySync(current.id, current.destination.name, "", end = true))
-        }
         if (JourneyManager.state.value?.id == current?.id) {
             JourneyManager.mutableState.value = null
             JourneyManager.mutableJourney.value = null
@@ -243,9 +240,6 @@ class JourneyService : Service() {
         val sync = described.copy(
             progress = (progress.doneMinutes / progress.parts.sumOf { it.minutes }.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f),
             etaAt = arrivalAt(journey, progress, fix, departure, nowMs),
-            lat = fix?.lat?.let { Math.round(it * 1e5) / 1e5 },
-            lon = fix?.lon?.let { Math.round(it * 1e5) / 1e5 },
-            bearing = fix?.bearing,
         )
         val alert = sync.alert && !alerted
         if (alert) {
@@ -254,7 +248,7 @@ class JourneyService : Service() {
         }
         announce(journey, fix, departure, nowMs, alert)
         val shown = sync.copy(stepIndex = stepIndex)
-        JourneyManager.publish(this, shown)
+        JourneyManager.publish(shown)
         getSystemService(NotificationManager::class.java)
             .notify(JOURNEY_NOTIFICATION_ID, JourneyNotifications.ongoing(this, journey, shown, progress, alert))
     }
@@ -527,13 +521,6 @@ class JourneyService : Service() {
     private fun finish(journey: Journey) {
         if (ended) return
         ended = true
-        JourneyManager.publish(
-            this,
-            JourneySync(
-                journey.id, journey.destination.name, getString(R.string.journey_arrived),
-                stepIndex = stepIndex + 1, end = true, stepType = StepType.ARRIVED, progress = 1f,
-            ),
-        )
         JourneyNotifications.arrived(this, journey)
         if (JourneyManager.state.value?.id == journey.id) {
             JourneyManager.mutableState.value = null

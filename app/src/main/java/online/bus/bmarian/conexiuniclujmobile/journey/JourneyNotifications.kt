@@ -57,8 +57,6 @@ object JourneyNotifications {
             .setOngoing(true)
             .setOnlyAlertOnce(!alert)
             .setShowWhen(false)
-            // Not bridged: the watch shows its own.
-            .setLocalOnly(true)
             .setContentIntent(open(context, journey))
             .addAction(action(context, R.string.journey_next, JourneyActionReceiver.NEXT, 20))
             .addAction(action(context, R.string.journey_end, JourneyActionReceiver.END, 21))
@@ -113,7 +111,6 @@ object JourneyNotifications {
             .setSmallIcon(R.drawable.ic_walk)
             .setContentTitle(context.getString(R.string.journey_arrived))
             .setContentText(journey.destination.name)
-            .setLocalOnly(true)
             .setAutoCancel(true)
             .setTimeoutAfter(2 * 60_000L)
             .build()

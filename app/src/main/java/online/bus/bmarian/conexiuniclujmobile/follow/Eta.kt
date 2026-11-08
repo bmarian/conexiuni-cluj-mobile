@@ -63,8 +63,3 @@ private fun busDetail(context: Context, line: String, minutes: Int, walk: Int?, 
     return if (walk == null) context.getString(R.string.leave_bus, line, bus)
     else context.getString(R.string.leave_detail, line, bus, context.getString(R.string.eta_minutes, walk))
 }
-
-internal fun leaveChip(context: Context, leaveAt: Long, nowMs: Long): String {
-    val leave = leaveIn(leaveAt, nowMs)
-    return if (leave <= 0) context.getString(R.string.leave_now) else chipText(context, leave, nowMs)
-}

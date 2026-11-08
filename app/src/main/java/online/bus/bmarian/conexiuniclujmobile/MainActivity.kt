@@ -28,7 +28,6 @@ import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowNotifications
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowTarget
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.ui.AppShell
@@ -70,7 +69,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        WearLink.refreshReach(this)
         lifecycleScope.launch { AppUpdates.resume(updateFlow) }
     }
 

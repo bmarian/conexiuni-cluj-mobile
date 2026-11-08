@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Play services reads this by name; R8 would drop it. -->
-<resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@array/android_wear_capabilities" />

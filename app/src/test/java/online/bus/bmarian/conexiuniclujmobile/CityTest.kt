@@ -4,22 +4,10 @@ import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.City
 import online.bus.bmarian.conexiuniclujmobile.data.Credit
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CityTest {
-    @Test
-    fun theWatchGetsOneFavoritesItemPerCity() {
-        // Older watch builds read only Cluj's.
-        assertEquals("/sync/favorites", WearLink.favoritesPath("cluj"))
-        assertEquals("/sync/favorites/iasi", WearLink.favoritesPath("iasi"))
-        assertEquals("cluj", WearLink.favoritesCity("/sync/favorites"))
-        assertEquals("iasi", WearLink.favoritesCity("/sync/favorites/iasi"))
-        assertNull(WearLink.favoritesCity("/sync/language"))
-    }
-
     @Test
     fun followsSavedBeforeCitiesAreCluj() {
         val saved = """{"stopId":2,"stopName":"B","routeId":57,"tripId":"57_0","shortName":"57","color":"#ff0000","destination":"Somewhere"}"""

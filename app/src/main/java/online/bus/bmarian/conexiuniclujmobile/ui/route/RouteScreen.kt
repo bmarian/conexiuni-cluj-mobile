@@ -47,7 +47,6 @@ import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.UTurnLeft
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -103,7 +102,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyLeg
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
@@ -162,7 +160,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.TrafficNote
 import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
-import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 import online.bus.bmarian.conexiuniclujmobile.ui.map.StopHighlight
@@ -269,7 +266,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
 
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
     val follows by FollowManager.follows.collectAsStateWithLifecycle()
     val reminders by Reminders.all.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Int?>(null) }
@@ -290,9 +286,6 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                     )
                 },
             )
-        }
-        if (watch) {
-            add(MenuAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/route/$routeId/$dir") } })
         }
         add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
     }

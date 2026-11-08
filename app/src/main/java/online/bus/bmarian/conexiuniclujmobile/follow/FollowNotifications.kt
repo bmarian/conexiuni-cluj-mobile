@@ -77,14 +77,8 @@ object FollowNotifications {
         val minutes = state.minutes
         val nowMs = System.currentTimeMillis()
         val color = routeColor(followed.shownColor).toArgb()
-        val leaveAt = state.leaveAt?.takeIf { minutes != null }
-        val leaveBy = state.leaveBy
-        val (title, text) = when {
-            minutes == null -> context.getString(R.string.follow_waiting) to null
-            leaveAt != null && leaveBy != null -> leaveByText(context, followed.shortName, minutes, leaveBy, state.walkMinutes, nowMs)
-            leaveAt != null -> leaveText(context, followed.shortName, minutes, leaveAt, state.walkMinutes, nowMs)
-            else -> arrivingAtText(context, followed.stopName, minutes, nowMs)
-        }
+        val (title, text) = if (minutes == null) context.getString(R.string.follow_waiting) to null
+        else arrivingAtText(context, followed.stopName, minutes, nowMs)
         val builder = Notification.Builder(context, if (alert) ALERT_CHANNEL else FOLLOW_CHANNEL)
             .setSmallIcon(R.drawable.ic_bus)
             .setLargeIcon(NotificationArt.badge(context, followed.shortName, followed.shownColor))
@@ -95,8 +89,6 @@ object FollowNotifications {
             .setOngoing(true)
             .setOnlyAlertOnce(!alert)
             .setShowWhen(false)
-            // Not bridged: the watch shows its own.
-            .setLocalOnly(true)
             .setContentIntent(openStop(context, followed))
             .addAction(
                 Notification.Action.Builder(
@@ -108,18 +100,8 @@ object FollowNotifications {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             // Live Updates need Android 16 QPR1.
             if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) builder.setRequestPromotedOngoing(true)
-            builder.setShortCriticalText(
-                when {
-                    minutes == null -> followed.shortName
-                    leaveAt != null -> leaveChip(context, leaveAt, nowMs)
-                    else -> chipText(context, minutes, nowMs)
-                },
-            )
-            val done = percentDone(state)
-            builder.setStyle(
-                if (leaveAt == null) progress(context, state.followed, color, done)
-                else walking(context, color, done, leavePoint(state.id, leadMinutes(state.walkMinutes))),
-            )
+            builder.setShortCriticalText(if (minutes == null) followed.shortName else chipText(context, minutes, nowMs))
+            builder.setStyle(progress(context, state.followed, color, percentDone(state)))
         }
         return builder.build()
     }
@@ -131,22 +113,6 @@ object FollowNotifications {
         progressFrom[state.id] = start
         return ((start - minutes.coerceAtLeast(0)) * 100 / start).coerceIn(0, 100)
     }
-
-    /** Where on the bar it's time to leave: [lead] minutes before the bus. */
-    private fun leavePoint(id: String, lead: Int): Int? {
-        val start = progressFrom[id] ?: return null
-        return ((start - lead) * 100 / start).takeIf { it in 1..99 }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    private fun walking(context: Context, color: Int, done: Int, leave: Int?): Notification.ProgressStyle =
-        Notification.ProgressStyle()
-            .setStyledByProgress(true)
-            .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100).setColor(color)))
-            .setProgressPoints(listOfNotNull(leave?.let { Notification.ProgressStyle.Point(it).setColor(color) }))
-            .setProgressTrackerIcon(NotificationArt.walker(context))
-            .setProgressEndIcon(NotificationArt.stop(context))
-            .setProgress(done)
 
     @RequiresApi(Build.VERSION_CODES.BAKLAVA)
     private fun progress(context: Context, followed: Followed, color: Int, done: Int): Notification.ProgressStyle =
@@ -173,7 +139,6 @@ object FollowNotifications {
             .setColor(color)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
-            .setLocalOnly(true)
             .setAutoCancel(true)
             .setTimeoutAfter(DONE_SHOWN_MS)
             .setContentIntent(openStop(context, followed))
@@ -241,24 +206,6 @@ object FollowNotifications {
             .build()
     }
 
-    fun showMirror(context: Context, state: FollowState) {
-        val notification = ongoing(context, state)
-        val left = (state.arrivalAt ?: System.currentTimeMillis()) - System.currentTimeMillis()
-        val timed = Notification.Builder.recoverBuilder(context, notification)
-            .setTimeoutAfter(left.coerceAtLeast(0) + 5 * 60_000L)
-            .build()
-        runCatching { manager(context).notify(slot(state.id), timed) }
-    }
-
-    fun endMirror(context: Context, sync: FollowSync) {
-        val done = done(context, sync.followed, sync.end) ?: return clearMirror(context, sync.id)
-        runCatching { manager(context).notify(slot(sync.id), done) }
-    }
-
-    fun clearMirror(context: Context, id: String) {
-        manager(context).cancel(slot(id))
-    }
-
     private fun openStop(context: Context, followed: Followed): PendingIntent = PendingIntent.getActivity(
         context, followed.stopId,
         Intent(context, MainActivity::class.java)
@@ -280,8 +227,7 @@ object FollowNotifications {
     private fun stopIntent(context: Context, state: FollowState): PendingIntent = PendingIntent.getBroadcast(
         context, slot(state.id),
         Intent(context, StopFollowingReceiver::class.java)
-            .putExtra(StopFollowingReceiver.EXTRA_ID, state.id)
-            .putExtra(StopFollowingReceiver.EXTRA_REMOTE, state.remote),
+            .putExtra(StopFollowingReceiver.EXTRA_ID, state.id),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 }
@@ -289,15 +235,10 @@ object FollowNotifications {
 class StopFollowingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra(EXTRA_ID) ?: return
-        if (FollowManager.follows.value.any { it.id == id }) return FollowManager.stop(context, id)
-        if (intent.getBooleanExtra(EXTRA_REMOTE, false)) {
-            FollowNotifications.clearMirror(context, id)
-            WearLink.sendStop(context, id)
-        }
+        FollowManager.stop(context, id)
     }
 
     companion object {
         const val EXTRA_ID = "id"
-        const val EXTRA_REMOTE = "remote"
     }
 }

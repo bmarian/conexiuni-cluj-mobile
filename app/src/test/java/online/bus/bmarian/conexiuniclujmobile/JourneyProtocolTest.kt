@@ -2,35 +2,14 @@ package online.bus.bmarian.conexiuniclujmobile
 
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.journey.Journey
-import online.bus.bmarian.conexiuniclujmobile.journey.JourneySync
-import online.bus.bmarian.conexiuniclujmobile.journey.StepType
 import online.bus.bmarian.conexiuniclujmobile.journey.simplifyPath
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class JourneyProtocolTest {
-    @Test
-    fun aVersionOneStepStillReads() {
-        // Payload from before step types and progress.
-        val v1 = """{"id":"a","title":"Unirii","step":"Wait for 5","detail":"Arriving in 3 min","line":"5","stepIndex":2}"""
-        val sync = Api.json.decodeFromString<JourneySync>(v1)
-        assertEquals("Wait for 5", sync.step)
-        assertNull(sync.stepType)
-        assertEquals(0, sync.legIndex)
-        assertNull(sync.progress)
-    }
-
-    @Test
-    fun versionTwoFieldsGoOutAndComeBack() {
-        val sync = JourneySync("a", "Unirii", "Get off at Sora", stepType = StepType.RIDE, legIndex = 1, stopsLeft = 3, totalStops = 7, etaAt = 123L, progress = 0.5f)
-        val back = Api.json.decodeFromString<JourneySync>(Api.json.encodeToString(sync))
-        assertEquals(sync, back)
-    }
-
     @Test
     fun aPlanWithoutPathsStillReads() {
         // Plan from before paths and walks.

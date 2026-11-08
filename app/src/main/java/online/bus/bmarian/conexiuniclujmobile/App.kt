@@ -38,7 +38,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.Shortcuts
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.data.sync.Sync
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.work.RouteChangeWorker
 
 // Long enough for a cold fix indoors.
@@ -135,7 +134,6 @@ object Services {
             }
         }
         RouteChangeWorker.schedule(app)
-        WearLink.start(app)
         Reminders.init(app)
         AppUpdates.init(app)
         scope.launch {

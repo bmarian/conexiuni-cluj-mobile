@@ -24,8 +24,7 @@ The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus, tram and t
 - A home screen widget for a stop
 - Share a place to the app and it plans the trip there
 - Operator news, and a notification when a line you follow changes
-- Works with the [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos), followed buses, trips, reminders and favorites show on both
-- Move your favorites and settings to another phone, the website or your watch by scanning a QR
+- Move your favorites and settings to another phone or the website by scanning a QR
 
 The cities and where their data comes from are listed in the [website's README](https://github.com/bmarian/conexiuni-cluj#cities).
 
@@ -44,11 +43,9 @@ You'll need Android Studio with the Android SDK. The map needs no key.
 ```
 
 <details>
-<summary><b>With a watch connected</b></summary>
+<summary><b>With a local backend</b></summary>
 
 <br>
-
-Pick the phone with `ANDROID_SERIAL=<serial> ./gradlew installDebug`. Both apps use the package name `online.bmarian.bus`, so a plain install replaces the watch app. The watch app has to be signed with the same key as this one, or they can't talk to each other.
 
 `-PapiBase=http://localhost:6698/api/` points a debug build at a local backend (run `adb reverse tcp:6698 tcp:6698` too).
 
@@ -77,7 +74,7 @@ keyAlias=upload
 keyPassword=...
 ```
 
-Phone version codes are 1xxxx and the watch's 2xxxx. `./gradlew bundleRelease` builds the bundle for Google Play. Release builds need NDK 28.2.13676358, which ships MapLibre's debug symbols with the bundle. The privacy policy for both apps is [`PRIVACY.md`](PRIVACY.md).
+Version codes are 1xxxx. `./gradlew bundleRelease` builds the bundle for Google Play. Release builds need NDK 28.2.13676358, which ships MapLibre's debug symbols with the bundle. The privacy policy is [`PRIVACY.md`](PRIVACY.md).
 
 </details>
 

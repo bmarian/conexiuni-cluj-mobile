@@ -11,7 +11,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -263,25 +262,6 @@ fun RisingArrow(modifier: Modifier = Modifier, tint: Color = LocalContentColor.c
         }
     }
     Icon(Icons.Rounded.ArrowUpward, null, modifier.graphicsLayer { translationY = lift.value * size.height }, tint = tint)
-}
-
-/** Wiggles now and then. */
-fun Modifier.buzz(): Modifier = composed {
-    val angle = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1800)
-            angle.animateTo(0f, keyframes {
-                durationMillis = 450
-                14f at 52
-                -14f at 139
-                10f at 226
-                -8f at 313
-                4f at 383
-            })
-        }
-    }
-    graphicsLayer { rotationZ = angle.value }
 }
 
 private val DIGITS = Regex("""\d+""")

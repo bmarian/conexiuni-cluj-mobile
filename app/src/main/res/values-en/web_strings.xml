@@ -206,7 +206,7 @@
     <string name="w_contact">Contact</string>
     <string name="w_contact_desc">Help, suggestions or anything else.</string>
     <string name="w_sync_title">Sync with other devices</string>
-    <string name="w_sync_desc">Keep your favorites the same on your phone, computer and watch.</string>
+    <string name="w_sync_desc">Keep your favorites the same on your phone and computer.</string>
     <string name="w_sync_show_code">Show code</string>
     <string name="w_sync_enter_code">Enter code</string>
     <string name="w_sync_add_device">Add a device</string>

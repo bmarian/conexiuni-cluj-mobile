@@ -1,15 +1,11 @@
 package online.bus.bmarian.conexiuniclujmobile
 
-import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.DaySchedule
 import online.bus.bmarian.conexiuniclujmobile.data.HourlyStopOffsets
 import online.bus.bmarian.conexiuniclujmobile.data.ShapeInfo
 import online.bus.bmarian.conexiuniclujmobile.data.StopTime
 import online.bus.bmarian.conexiuniclujmobile.data.Timetable
 import online.bus.bmarian.conexiuniclujmobile.data.TimetableEntry
-import online.bus.bmarian.conexiuniclujmobile.follow.FollowState
-import online.bus.bmarian.conexiuniclujmobile.follow.FollowSync
-import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
 import online.bus.bmarian.conexiuniclujmobile.follow.leadMinutes
 import online.bus.bmarian.conexiuniclujmobile.follow.tellAt
@@ -163,26 +159,5 @@ class ReminderTest {
         // No fix: twenty minutes.
         assertTrue(justNotify(null, 20))
         assertFalse(justNotify(null, 21))
-    }
-
-    @Test
-    fun aFollowWithoutLeaveTimesStillReads() {
-        val followed = Followed(2, "B", 57, "57_0", "57", "#ff0000", "Somewhere")
-        val old = """{"id":"a","followed":${Api.json.encodeToString(followed)},"minutes":4}"""
-        val sync = Api.json.decodeFromString<FollowSync>(old)
-        assertNull(sync.leaveAt)
-        assertNull(sync.leaveBy)
-        assertEquals(4, sync.minutes)
-    }
-
-    @Test
-    fun theWatchIsToldWhenToGoBy() {
-        val followed = Followed(2, "B", 57, "57_0", "57", "#ff0000", "Somewhere")
-        val state = FollowState("a", followed, minutes = 20, leaveAt = 1791441990000, walkMinutes = 8, leaveBy = 1791441960000)
-        val json = Api.json.encodeToString(state.toSync(alert = true))
-        val sync = Api.json.decodeFromString<FollowSync>(json)
-        assertEquals(1791441960000, sync.leaveBy)
-        assertEquals(1791441990000, sync.leaveAt)
-        assertTrue(sync.alert)
     }
 }

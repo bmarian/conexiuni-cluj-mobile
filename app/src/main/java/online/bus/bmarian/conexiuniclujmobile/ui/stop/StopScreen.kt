@@ -33,7 +33,6 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -51,7 +50,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -93,7 +91,6 @@ import online.bus.bmarian.conexiuniclujmobile.data.tripIdFor
 import online.bus.bmarian.conexiuniclujmobile.follow.FollowManager
 import online.bus.bmarian.conexiuniclujmobile.follow.Followed
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
-import online.bus.bmarian.conexiuniclujmobile.follow.WearLink
 import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
 import online.bus.bmarian.conexiuniclujmobile.follow.nextBusReminder
 import online.bus.bmarian.conexiuniclujmobile.logic.DueArrivals
@@ -130,7 +127,6 @@ import online.bus.bmarian.conexiuniclujmobile.ui.badgeKey
 import online.bus.bmarian.conexiuniclujmobile.ui.cascade
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocation
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderSheet
-import online.bus.bmarian.conexiuniclujmobile.ui.follow.openOnWatch
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.rememberWithNotifications
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.reminderWhen
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
@@ -259,7 +255,6 @@ fun StopScreen(stopId: Int) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val locale = LocalConfiguration.current.locales[0]
-    val scope = rememberCoroutineScope()
     val withNotifications = rememberWithNotifications()
 
     fun followNow(followed: Followed) {
@@ -297,7 +292,6 @@ fun StopScreen(stopId: Int) {
         }
     }
 
-    val watch by WearLink.watchInReach.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val allStops by Services.repository.stops.collectAsStateWithLifecycle()
     val here = remember(allStops, stopId) { allStops.find { it.stopId == stopId } }
@@ -306,7 +300,6 @@ fun StopScreen(stopId: Int) {
         if (WidgetPinning.supported(context)) {
             add(MenuAction(stringResource(R.string.add_widget), Icons.Rounded.Widgets) { WidgetPinning.pinStop(context, stopId, name.orEmpty()) })
         }
-        if (watch) add(MenuAction(stringResource(R.string.open_on_watch), Icons.Rounded.Watch) { scope.launch { openOnWatch(context, "/stop/$stopId") } })
         add(MenuAction(stringResource(R.string.refresh), Icons.Rounded.Refresh) { vm.load() })
     }
 
@@ -383,7 +376,7 @@ fun StopScreen(stopId: Int) {
                             platform, name.orEmpty(), departure.routeId, departure.tripId,
                             departure.shortName, departure.color, routeDestination(departure.longName), city,
                         )
-                        // A follow from the watch may name the station's other platform.
+                        // A follow or reminder may name the station's other platform.
                         val platforms = infos.map { it.stopId }.ifEmpty { listOf(platform) }
                         val following = follows.firstOrNull { it.matches(platforms, departure.routeId, departure.tripId) }
                         val forBus = reminders.filter { it.isFor(platforms, departure.routeId, departure.tripId) }

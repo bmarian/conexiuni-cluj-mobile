@@ -19,11 +19,10 @@ android {
     }
 
     defaultConfig {
-        // Must match the watch app: the Wear data layer needs the same id and signing key.
         applicationId = "online.bmarian.bus"
         minSdk = 26
         targetSdk = 37
-        // Phone 1xxxx, watch 2xxxx, then the release number, the same on both.
+        // 1xxxx: 1, then the release number.
         versionCode = 10_040
         versionName = "2.3.0"
 
@@ -130,9 +129,7 @@ dependencies {
     implementation(libs.okhttp.sse)
     implementation(libs.play.services.location)
     implementation(libs.play.services.code.scanner)
-    implementation(libs.play.services.wearable)
     implementation(libs.play.app.update)
-    implementation(libs.androidx.wear.remote.interactions)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.zxing.core)
