@@ -23,8 +23,8 @@ android {
         minSdk = 26
         targetSdk = 37
         // 1xxxx: 1, then the release number.
-        versionCode = 10_040
-        versionName = "2.3.0"
+        versionCode = 10_041
+        versionName = "2.4.0"
 
         buildConfigField("String", "API_BASE", "\"https://ceautobuziau.ro/api/\"")
         buildConfigField("String", "SITE_ORIGIN", "\"https://ceautobuziau.ro\"")

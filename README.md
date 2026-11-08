@@ -5,10 +5,10 @@ The [Ce autobuz iau?](https://github.com/bmarian/conexiuni-cluj) bus, tram and t
 **[Get it on Google Play](https://play.google.com/store/apps/details?id=online.bmarian.bus).** Needs Android 8 or newer.
 
 <p align="center">
-  <img src="readme/home.png" width="200" alt="Home in light and dark: the dorm, UTCN and the library saved as places, favorite lines and stops">
-  <img src="readme/stop.png" width="200" alt="The stop by the dorm in light and dark, with the 35 and 46B live on the map">
+  <img src="readme/home.png" width="200" alt="Home in light and dark: the dorm and UTCN saved as places, a weekday reminder for the 35, favorite lines and stops">
+  <img src="readme/stop.png" width="200" alt="The stop by the dorm in light and dark, with the 35 live on the map">
   <img src="readme/line.png" width="200" alt="Line 35 in light and dark, with the next arrivals at every stop">
-  <img src="readme/plan.png" width="200" alt="A trip from the dorm to UTCN in light and dark, with a change from the 40 to the 25">
+  <img src="readme/plan.png" width="200" alt="A trip from the dorm to UTCN in light and dark, straight there on the 35">
 </p>
 
 ## What it does
