@@ -11,7 +11,16 @@ import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 
 enum class StopHighlight { Green, Purple, Red, Gray, Amber, Favorite }
 
-class MapShape(val tripId: String, val shortName: String, val color: String, val points: List<LatLon>)
+class MapShape(
+    val tripId: String,
+    val shortName: String,
+    val color: String,
+    val points: List<LatLon>,
+    val faint: Boolean = false,
+    val skipFit: Boolean = false,
+) {
+    fun colored(color: String) = MapShape(tripId, shortName, color, points, faint, skipFit)
+}
 
 class MapVehicle(
     val id: String,
@@ -65,7 +74,7 @@ class MapController {
     var linesApart by mutableStateOf(true)
     /** Line starts and ends stay beside highlighted stops. */
     var lineEnds by mutableStateOf(false)
-
+    var stopPick: ((Int) -> Unit)? = null
 
     var pinnedLocation by mutableStateOf<MapPin?>(null)
     var customOrigin by mutableStateOf<MapPin?>(null)
@@ -149,6 +158,7 @@ class MapController {
         val directionArrowAtStart: Boolean,
         val linesApart: Boolean,
         val lineEnds: Boolean,
+        val stopPick: ((Int) -> Unit)?,
         val pinnedLocation: MapPin?,
         val customOrigin: MapPin?,
         val onPinDragged: ((LatLon) -> Unit)?,
@@ -159,7 +169,7 @@ class MapController {
 
     private fun save() = Owned(
         shapes, vehicles, highlightedStops, selectedStopId, labelledStops, walkingPolylines, fitWalking, fitNewShapes,
-        directionArrowAtStart, linesApart, lineEnds, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
+        directionArrowAtStart, linesApart, lineEnds, stopPick, pinnedLocation, customOrigin, onPinDragged, onOriginDragged, resting, ownerKeepsLines,
     )
 
     private fun restore(owned: Owned) {
@@ -177,6 +187,7 @@ class MapController {
         directionArrowAtStart = owned.directionArrowAtStart
         linesApart = owned.linesApart
         lineEnds = owned.lineEnds
+        stopPick = owned.stopPick
         pinnedLocation = owned.pinnedLocation
         customOrigin = owned.customOrigin
         onPinDragged = owned.onPinDragged
@@ -198,6 +209,7 @@ class MapController {
         directionArrowAtStart = false
         linesApart = true
         lineEnds = false
+        stopPick = null
         pinnedLocation = null
         customOrigin = null
         onPinDragged = null
@@ -205,7 +217,7 @@ class MapController {
     }
 
     fun showShapes(list: List<MapShape>) {
-        val key = list.joinToString("|") { "${it.tripId}:${it.points.size}" }
+        val key = list.joinToString("|") { "${it.tripId}:${it.points.size}:${it.points.firstOrNull()}:${it.points.lastOrNull()}:${it.faint}" }
         if (key == shapesKey) return
         shapesKey = key
         shapes = list

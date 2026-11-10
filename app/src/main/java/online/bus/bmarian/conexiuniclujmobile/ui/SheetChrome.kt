@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -67,6 +68,10 @@ interface Navigator {
     fun destination(slug: String)
     fun group(lines: String, replace: Boolean = false)
     fun groupPick(lines: String, edit: String? = null, replace: Boolean = false)
+    fun groupAdd(lines: String, edit: String? = null)
+    fun groupStops(lines: String, edit: String? = null, line: String)
+    /** Back at the group being put together, now with [lines]. */
+    fun groupBuilt(lines: String, edit: String? = null)
 }
 
 /** Same keys as the website's /plan query. */
@@ -128,6 +133,8 @@ fun SheetTopBar(
     showTitle: Boolean,
     modifier: Modifier = Modifier,
     menu: List<MenuAction> = emptyList(),
+    lead: (@Composable RowScope.() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     val nav = LocalNavigator.current
     Row(
@@ -139,14 +146,19 @@ fun SheetTopBar(
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.w_back))
             }
         }
-        val titleAlpha by animateFloatAsState(if (showTitle && title != null) 1f else 0f, label = "title")
-        Text(
-            title.orEmpty(),
-            Modifier.weight(1f).padding(horizontal = 8.dp).graphicsLayer { alpha = titleAlpha },
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (lead != null) {
+            lead()
+        } else {
+            val titleAlpha by animateFloatAsState(if (showTitle && title != null) 1f else 0f, label = "title")
+            Text(
+                title.orEmpty(),
+                Modifier.weight(1f).padding(horizontal = 8.dp).graphicsLayer { alpha = titleAlpha },
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        actions()
         if (menu.isNotEmpty()) {
             var open by remember { mutableStateOf(false) }
             Box {

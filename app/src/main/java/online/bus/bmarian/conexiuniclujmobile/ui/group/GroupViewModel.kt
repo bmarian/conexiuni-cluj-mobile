@@ -25,11 +25,13 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
-import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.boardingStop
+import online.bus.bmarian.conexiuniclujmobile.logic.flipLine
+import online.bus.bmarian.conexiuniclujmobile.logic.passedBy
 import online.bus.bmarian.conexiuniclujmobile.logic.readLines
 import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
+import online.bus.bmarian.conexiuniclujmobile.logic.stretchSpan
 import online.bus.bmarian.conexiuniclujmobile.logic.tripOf
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
@@ -68,7 +70,7 @@ class GroupViewModel(raw: String, private val state: SavedStateHandle) : ViewMod
     fun flip(routeId: Int) {
         val index = index.value ?: return
         val before = lines.value ?: return
-        val after = before.map { if (it.routeId == routeId) it.copy(direction = if (it.direction == "0") "1" else "0") else it }
+        val after = before.map { if (it.routeId == routeId) index.flipLine(it) else it }
         Services.groups.replaceLines(before, after)
         Services.favorites.removeRecent(RecentGroup(before))
         state[LINII] = index.writeLines(after)
@@ -91,17 +93,14 @@ class GroupViewModel(raw: String, private val state: SavedStateHandle) : ViewMod
 
     val mapLayer: StateFlow<GroupMapLayer?> = combine(index, shown, shapes, live, boarding) { index, shown, shapes, live, boarding ->
         if (index == null) return@combine null
-        val drawn = shown.mapNotNull { line ->
-            val route = index.route(line.routeId) ?: return@mapNotNull null
-            val points = shapes[tripOf(line)].orEmpty().takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-            MapShape(tripOf(line), route.shortName, route.color, points.map { LatLon(it.lat, it.lon) })
-        }
         val buses = shown.flatMap { line ->
             val route = index.route(line.routeId) ?: return@flatMap emptyList()
-            live?.vehicles(tripOf(line)).orEmpty().map { MapVehicle("${it.id}", it, route.shortName, route.color, it.heading, faded = it.atStand) }
+            val span = shapes[tripOf(line)]?.let { index.stretchSpan(line, it) }
+            live?.vehicles(tripOf(line)).orEmpty().filterNot { span?.passedBy(it) == true }
+                .map { MapVehicle("${it.id}", it, route.shortName, route.color, it.heading, faded = it.atStand) }
         }
         val stops = boarding.mapNotNullTo(LinkedHashSet()) { (line, stopId) -> stopId?.takeIf { line in shown } }
-        GroupMapLayer(drawn, buses, stops)
+        GroupMapLayer(index.groupShapes(shown, shapes), buses, stops)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     suspend fun live() = coroutineScope {

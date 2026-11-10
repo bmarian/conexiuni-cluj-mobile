@@ -60,7 +60,7 @@ object SyncLocal {
         originLon = p.origin?.lon,
     )
 
-    private val validId = 1L..Int.MAX_VALUE.toLong()
+    private val validId = SyncRecords.validId
 
     fun cityFromLocal(slug: String): City {
         val saved = Services.favorites.saved(slug)
@@ -105,19 +105,32 @@ object SyncLocal {
     fun recentsFromLocal(slug: String) =
         SyncRecords.Recents(Services.favorites.saved(slug).recents.mapNotNull(::toRecentItem).distinctBy(SyncRecords::recentId))
 
-    fun applyRecents(slug: String, r: SyncRecords.Recents) = Services.favorites.replaceRecents(slug, r.recent.map(::toRecent))
+    /** Recents carry no stops: a known group with the same lines keeps its own. */
+    fun applyRecents(slug: String, r: SyncRecords.Recents) {
+        val known = Services.favorites.saved(slug).recents.filterIsInstance<RecentGroup>().map { it.lines } + Services.groups.savedIn(slug).map { it.lines }
+        val recents = r.recent.map(::toRecent).map { recent ->
+            if (recent is RecentGroup) RecentGroup(known.firstOrNull { fromLines(toLines(it)) == recent.lines } ?: recent.lines) else recent
+        }
+        Services.favorites.replaceRecents(slug, recents)
+    }
 
-    private fun toLines(lines: List<GroupLine>) = lines.filter { it.routeId.toLong() in validId && (it.direction == "0" || it.direction == "1") }
-        .map { SyncRecords.Line(it.routeId.toLong(), it.direction) }.distinctBy { it.route }.take(SyncRecords.GROUP_LINES_CAP)
+    private fun toRides(lines: List<GroupLine>) = lines.filter { it.routeId.toLong() in validId && (it.direction == "0" || it.direction == "1") }
+        .map { l ->
+            val from = l.from?.toLong()?.takeIf { it in validId }
+            SyncRecords.Ride(l.routeId.toLong(), l.direction, from, l.to?.toLong()?.takeIf { it in validId && it != from })
+        }.distinctBy { it.route }.take(SyncRecords.GROUP_LINES_CAP)
+
+    private fun toLines(lines: List<GroupLine>) = toRides(lines).map { SyncRecords.Line(it.route, it.dir) }
 
     private fun fromLines(lines: List<SyncRecords.Line>) = lines.map { GroupLine(it.route.toInt(), it.dir) }
 
     private fun toGroup(g: SavedGroup): Group? {
-        val lines = toLines(g.lines).takeIf { it.isNotEmpty() } ?: return null
+        val lines = toRides(g.lines).takeIf { it.isNotEmpty() } ?: return null
         return Group(lines, cleanText(g.name, 40))
     }
 
-    private fun fromGroup(g: Group) = SavedGroup(fromLines(g.lines), g.name.ifEmpty { null })
+    private fun fromGroup(g: Group) =
+        SavedGroup(g.lines.map { GroupLine(it.route.toInt(), it.dir, it.from?.toInt(), it.to?.toInt()) }, g.name.ifEmpty { null })
 
     fun groupsFromLocal(slug: String) = SyncRecords.Groups(Services.groups.savedIn(slug).mapNotNull(::toGroup).distinctBy(SyncRecords::groupId))
 

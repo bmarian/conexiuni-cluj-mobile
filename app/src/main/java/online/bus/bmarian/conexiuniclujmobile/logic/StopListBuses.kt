@@ -1,9 +1,11 @@
 package online.bus.bmarian.conexiuniclujmobile.logic
 
 /** Port of utils/stopListBuses.ts. Each stop is searched after the one before, so a line passing a street twice finds the right side. */
-fun stopsAlong(path: RoutePath, stops: List<IndexedStop>): List<Double?> {
+fun stopsAlong(path: RoutePath, stops: List<IndexedStop>): List<Double?> = placesAlong(path, stops.map { LatLon(it.stop.lat, it.stop.lon) })
+
+fun placesAlong(path: RoutePath, places: List<LatLon>): List<Double?> {
     var from = 0.0
-    return stops.map { indexed -> path.locate(indexed.stop.lat, indexed.stop.lon, from)?.also { from = it.s }?.s }
+    return places.map { place -> path.locate(place.lat, place.lon, from)?.also { from = it.s }?.s }
 }
 
 /** Where a point [s] metres along the path sits in the stop list: 2.5 is halfway from the third stop to the fourth. */

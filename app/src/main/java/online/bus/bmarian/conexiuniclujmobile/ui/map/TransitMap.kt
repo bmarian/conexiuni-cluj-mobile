@@ -344,7 +344,7 @@ fun TransitMap(
     }
 
     fun content(): List<LatLon> =
-        controller.shapes.flatMap { it.points } + controller.walkingPolylines.flatten() +
+        controller.shapes.filterNot { it.skipFit }.flatMap { it.points } + controller.walkingPolylines.flatten() +
             listOfNotNull(controller.pinnedLocation, controller.customOrigin).map { LatLon(it.lat, it.lon) }
     suspend fun flyToVisible(target: LatLon, zoom: Double) {
         val s = session ?: return
@@ -387,7 +387,7 @@ fun TransitMap(
     val base = LocalLineLooks.current
     val looks = remember(base, drawnLines, apart) { base.drawing(drawnLines, apart) }
     val scene = remember(shownShapes, controller.directionArrowAtStart, controller.lineEnds, nav, looks) {
-        val colored = shownShapes.map { MapShape(it.tripId, it.shortName, looks.hex(it.shortName, it.color) ?: it.color, it.points) }
+        val colored = shownShapes.map { it.colored(looks.hex(it.shortName, it.color) ?: it.color) }
         if (nav != null) buildScene(colored, terminals = false, arrows = false)
         else buildScene(colored, terminals = controller.lineEnds || controller.highlightedStops.isEmpty(), arrows = controller.directionArrowAtStart)
     }

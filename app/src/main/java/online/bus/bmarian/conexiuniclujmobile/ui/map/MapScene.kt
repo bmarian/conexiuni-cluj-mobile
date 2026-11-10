@@ -8,6 +8,8 @@ import kotlin.math.min
 /** In dp along a 5 dp line; the first is solid. */
 val DUPLICATE_DASH_PATTERNS = listOf(floatArrayOf(), floatArrayOf(8f, 7f), floatArrayOf(2f, 7f), floatArrayOf(10f, 4f, 2f, 4f), floatArrayOf(1f, 6f))
 
+const val FAINT_DASH = -1
+
 class SceneLine(val name: String, val tripId: String, val color: String, val dash: Int, val points: List<LatLon>)
 class SceneBadge(val at: LatLon, val routes: List<Pair<String, String>>)
 class SceneEnd(val at: LatLon, val color: String)
@@ -20,7 +22,7 @@ class MapScene(val lines: List<SceneLine>, val badges: List<SceneBadge>, val end
 }
 
 fun buildScene(shapes: List<MapShape>, terminals: Boolean, arrows: Boolean): MapScene {
-    val drawable = shapes.filter { it.points.isNotEmpty() }
+    val (faint, drawable) = shapes.filter { it.points.isNotEmpty() }.partition { it.faint }
     val counts = drawable.groupingBy { it.color }.eachCount()
     val seen = HashMap<String, Int>()
     val signatures = HashSet<String>()
@@ -31,7 +33,8 @@ fun buildScene(shapes: List<MapShape>, terminals: Boolean, arrows: Boolean): Map
         val signature = "$dash|" + shape.points.joinToString("|") { "%.4f,%.4f".format(it.lat, it.lon) }
         if (!signatures.add(signature)) null else shape to dash
     }
-    val lines = kept.map { (shape, dash) -> SceneLine(shape.shortName, shape.tripId, shape.color, dash, shape.points) }
+    val lines = faint.distinctBy { it.points }.map { SceneLine(it.shortName, "", it.color, FAINT_DASH, it.points) } +
+        kept.map { (shape, dash) -> SceneLine(shape.shortName, shape.tripId, shape.color, dash, shape.points) }
     val badges = if (!terminals) emptyList() else {
         val grouped = LinkedHashMap<String, Pair<LatLon, MutableList<Pair<String, String>>>>()
         for ((shape, _) in kept) {

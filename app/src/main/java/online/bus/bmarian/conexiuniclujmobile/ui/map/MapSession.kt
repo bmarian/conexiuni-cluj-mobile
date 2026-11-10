@@ -143,6 +143,8 @@ import kotlin.math.sin
 
 private const val SRC_LINES = "ct-lines"
 private const val LINE_WIDTH = 5f
+private const val FAINT_LINE_WIDTH = 3f
+private const val FAINT_LINE_OPACITY = 0.3f
 private const val SRC_WALKS = "ct-walks"
 private const val SRC_STOPS = "ct-stops"
 private const val SRC_HIGHLIGHTS = "ct-highlights"
@@ -964,6 +966,15 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 ).withFilter(eq(get("band"), literal(rail.band))),
             )
         }
+        under(
+            LineLayer("ct-lines-faint", SRC_LINES).withProperties(
+                lineColor(toColor(get("color"))),
+                lineWidth(FAINT_LINE_WIDTH),
+                lineOpacity(FAINT_LINE_OPACITY),
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND),
+            ).withFilter(eq(get("dash"), literal(FAINT_DASH))),
+        )
         under(
             LineLayer("ct-lines-casing", SRC_LINES).withProperties(
                 lineColor(if (dark) MapColors.InkDark.toArgb() else android.graphics.Color.WHITE),

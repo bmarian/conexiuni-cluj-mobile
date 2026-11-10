@@ -44,6 +44,12 @@ class RoutePath(private val lats: DoubleArray, private val lons: DoubleArray, pr
         return lats[lo] + (lats[hi] - lats[lo]) * k to lons[lo] + (lons[hi] - lons[lo]) * k
     }
 
+    fun between(from: Double, to: Double): List<LatLon> = buildList {
+        add(pointAt(from).let { LatLon(it.first, it.second) })
+        for (i in at.indices) if (at[i] > from && at[i] < to) add(LatLon(lats[i], lons[i]))
+        add(pointAt(to).let { LatLon(it.first, it.second) })
+    }
+
     fun headingAt(s: Double): Double {
         val (fromLat, fromLon) = pointAt(s - HEADING_SPAN_M)
         val (toLat, toLon) = pointAt(s + HEADING_SPAN_M)

@@ -255,8 +255,8 @@ class SyncEngine(private val vault: SyncVault) {
             for (slug in SyncLocal.syncedCities()) {
                 step("city:$slug", cityKind(slug, run))
                 step("news:$slug", newsKind(slug))
-                step("recents:$slug", recentsKind(slug))
                 step("groups:$slug", groupsKind(slug, run))
+                step("recents:$slug", recentsKind(slug))
             }
         } finally {
             vault.saveBases(run.bases)

@@ -60,6 +60,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
 import online.bus.bmarian.conexiuniclujmobile.logic.groupLabel
 import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
 import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
+import online.bus.bmarian.conexiuniclujmobile.logic.stretchNames
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
@@ -176,7 +177,7 @@ fun GroupScreen(raw: String) {
                 val route = index?.route(line.routeId) ?: return@items
                 val row = ui?.rows?.firstOrNull { it.line == line }
                 GroupLineCard(
-                    route, line, row?.stopId?.let { index?.stop(it)?.name }, row, ui?.now, line.routeId in hidden,
+                    route, line, row?.stopId?.let { index?.stop(it)?.name }, index?.stretchNames(line)?.second, row, ui?.now, line.routeId in hidden,
                     onFlip = { vm.flip(line.routeId) },
                     onToggle = { vm.toggleHidden(line.routeId) },
                 ) { nav.route(line.routeId, line.direction, fromStopId = row?.stopId) }
@@ -199,6 +200,7 @@ private fun GroupLineCard(
     route: NetworkRoute,
     line: GroupLine,
     from: String?,
+    to: String?,
     row: GroupRow?,
     now: LocalDateTime?,
     hidden: Boolean,
@@ -212,7 +214,7 @@ private fun GroupLineCard(
         shortName = route.shortName,
         color = route.color,
         destination = directedDestination(route.longName, line.direction),
-        subtitle = from?.let { stringResource(R.string.w_from, it) }.orEmpty(),
+        subtitle = from?.let { stretchLabel(it, to) }.orEmpty(),
         onClick = onClick,
         modifier = Modifier.alpha(if (hidden) 0.55f else 1f),
         trailing = {
