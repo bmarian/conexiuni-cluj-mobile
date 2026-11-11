@@ -110,6 +110,8 @@
     <string name="leave_detail">%1$s %2$s · %3$s walk</string>
     <string name="remind_menu">Remind me…</string>
     <string name="remind_set">Remind me</string>
+    <string name="hint_remind_title">You use this stop around the same time</string>
+    <string name="hint_remind_body">You can get a reminder when it\'s time to leave.</string>
     <string name="remind_once">Once</string>
     <string name="remind_repeat">Repeat</string>
     <string name="remind_last_bus">Last bus</string>

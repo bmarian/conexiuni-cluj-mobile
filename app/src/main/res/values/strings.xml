@@ -116,6 +116,8 @@
     <string name="leave_bus" translatable="false">%1$s %2$s</string>
     <string name="remind_menu">Amintește-mi…</string>
     <string name="remind_set">Amintește-mi</string>
+    <string name="hint_remind_title">Folosești stația cam la aceeași oră</string>
+    <string name="hint_remind_body">Poți primi un memento când e timpul să pleci.</string>
     <string name="remind_once">O dată</string>
     <string name="remind_repeat">Repetă</string>
     <string name="remind_last_bus">Ultimul autobuz</string>

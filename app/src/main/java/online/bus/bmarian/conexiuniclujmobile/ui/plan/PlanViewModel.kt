@@ -16,6 +16,7 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
+import online.bus.bmarian.conexiuniclujmobile.logic.FirstSteps
 import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
 import online.bus.bmarian.conexiuniclujmobile.data.LiveState
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
@@ -267,6 +268,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
                 setPlanData(data)
                 currentQueryKey = qk
                 if (!silent && data.options.isNotEmpty()) {
+                    Services.settings.markFirstStep(FirstSteps.PLAN)
                     fitRequests.value++
                     if (Services.online.value) {
                         val o = customOrigin.value

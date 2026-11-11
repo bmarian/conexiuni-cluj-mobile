@@ -92,6 +92,13 @@ import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.RouteRow
 import java.util.Locale
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
+import androidx.compose.runtime.produceState
+import online.bus.bmarian.conexiuniclujmobile.data.Api
+import online.bus.bmarian.conexiuniclujmobile.data.Cities
+import online.bus.bmarian.conexiuniclujmobile.data.DestinationSummary
+import online.bus.bmarian.conexiuniclujmobile.logic.searchExamples
+import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
+import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 
 fun planQueryFor(plan: FavoritePlan): PlanQuery {
     val withOrigin = plan.originLat != null && plan.originLon != null && !plan.originName.isNullOrEmpty()
@@ -104,6 +111,7 @@ fun planQueryFor(plan: FavoritePlan): PlanQuery {
 }
 
 private const val RECENTS_SHOWN = 8
+private val areasByCity = mutableMapOf<String, List<DestinationSummary>>()
 private const val DOCKED_HEIGHT_RATIO = 2f / 3f
 private val DOCKED_MIN_HEIGHT = 240.dp
 private val DockedShape = RoundedCornerShape(28.dp)
@@ -173,6 +181,16 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
         stops.sortedWith { a, b -> collator.compare(a.name, b.name) }.let { sorted -> index?.oneStopPerStation(sorted) ?: sorted }
     }
     val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
+    val city by Cities.current.collectAsStateWithLifecycle()
+    val areas by produceState(areasByCity[city].orEmpty(), city, online) {
+        if (online && city !in areasByCity) {
+            runCatching { Api.get<List<DestinationSummary>>("destinations", city) }.getOrNull()?.let {
+                areasByCity[city] = it
+                value = it
+            }
+        }
+    }
+    val examples = remember(index, areas, online) { index?.let { searchExamples(it, if (online) areas else emptyList()) } }
 
     fun go(action: () -> Unit) {
         focusManager.clearFocus()
@@ -271,6 +289,42 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                     return@LazyColumn
                 }
 
+                if (recents.isEmpty() && examples != null && !examples.isEmpty) {
+                    item(key = "examples") { SubLabel(stringResource(R.string.w_search_examples), Modifier.padding(top = 8.dp)) }
+                    examples.line?.let { line ->
+                        item(key = "example-line") {
+                            ResultRow(
+                                icon = { Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { LineBadge(line.shortName, line.color, height = 26.dp, minWidth = 36.dp, corner = 6.dp) } },
+                                title = line.shortName,
+                                distance = null,
+                                subtitle = stringResource(R.string.w_search_example_line),
+                                onClick = { state.query = line.shortName },
+                            )
+                        }
+                    }
+                    examples.stop?.let { stop ->
+                        item(key = "example-stop") {
+                            ResultRow(
+                                icon = { StationIcon(index?.look(stop.stopId), size = 36.dp) },
+                                title = stop.name,
+                                distance = null,
+                                subtitle = stringResource(R.string.w_search_example_stop),
+                                onClick = { state.query = stop.name },
+                            )
+                        }
+                    }
+                    examples.place?.let { place ->
+                        item(key = "example-place") {
+                            ResultRow(
+                                icon = { RowIcon(Icons.Rounded.Place, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
+                                title = place,
+                                distance = null,
+                                subtitle = stringResource(R.string.w_search_example_place),
+                                onClick = { state.query = place },
+                            )
+                        }
+                    }
+                }
                 if (recents.isNotEmpty()) {
                     item { SubLabel(stringResource(R.string.w_recent_destinations), Modifier.padding(top = 8.dp)) }
                     items(recents, key = { "recent-${it.recent.key}" }) { item ->

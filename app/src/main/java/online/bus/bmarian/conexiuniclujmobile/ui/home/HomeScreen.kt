@@ -88,6 +88,10 @@ import online.bus.bmarian.conexiuniclujmobile.data.SavedGroup
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
+import online.bus.bmarian.conexiuniclujmobile.logic.FirstSteps
+import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 /** One chip per line: both directions saved show as one and open the direction nearest the user. */
 private class RouteChip(val route: Route, val parts: List<String>, val both: Boolean, val favorites: List<FavoriteRoute>) {
@@ -157,6 +161,23 @@ fun HomeScreen() {
     val groups by Services.groups.saved.collectAsStateWithLifecycle()
     val hasFavorites = shownFavorites > 0 || groups.isNotEmpty() || (online && favoritePlans.isNotEmpty())
     val recents = remember(recentList, stops, routes, favoritePlans, online) { recentItems(recentList, stops, routes, favoritePlans, online, RECENTS_SHOWN) }
+
+    val firstSteps by Services.settings.firstSteps.collectAsStateWithLifecycle()
+    val stepsLeft = firstSteps?.left.orEmpty()
+    LaunchedEffect(Unit) {
+        Services.settings.startFirstSteps(favoriteRoutes.isEmpty() && favoriteStopIds.isEmpty() && groups.isEmpty() && favoritePlans.isEmpty() && recentList.isEmpty())
+    }
+    LaunchedEffect(favoriteStopIds, favoriteRoutes, groups) {
+        if (favoriteStopIds.isNotEmpty()) Services.settings.markFirstStep(FirstSteps.STOP)
+        if (favoriteRoutes.isNotEmpty() || groups.isNotEmpty()) Services.settings.markFirstStep(FirstSteps.LINE)
+    }
+    val me by Services.location.collectAsStateWithLifecycle()
+    val nearest = remember(me, index) {
+        val fix = me ?: return@remember null
+        index?.bundle?.stops?.filter { index?.look(it.stopId)?.routes?.isNotEmpty() == true }
+            ?.minByOrNull { haversineMeters(fix.lat, fix.lon, it.lat, it.lon) }
+    }
+    val scope = rememberCoroutineScope()
 
     fun openRoute(route: Route, direction: String) = nav.route(route.routeId, direction)
 
@@ -252,6 +273,27 @@ fun HomeScreen() {
         item(key = "places") { PlaceChips() }
         if (arranging) {
             item(key = "arrange-bar") { ArrangeBar(onSave = { arranging = false }) }
+        } else if (stepsLeft.isNotEmpty()) {
+            item(key = "first-steps") {
+                FirstStepsCard(
+                    left = stepsLeft,
+                    nearest = nearest,
+                    nearestLook = nearest?.let { index?.look(it.stopId) },
+                    onPlan = { HomeRequests.search.value = "" },
+                    onFindStop = { HomeRequests.search.value = "" },
+                    onOpenStop = { nav.stop(it.stopId) },
+                    onSaveStop = { stop -> Services.favorites.toggleStation(stop.stopId, index?.platforms(stop.stopId).orEmpty().map { it.stopId }) },
+                    onLines = {
+                        scope.launch {
+                            val at = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "lines-in" }?.index
+                                ?: (listOfNotNull(journey).size + follows.size + 2 + shownSections.size)
+                            listState.animateScrollToItem(at)
+                        }
+                    },
+                    onHide = Services.settings::hideFirstSteps,
+                    modifier = Modifier.animateItem(),
+                )
+            }
         }
         items(shownSections, key = { "section-$it" }) { id ->
             HomeSectionCard(
@@ -354,7 +396,7 @@ fun HomeScreen() {
                 }
             }
         }
-        if (!hasFavorites && recents.isEmpty()) {
+        if (!hasFavorites && recents.isEmpty() && stepsLeft.isEmpty()) {
             item(key = "empty") {
                 Text(
                     stringResource(R.string.w_no_favorites),
@@ -364,7 +406,7 @@ fun HomeScreen() {
                 )
             }
         }
-        if (!hasFavorites) {
+        if (!hasFavorites || stepsLeft.isNotEmpty()) {
             allLines(lines) { nav.route(it.routeId, "auto") }
         }
         item(key = "end") { Spacer(Modifier.height(24.dp)) }

@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import online.bus.bmarian.conexiuniclujmobile.R
+import online.bus.bmarian.conexiuniclujmobile.logic.FirstSteps
+import online.bus.bmarian.conexiuniclujmobile.logic.HintState
+import online.bus.bmarian.conexiuniclujmobile.logic.Hints
 import online.bus.bmarian.conexiuniclujmobile.logic.HomeSections
 import java.util.Locale
 
@@ -120,6 +123,42 @@ class Settings(private val context: Context) {
     }
 
     fun toggleHomeSection(id: String) = setHomeCollapsed(_homeCollapsed.value.let { if (id in it) it - id else it + id })
+
+    private val _firstSteps = MutableStateFlow(
+        if (prefs.contains("home.firstSteps.on")) FirstSteps(prefs.getBoolean("home.firstSteps.on", false), savedList("home.firstSteps.done")) else null,
+    )
+    val firstSteps: StateFlow<FirstSteps?> = _firstSteps
+
+    private fun setFirstSteps(next: FirstSteps) {
+        if (next == _firstSteps.value) return
+        _firstSteps.value = next
+        prefs.edit {
+            putBoolean("home.firstSteps.on", next.on)
+            putString("home.firstSteps.done", next.done.joinToString(","))
+        }
+    }
+
+    fun startFirstSteps(fresh: Boolean) {
+        if (_firstSteps.value == null) setFirstSteps(FirstSteps(fresh))
+    }
+
+    fun markFirstStep(step: String) {
+        _firstSteps.value?.let { setFirstSteps(it.mark(step)) }
+    }
+
+    fun hideFirstSteps() {
+        _firstSteps.value?.let { setFirstSteps(it.hidden()) }
+    }
+
+    private val _hints = MutableStateFlow(Hints.read(prefs.getString("hints", null)))
+    val hints: StateFlow<HintState> = _hints
+
+    fun updateHints(change: (HintState) -> HintState) {
+        val next = change(_hints.value)
+        if (next == _hints.value) return
+        _hints.value = next
+        prefs.edit { putString("hints", Hints.write(next)) }
+    }
 
     // Saved as "{city}:{key}"; Cluj's were saved before cities under the bare key.
     private fun regionKey(city: String, key: String) = "$city:$key"

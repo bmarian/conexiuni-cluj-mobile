@@ -94,6 +94,14 @@ import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
 import online.bus.bmarian.conexiuniclujmobile.follow.justNotify
 import online.bus.bmarian.conexiuniclujmobile.follow.nextBusReminder
 import online.bus.bmarian.conexiuniclujmobile.logic.DueArrivals
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.Hint
+import online.bus.bmarian.conexiuniclujmobile.logic.HintContext
+import online.bus.bmarian.conexiuniclujmobile.logic.HintLine
+import online.bus.bmarian.conexiuniclujmobile.logic.Hints
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
+import java.time.LocalDate
+import java.time.LocalDateTime
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.groupByMode
@@ -237,8 +245,16 @@ fun StopScreen(stopId: Int) {
 
     fun platformOf(departure: StopDeparture) = if (departure.stopId != 0) departure.stopId else stopId
 
+    val hintStop = remember(index, city, stopId) { index?.let { "$city:${it.stationId(stopId)}" } }
+    fun noteLine(routeId: Int, tripId: String, platform: Int) {
+        val key = hintStop ?: return
+        val day = LocalDate.now().toString()
+        Services.settings.updateHints { Hints.openLineFromStop(it, key, HintLine(routeId, directionFromTripId(tripId), platform), day) }
+    }
+
     fun openDeparture(departure: StopDeparture) {
         val shape = vm.platformOf(departure.routeId)?.shapesInfo?.find { it.routeId == departure.routeId } ?: return
+        noteLine(departure.routeId, departure.tripId, platformOf(departure))
         RouteHandoff.set(shape, departure.tripId, platformOf(departure), name.orEmpty())
         nav.route(departure.routeId, directionFromTripId(departure.tripId), fromStopId = platformOf(departure))
     }
@@ -248,6 +264,7 @@ fun StopScreen(stopId: Int) {
         val tripId = platform?.let { tripIdForRouteAtStop(it.outgoingTripIds, it.incomingTripIds, shape.routeId) }
             ?: tripIdFor(shape.routeId, "0")
         val from = platform?.stopId ?: stopId
+        noteLine(shape.routeId, tripId, from)
         RouteHandoff.set(shape, tripId, from, name.orEmpty())
         nav.route(shape.routeId, directionFromTripId(tripId), fromStopId = from)
     }
@@ -290,6 +307,55 @@ fun StopScreen(stopId: Int) {
                 }
             }
         }
+    }
+
+    val savedGroups by Services.groups.saved.collectAsStateWithLifecycle()
+    var hinted by rememberSaveable(stopId) { mutableStateOf(false) }
+    LaunchedEffect(hintStop, departures != null) {
+        val key = hintStop ?: return@LaunchedEffect
+        val shown = departures ?: return@LaunchedEffect
+        if (hinted) return@LaunchedEffect
+        hinted = true
+        val now = LocalDateTime.now()
+        val day = now.toLocalDate().toString()
+        Services.settings.updateHints { Hints.visitStop(it, key, day, now.hour) }
+        val grouped = { a: HintLine, b: HintLine -> savedGroups.any { g -> g.lines.any { it.routeId == a.routeId } && g.lines.any { it.routeId == b.routeId } } }
+        val hint = Hints.pick(Services.settings.hints.value, HintContext(key, day, now.hour, isFavorite, grouped, canRemind = shown.isNotEmpty()))
+            ?: return@LaunchedEffect
+        when (hint) {
+            Hint.Save -> Services.settings.showToast(
+                resources.getString(R.string.w_hint_save_title),
+                resources.getString(R.string.w_hint_save_body),
+                resources.getString(R.string.save),
+            ) {
+                val known = Services.repository.network.index.value
+                if (known.favoritePlatform(stopId, Services.favorites.stops.value) == null) {
+                    Services.favorites.toggleStation(stopId, known?.platforms(stopId).orEmpty().map { it.stopId })
+                }
+            }
+            is Hint.Group -> {
+                val known = index ?: return@LaunchedEffect
+                val lines = listOf(hint.a, hint.b).map { GroupLine(it.routeId, it.direction, from = it.platform) }
+                Services.settings.showToast(
+                    resources.getString(R.string.w_hint_group_title, known.route(hint.a.routeId)?.shortName.orEmpty(), known.route(hint.b.routeId)?.shortName.orEmpty()),
+                    resources.getString(R.string.w_hint_group_body),
+                    resources.getString(R.string.group_create),
+                ) { nav.groupPick(known.writeLines(lines), null, false) }
+            }
+            Hint.Remind -> {
+                val departure = shown.first()
+                val followed = Followed(
+                    platformOf(departure), name.orEmpty(), departure.routeId, departure.tripId,
+                    departure.shortName, departure.color, routeDestination(departure.longName), city,
+                )
+                Services.settings.showToast(
+                    resources.getString(R.string.hint_remind_title),
+                    resources.getString(R.string.hint_remind_body),
+                    resources.getString(R.string.remind_set),
+                ) { reminding = followed }
+            }
+        }
+        Services.settings.updateHints { Hints.markShown(it, hint.id, day) }
     }
 
     val listState = rememberLazyListState()
