@@ -6,7 +6,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.activity.compose.BackHandler
 import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
-import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLegs
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
 import androidx.compose.animation.animateContentSize
@@ -355,7 +355,7 @@ fun HomeScreen() {
                             index,
                             Modifier.reorderItem(groupReorder, group.key).longPressDrag(groupReorder, group.key),
                             lifted = groupReorder.dragging == group.key,
-                        ) { index?.let { nav.group(it.writeLines(group.lines)) } }
+                        ) { index?.let { nav.group(it.writeLegs(group.legs)) } }
                     }
                     HomeSections.STOPS -> for (stop in favoriteStops) key(stop.stopId) {
                         FavoriteStopRow(
@@ -385,7 +385,7 @@ fun HomeScreen() {
                             byKind = true,
                             onClick = {
                                 if (plan != null) openPlan(plan)
-                                else if (group != null) index?.let { nav.group(it.writeLines(group)) }
+                                else if (group != null) index?.let { nav.group(it.writeLegs(group)) }
                                 else {
                                     Services.favorites.addRecent(item.recent)
                                     if (stop != null) nav.stop(stop.stopId) else if (route != null) openRoute(route, "auto")

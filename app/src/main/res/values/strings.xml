@@ -176,6 +176,9 @@
     <string name="group_name">Nume</string>
     <string name="group_rename">Redenumește</string>
     <string name="group_flip">Schimbă sensul</string>
+    <string name="group_leg_dus">Dus</string>
+    <string name="group_leg_intors">Întors</string>
+    <string name="group_same_back">Aceleași linii, în sens invers</string>
     <string name="group_remove_line">Scoate linia</string>
     <string name="group_no_more">Nu mai pleacă azi</string>
     <string name="group_show_line">Arată pe hartă</string>

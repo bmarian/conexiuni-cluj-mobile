@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -21,19 +23,20 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.LiveState
 import online.bus.bmarian.conexiuniclujmobile.data.LiveStream
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
-import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
 import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.logic.CLUJ_ZONE
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.Leg
 import online.bus.bmarian.conexiuniclujmobile.logic.StopDeparture
 import online.bus.bmarian.conexiuniclujmobile.logic.boardingStop
-import online.bus.bmarian.conexiuniclujmobile.logic.flipLine
+import online.bus.bmarian.conexiuniclujmobile.logic.nearerLeg
+import online.bus.bmarian.conexiuniclujmobile.logic.on
 import online.bus.bmarian.conexiuniclujmobile.logic.passedBy
-import online.bus.bmarian.conexiuniclujmobile.logic.readLines
+import online.bus.bmarian.conexiuniclujmobile.logic.readLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.stopDepartures
 import online.bus.bmarian.conexiuniclujmobile.logic.stretchSpan
 import online.bus.bmarian.conexiuniclujmobile.logic.tripOf
-import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapShape
 import online.bus.bmarian.conexiuniclujmobile.ui.map.MapVehicle
 
@@ -45,15 +48,28 @@ class GroupUi(val rows: List<GroupRow>, val now: LocalDateTime)
 /** [boarding]: where the shown lines' times are from. */
 class GroupMapLayer(val shapes: List<MapShape>, val vehicles: List<MapVehicle>, val boarding: Set<Int>)
 
-private const val LINII = "linii"
+private const val SENS = "sens"
 
-class GroupViewModel(raw: String, private val state: SavedStateHandle) : ViewModel() {
+class GroupViewModel(raw: String, picked: Leg?, private val state: SavedStateHandle) : ViewModel() {
     private val repository = Services.repository
     val index: StateFlow<NetworkIndex?> = repository.network.index
 
+    val legs: StateFlow<GroupLegs?> = index.map { it?.readLegs(raw) }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val leg: StateFlow<Leg> = state.getStateFlow(SENS, picked?.slug).map { Leg.of(it) ?: Leg.Dus }.stateIn(viewModelScope, SharingStarted.Eagerly, Leg.Dus)
+
     /** Null until the network is in. */
-    val lines: StateFlow<List<GroupLine>?> = combine(index, state.getStateFlow(LINII, raw)) { index, raw -> index?.readLines(raw) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val lines: StateFlow<List<GroupLine>?> = combine(legs, leg) { legs, leg -> legs?.on(leg) }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    init {
+        // Picked once, not on every fix.
+        if (state.get<String>(SENS) == null) viewModelScope.launch {
+            val near = combine(index, Services.location) { index, fix ->
+                if (index == null || fix == null) null else index.nearerLeg(index.readLegs(raw), fix.lat, fix.lon)
+            }.filterNotNull().first()
+            if (state.get<String>(SENS) == null) state[SENS] = near.slug
+        }
+    }
+
     private val _hidden = MutableStateFlow<Set<Int>>(emptySet())
     val hidden: StateFlow<Set<Int>> = _hidden
     private val shown = combine(lines, _hidden) { lines, hidden -> lines.orEmpty().filter { it.routeId !in hidden } }
@@ -67,13 +83,9 @@ class GroupViewModel(raw: String, private val state: SavedStateHandle) : ViewMod
     val beat: StateFlow<Long?> = live.map { it?.asOfMs }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val shapes = MutableStateFlow<Map<String, List<ShapePoint>>>(emptyMap())
 
-    fun flip(routeId: Int) {
-        val index = index.value ?: return
-        val before = lines.value ?: return
-        val after = before.map { if (it.routeId == routeId) index.flipLine(it) else it }
-        Services.groups.replaceLines(before, after)
-        Services.favorites.removeRecent(RecentGroup(before))
-        state[LINII] = index.writeLines(after)
+    fun switchLeg() {
+        state[SENS] = leg.value.other.slug
+        _hidden.value = emptySet()
     }
 
     fun toggleHidden(routeId: Int) {

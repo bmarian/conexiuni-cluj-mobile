@@ -29,13 +29,15 @@ import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.logic.Call
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.Leg
 import online.bus.bmarian.conexiuniclujmobile.logic.byModeThenNumber
 import online.bus.bmarian.conexiuniclujmobile.logic.callsByStation
 import online.bus.bmarian.conexiuniclujmobile.logic.lineStops
 import online.bus.bmarian.conexiuniclujmobile.logic.lineUse
 import online.bus.bmarian.conexiuniclujmobile.logic.matching
+import online.bus.bmarian.conexiuniclujmobile.logic.on
 import online.bus.bmarian.conexiuniclujmobile.logic.opposite
-import online.bus.bmarian.conexiuniclujmobile.logic.readLines
+import online.bus.bmarian.conexiuniclujmobile.logic.readLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.usageOrder
 import online.bus.bmarian.conexiuniclujmobile.logic.viaStops
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
@@ -56,12 +58,12 @@ private class Through(val stop: Stop, val calls: List<Call>, val rank: Int)
 
 /** Port of views/GroupAddView.vue. */
 @Composable
-fun GroupAddScreen(raw: String, edit: String?) {
+fun GroupAddScreen(raw: String, edit: String?, leg: Leg) {
     val nav = LocalNavigator.current
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val favorites by Services.favorites.routes.collectAsStateWithLifecycle()
     val recents by Services.favorites.recents.collectAsStateWithLifecycle()
-    val lines = remember(index, raw) { index?.readLines(raw).orEmpty() }
+    val lines = remember(index, raw) { index?.readLegs(raw)?.on(leg).orEmpty() }
     GroupMap(lines)
     var query by rememberSaveable { mutableStateOf("") }
     val known = index ?: return
@@ -107,7 +109,7 @@ fun GroupAddScreen(raw: String, edit: String?) {
     fun pick(routeId: Int, direction: String? = null, from: Int? = null) {
         val inGroup = added(routeId)
         if (inGroup == null && Services.favorites.atCap(lines, SyncRecords.GROUP_LINES_CAP)) return
-        nav.groupStops(raw, edit, known.writeLines(listOf(inGroup ?: GroupLine(routeId, direction ?: directionFor(routeId), from))))
+        nav.groupStops(raw, edit, known.writeLines(listOf(inGroup ?: GroupLine(routeId, direction ?: directionFor(routeId), from))), leg)
     }
 
     fun LazyListScope.lineRows(key: String, label: @Composable () -> String, list: List<NetworkRoute>) {

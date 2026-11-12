@@ -11,6 +11,20 @@ import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 @Serializable
 data class GroupLine(val routeId: Int, val direction: String, val from: Int? = null, val to: Int? = null)
 
+data class GroupLegs(val lines: List<GroupLine>, val back: List<GroupLine>? = null)
+
+enum class Leg(val slug: String) {
+    Dus("dus"),
+    Intors("intors"),
+    ;
+
+    val other get() = if (this == Dus) Intors else Dus
+
+    companion object {
+        fun of(text: String?) = entries.firstOrNull { it.slug == text }
+    }
+}
+
 enum class StretchEnd { From, To }
 
 enum class StopRole { Board, Near, Leave, Pass }
@@ -22,6 +36,7 @@ class Stretch(val stops: List<Int>, val from: Int, val to: Int)
 
 private const val INTORS = ".intors"
 private const val STOPS = ':'
+private const val BACK = '|'
 
 fun tripOf(line: GroupLine) = "${line.routeId}_${line.direction}"
 
@@ -32,6 +47,14 @@ private val GroupLine.hasStops get() = from != null || to != null
 fun lineKey(line: GroupLine) = "${line.routeId}/${line.direction}" + if (line.hasStops) "/${line.from ?: ""}/${line.to ?: ""}" else ""
 
 fun groupKey(lines: List<GroupLine>) = lines.joinToString(",", transform = ::lineKey)
+
+fun legsOf(lines: List<GroupLine>, back: List<GroupLine>?) = GroupLegs(lines, back?.takeIf { it.isNotEmpty() })
+
+fun legsKey(legs: GroupLegs) = groupKey(legs.lines) + (legs.back?.let { "$BACK${groupKey(it)}" } ?: "")
+
+fun GroupLegs.on(leg: Leg) = if (leg == Leg.Intors) back.orEmpty() else lines
+
+fun GroupLegs.with(leg: Leg, lines: List<GroupLine>) = if (leg == Leg.Intors) legsOf(this.lines, lines) else legsOf(lines, back)
 
 fun NetworkIndex.lineStops(line: GroupLine): List<Int> = tripStopIds(tripOf(line))
 
@@ -71,6 +94,14 @@ fun NetworkIndex.readLines(raw: String): List<GroupLine> {
     return lines
 }
 
+/** Port of writeEdited in composables/useGroupBuilder.ts. */
+fun NetworkIndex.writeLegs(legs: GroupLegs) = writeLines(legs.lines) + (legs.back?.let { "$BACK${writeLines(it)}" } ?: "")
+
+fun NetworkIndex.readLegs(raw: String): GroupLegs {
+    val parts = raw.split(BACK)
+    return legsOf(readLines(parts[0]), parts.getOrNull(1)?.let(::readLines))
+}
+
 fun NetworkIndex.groupRoutes(lines: List<GroupLine>): List<NetworkRoute> = lines.mapNotNull { route(it.routeId) }
 
 fun groupLabel(routes: List<NetworkRoute>) = routes.joinToString(", ") { it.shortName }
@@ -82,6 +113,17 @@ fun NetworkIndex.boardingStop(line: GroupLine, lat: Double?, lon: Double?): Int?
     val boardable = stretch.stops.take(stretch.to.coerceAtLeast(0))
     if (lat == null || lon == null) return boardable.firstOrNull()
     return boardable.minByOrNull { id -> stop(id)?.let { haversineMeters(lat, lon, it.lat, it.lon) } ?: Double.MAX_VALUE }
+}
+
+private fun NetworkIndex.boardingDistance(lines: List<GroupLine>, lat: Double, lon: Double) = lines.minOfOrNull { line ->
+    boardingStop(line, lat, lon)?.let(::stop)?.let { haversineMeters(lat, lon, it.lat, it.lon) } ?: Double.MAX_VALUE
+} ?: Double.MAX_VALUE
+
+/** The way there on a tie. */
+fun NetworkIndex.nearerLeg(legs: GroupLegs, lat: Double?, lon: Double?): Leg {
+    val back = legs.back
+    if (back == null || lat == null || lon == null) return Leg.Dus
+    return if (boardingDistance(back, lat, lon) < boardingDistance(legs.lines, lat, lon)) Leg.Intors else Leg.Dus
 }
 
 fun NetworkIndex.stretchNames(line: GroupLine): Pair<String?, String?> {

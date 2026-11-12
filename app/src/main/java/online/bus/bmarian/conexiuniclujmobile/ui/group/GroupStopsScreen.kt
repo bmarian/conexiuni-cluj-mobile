@@ -35,17 +35,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.Leg
 import online.bus.bmarian.conexiuniclujmobile.logic.StopRole
 import online.bus.bmarian.conexiuniclujmobile.logic.StopRow
 import online.bus.bmarian.conexiuniclujmobile.logic.StretchEnd
 import online.bus.bmarian.conexiuniclujmobile.logic.boardingStop
 import online.bus.bmarian.conexiuniclujmobile.logic.flipLine
 import online.bus.bmarian.conexiuniclujmobile.logic.lineStops
+import online.bus.bmarian.conexiuniclujmobile.logic.on
 import online.bus.bmarian.conexiuniclujmobile.logic.opposite
 import online.bus.bmarian.conexiuniclujmobile.logic.pickStop
+import online.bus.bmarian.conexiuniclujmobile.logic.readLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.readLines
 import online.bus.bmarian.conexiuniclujmobile.logic.stopRows
 import online.bus.bmarian.conexiuniclujmobile.logic.stretchNames
+import online.bus.bmarian.conexiuniclujmobile.logic.with
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
@@ -61,11 +66,12 @@ private val StopRow.painted: ClosedFloatingPointRange<Float>?
 
 /** Port of views/GroupStopsView.vue. */
 @Composable
-fun GroupStopsScreen(raw: String, edit: String?, rawLine: String) {
+fun GroupStopsScreen(raw: String, edit: String?, rawLine: String, leg: Leg) {
     val nav = LocalNavigator.current
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val fix by Services.location.collectAsStateWithLifecycle()
-    val lines = remember(index, raw) { index?.readLines(raw).orEmpty() }
+    val legs = remember(index, raw) { index?.readLegs(raw) }
+    val lines = legs?.on(leg).orEmpty()
     var written by rememberSaveable { mutableStateOf(rawLine) }
     val line = remember(index, written) { index?.readLines(written)?.firstOrNull() }
     var chosenEnd by rememberSaveable { mutableStateOf<StretchEnd?>(null) }
@@ -170,7 +176,10 @@ fun GroupStopsScreen(raw: String, edit: String?, rawLine: String) {
                 }
             }
             Button(
-                onClick = { nav.groupBuilt(known.writeLines(if (isNew) lines + line else lines.map { if (it.routeId == line.routeId) line else it }), edit) },
+                onClick = {
+                    val next = if (isNew) lines + line else lines.map { if (it.routeId == line.routeId) line else it }
+                    legs?.let { nav.groupBuilt(known.writeLegs(it.with(leg, next)), edit, leg) }
+                },
                 modifier = Modifier.weight(1f),
                 shapes = ButtonDefaults.shapes(),
             ) {

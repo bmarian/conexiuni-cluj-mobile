@@ -83,7 +83,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.logic.sortedRoutes
-import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLegs
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalNavigator
 import online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
@@ -337,7 +337,7 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                                 plan != null -> go { nav.plan(planQueryFor(plan)) }
                                 stop != null -> openStop(stop)
                                 route != null -> openRoute(route)
-                                group != null -> index?.let { known -> go { nav.group(known.writeLines(group)) } }
+                                group != null -> index?.let { known -> go { nav.group(known.writeLegs(group)) } }
                             }
                         }
                     }

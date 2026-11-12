@@ -19,7 +19,8 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.sync.SyncRecords
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
-import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
+import online.bus.bmarian.conexiuniclujmobile.logic.legsKey
+import online.bus.bmarian.conexiuniclujmobile.logic.legsOf
 
 @Serializable
 data class FavoriteRoute(val routeId: Int, val direction: String)
@@ -64,8 +65,9 @@ data class RecentRoute(val routeId: Int) : Recent {
     override val key get() = "route-$routeId"
 }
 
-data class RecentGroup(val lines: List<GroupLine>) : Recent {
-    override val key get() = "group-${groupKey(lines)}"
+data class RecentGroup(val lines: List<GroupLine>, val back: List<GroupLine>? = null) : Recent {
+    val legs get() = legsOf(lines, back)
+    override val key get() = "group-${legsKey(legs)}"
 }
 
 /** Saved favorites of one city. */
@@ -252,11 +254,12 @@ class Favorites(private val context: Context) {
                 val r = item as? JsonObject ?: return@mapNotNull null
                 val stopId = r.number("stopId")?.toInt()
                 val routeId = r.number("routeId")?.toInt()
-                val lines = r["lines"]?.let { runCatching { Api.json.decodeFromJsonElement<List<GroupLine>>(it) }.getOrNull() }
+                fun lines(key: String) = r[key]?.let { runCatching { Api.json.decodeFromJsonElement<List<GroupLine>>(it) }.getOrNull() }
+                val lines = lines("lines")
                 when {
                     stopId != null -> RecentStop(stopId)
                     routeId != null -> RecentRoute(routeId)
-                    !lines.isNullOrEmpty() -> RecentGroup(lines)
+                    !lines.isNullOrEmpty() -> RecentGroup(lines, lines("back")?.takeIf { it.isNotEmpty() })
                     else -> parsePlans(JsonArray(listOf(r))).firstOrNull()?.let(::RecentPlan)
                 }
             }
@@ -268,7 +271,10 @@ class Favorites(private val context: Context) {
                     is RecentPlan -> Api.json.encodeToJsonElement(it.plan)
                     is RecentStop -> JsonObject(mapOf("stopId" to JsonPrimitive(it.stopId)))
                     is RecentRoute -> JsonObject(mapOf("routeId" to JsonPrimitive(it.routeId)))
-                    is RecentGroup -> JsonObject(mapOf("lines" to Api.json.encodeToJsonElement(it.lines)))
+                    is RecentGroup -> JsonObject(
+                        mapOf("lines" to Api.json.encodeToJsonElement(it.lines)) +
+                            it.back?.let { back -> mapOf("back" to Api.json.encodeToJsonElement(back)) }.orEmpty(),
+                    )
                 }
             },
         )

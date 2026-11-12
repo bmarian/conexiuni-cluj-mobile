@@ -55,12 +55,15 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentGroup
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
-import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
+import online.bus.bmarian.conexiuniclujmobile.logic.Leg
+import online.bus.bmarian.conexiuniclujmobile.logic.legsKey
 import online.bus.bmarian.conexiuniclujmobile.logic.groupLabel
 import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
 import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
 import online.bus.bmarian.conexiuniclujmobile.logic.stretchNames
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import online.bus.bmarian.conexiuniclujmobile.ui.ActionChips
 import online.bus.bmarian.conexiuniclujmobile.ui.ChipAction
@@ -82,14 +85,16 @@ import online.bus.bmarian.conexiuniclujmobile.ui.stop.directedDestination
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 
 @Composable
-fun groupViewModel(raw: String): GroupViewModel = viewModel(key = "group-$raw") { GroupViewModel(raw, createSavedStateHandle()) }
+fun groupViewModel(raw: String, leg: Leg?): GroupViewModel = viewModel(key = "group-$raw") { GroupViewModel(raw, leg, createSavedStateHandle()) }
 
-fun groupPath(index: NetworkIndex, lines: List<GroupLine>) = "/grup?linii=" + index.writeLines(lines)
+/** Port of groupQuery in utils/pagePaths.ts. */
+fun groupPath(index: NetworkIndex, legs: GroupLegs, leg: Leg) =
+    "/grup?linii=" + index.writeLines(legs.lines) + (legs.back?.let { "&intors=" + index.writeLines(it) + "&sens=${leg.slug}" } ?: "")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun GroupScreen(raw: String) {
-    val vm = groupViewModel(raw)
+fun GroupScreen(raw: String, picked: Leg?) {
+    val vm = groupViewModel(raw, picked)
     val nav = LocalNavigator.current
     val map = LocalMap.current
     val context = LocalContext.current
@@ -97,6 +102,8 @@ fun GroupScreen(raw: String) {
     LaunchedEffect(vm) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.live() } }
 
     val index by vm.index.collectAsStateWithLifecycle()
+    val legs by vm.legs.collectAsStateWithLifecycle()
+    val leg by vm.leg.collectAsStateWithLifecycle()
     val read by vm.lines.collectAsStateWithLifecycle()
     val lines = read.orEmpty()
     val hidden by vm.hidden.collectAsStateWithLifecycle()
@@ -104,10 +111,10 @@ fun GroupScreen(raw: String) {
     val beat by vm.beat.collectAsStateWithLifecycle()
     val layer by vm.mapLayer.collectAsStateWithLifecycle()
     val saved by Services.groups.saved.collectAsStateWithLifecycle()
-    val key = groupKey(lines)
+    val key = legs?.let(::legsKey)
     val group = saved.firstOrNull { it.key == key }
 
-    LaunchedEffect(key) { if (lines.isNotEmpty()) Services.favorites.addRecent(RecentGroup(lines)) }
+    LaunchedEffect(key) { legs?.takeIf { it.lines.isNotEmpty() }?.let { Services.favorites.addRecent(RecentGroup(it.lines, it.back)) } }
 
     val owner = remember { Any() }
     DisposableEffect(owner) {
@@ -124,7 +131,7 @@ fun GroupScreen(raw: String) {
     }
 
     val routes = remember(index, lines) { index?.groupRoutes(lines).orEmpty() }
-    val path = index?.let { groupPath(it, lines) }
+    val path = index?.let { known -> legs?.let { groupPath(known, it, leg) } }
     var naming by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
@@ -141,7 +148,9 @@ fun GroupScreen(raw: String) {
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(stringResource(R.string.group_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    val kicker = stringResource(R.string.group_title) +
+                        if (legs?.back != null) " · " + stringResource(if (leg == Leg.Dus) R.string.group_leg_dus else R.string.group_leg_intors) else ""
+                    Text(kicker, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     group?.name?.let { Text(it, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (route in routes) LineBadge(route.shortName, route.color, height = 36.dp, minWidth = 44.dp, corner = 12.dp)
@@ -150,7 +159,12 @@ fun GroupScreen(raw: String) {
             }
             item(key = "actions") {
                 val edit = ChipAction(stringResource(R.string.group_lines), Icons.Rounded.Edit) {
-                    index?.let { val written = it.writeLines(lines); nav.groupPick(written, edit = written.takeIf { group != null }, replace = true) }
+                    val known = index
+                    val current = legs
+                    if (known != null && current != null) {
+                        val written = known.writeLegs(current)
+                        nav.groupPick(written, edit = written.takeIf { group != null }, replace = true, leg = leg)
+                    }
                 }
                 ActionChips(
                     if (read?.isEmpty() == true) listOf(edit) else listOf(
@@ -159,8 +173,10 @@ fun GroupScreen(raw: String) {
                             if (group != null) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             selected = group != null,
                             tint = if (group != null) Palette.Rose else Color.Unspecified,
-                        ) { if (group != null) Services.groups.remove(lines) else naming = true },
+                        ) { if (group != null) legs?.let(Services.groups::remove) else naming = true },
                         edit,
+                    ) + listOfNotNull(
+                        legs?.back?.let { ChipAction(stringResource(R.string.group_flip), Icons.Rounded.SwapHoriz) { vm.switchLeg() } },
                         ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { path?.let { share(context, it) } },
                     ),
                     Modifier.padding(bottom = 8.dp),
@@ -178,7 +194,6 @@ fun GroupScreen(raw: String) {
                 val row = ui?.rows?.firstOrNull { it.line == line }
                 GroupLineCard(
                     route, line, row?.stopId?.let { index?.stop(it)?.name }, index?.stretchNames(line)?.second, row, ui?.now, line.routeId in hidden,
-                    onFlip = { vm.flip(line.routeId) },
                     onToggle = { vm.toggleHidden(line.routeId) },
                 ) { nav.route(line.routeId, line.direction, fromStopId = row?.stopId) }
             }
@@ -189,7 +204,7 @@ fun GroupScreen(raw: String) {
 
     if (naming) {
         GroupNameDialog(routes, group?.name, onDismiss = { naming = false }) { name ->
-            Services.groups.save(lines, name)
+            legs?.let { Services.groups.save(it, name) }
             naming = false
         }
     }
@@ -204,7 +219,6 @@ private fun GroupLineCard(
     row: GroupRow?,
     now: LocalDateTime?,
     hidden: Boolean,
-    onFlip: () -> Unit,
     onToggle: () -> Unit,
     onClick: () -> Unit,
 ) {
@@ -218,9 +232,6 @@ private fun GroupLineCard(
         onClick = onClick,
         modifier = Modifier.alpha(if (hidden) 0.55f else 1f),
         trailing = {
-            IconButton(onClick = onFlip) {
-                Icon(Icons.Rounded.SwapHoriz, stringResource(R.string.group_flip), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             IconButton(onClick = onToggle) {
                 Icon(
                     if (hidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,

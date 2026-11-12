@@ -7,15 +7,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
 import online.bus.bmarian.conexiuniclujmobile.logic.Usage
 import online.bus.bmarian.conexiuniclujmobile.logic.counted
-import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
+import online.bus.bmarian.conexiuniclujmobile.logic.legsKey
+import online.bus.bmarian.conexiuniclujmobile.logic.legsOf
 
 /** Same shape as FavoriteGroup in stores/favorites.ts. */
 @Serializable
-data class SavedGroup(val lines: List<GroupLine>, val name: String? = null) {
-    val key get() = groupKey(lines)
+data class SavedGroup(val lines: List<GroupLine>, val name: String? = null, val back: List<GroupLine>? = null) {
+    val legs get() = legsOf(lines, back)
+    val key get() = legsKey(legs)
 }
 
 class LineGroupStore(private val context: Context) {
@@ -48,23 +51,23 @@ class LineGroupStore(private val context: Context) {
         _saved.value = readSaved(prefs)
     }
 
-    fun find(lines: List<GroupLine>): SavedGroup? = groupKey(lines).let { key -> _saved.value.firstOrNull { it.key == key } }
+    fun find(legs: GroupLegs): SavedGroup? = legsKey(legs).let { key -> _saved.value.firstOrNull { it.key == key } }
 
-    fun save(lines: List<GroupLine>, name: String?) {
-        if (lines.isEmpty()) return
+    fun save(legs: GroupLegs, name: String?) {
+        if (legs.lines.isEmpty()) return
         val list = _saved.value
-        val known = find(lines)
+        val known = find(legs)
         if (known != null) return persist(list.map { if (it == known) it.copy(name = name?.ifBlank { null }) else it })
         if (Services.favorites.atCap(list)) return
-        persist(list + SavedGroup(lines, name?.ifBlank { null }))
+        persist(list + SavedGroup(legs.lines, name?.ifBlank { null }, legs.back))
     }
 
-    fun remove(lines: List<GroupLine>) = groupKey(lines).let { key -> persist(_saved.value.filterNot { it.key == key }) }
+    fun remove(legs: GroupLegs) = legsKey(legs).let { key -> persist(_saved.value.filterNot { it.key == key }) }
 
-    fun replaceLines(from: List<GroupLine>, lines: List<GroupLine>) {
+    fun replace(from: GroupLegs, legs: GroupLegs) {
         val group = find(from) ?: return
-        val key = groupKey(lines)
-        persist(_saved.value.filterNot { it.key == key && it != group }.map { if (it == group) it.copy(lines = lines) else it })
+        val key = legsKey(legs)
+        persist(_saved.value.filterNot { it.key == key && it != group }.map { if (it == group) it.copy(lines = legs.lines, back = legs.back) else it })
     }
 
     fun reorder(list: List<SavedGroup>) = persist(list)

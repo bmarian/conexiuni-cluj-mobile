@@ -20,6 +20,7 @@ object SyncRecords {
     const val HOME_CAP = 20
     private const val MAX_INT = Int.MAX_VALUE.toLong()
     private const val GROUPS_WITH_STOPS = 2L
+    private const val GROUPS_WITH_BACK = 3L
     val validId = 1L..MAX_INT
     val LAT = 43.6..48.3
     val LON = 20.2..29.8
@@ -42,7 +43,7 @@ object SyncRecords {
         data class Group(val lines: List<SyncRecords.Line>) : RecentItem
     }
     data class Recents(val recent: List<RecentItem>)
-    data class Group(val lines: List<Ride>, val name: String, val to: Spot? = null)
+    data class Group(val lines: List<Ride>, val name: String, val to: Spot? = null, val back: List<Ride>? = null)
     data class Groups(val groups: List<Group>)
     data class Home(val order: List<String>, val collapsed: List<String>)
     data class Options(val colorfulLines: Boolean, val city: String, val journeyVoice: Boolean?, val fullScreenAlarms: Boolean?, val traffic: Boolean?)
@@ -146,7 +147,8 @@ object SyncRecords {
     }
     private fun linesId(lines: List<Line>) = lines.joinToString(",", transform = ::lineId)
     private fun rideId(l: Ride) = "${l.route}/${l.dir}" + if (l.hasStops) "/${l.from ?: ""}/${l.to ?: ""}" else ""
-    fun groupId(g: Group) = g.lines.joinToString(",", transform = ::rideId)
+    private fun ridesId(lines: List<Ride>) = lines.joinToString(",", transform = ::rideId)
+    fun groupId(g: Group) = ridesId(g.lines) + (g.back?.let { "|${ridesId(it)}" } ?: "")
 
     /** Parses, checks the rules and the canonical form; the version comes first, so a later shape is newer, not refused. */
     private fun <T> read(raw: String, parse: (JsonElement) -> T, write: (T) -> String, latest: Long = 1): Read<T> = try {
@@ -284,22 +286,32 @@ object SyncRecords {
     private fun parseGroups(record: JsonElement): Groups {
         val groups = list(obj(record, "v", "groups")["groups"], CITY_CAP).map { item ->
             val f = list(item, 5)
-            if (f.size != 2 && f.size != 5) refuse()
-            Group(parseGroupLines(f[0], ::parseRide, Ride::route), text(f[1], 0, 40), if (f.size == 5) parseSpot(f.drop(2)) else null)
+            if (f.size < 2 || f.size == 4) refuse()
+            Group(
+                parseGroupLines(f[0], ::parseRide, Ride::route),
+                text(f[1], 0, 40),
+                if (f.size == 5) parseSpot(f.drop(2)) else null,
+                if (f.size == 3) parseGroupLines(f[2], ::parseRide, Ride::route) else null,
+            )
         }
         unique(groups, ::groupId)
         return Groups(groups)
     }
 
-    /** Version 1 while no line has stops, so apps that only know it keep syncing. */
+    /** The lowest version that fits, so older apps keep syncing. */
     fun writeGroups(r: Groups): String {
-        val v = if (r.groups.any { g -> g.lines.any { it.hasStops } }) GROUPS_WITH_STOPS else 1
+        val v = when {
+            r.groups.any { it.back != null } -> GROUPS_WITH_BACK
+            r.groups.any { g -> g.lines.any { it.hasStops } } -> GROUPS_WITH_STOPS
+            else -> 1
+        }
         return "{\"v\":$v,\"groups\":" + joined(r.groups) {
-            (listOf(joined(it.lines, ::writeRide), quote(it.name)) + spotFields(it.to)).joinToString(",", "[", "]")
+            (listOf(joined(it.lines, ::writeRide), quote(it.name)) + listOfNotNull(it.back?.let { back -> joined(back, ::writeRide) }) + spotFields(it.to))
+                .joinToString(",", "[", "]")
         } + "}"
     }
 
-    fun readGroups(raw: String): Read<Groups> = read(raw, ::parseGroups, ::writeGroups, GROUPS_WITH_STOPS)
+    fun readGroups(raw: String): Read<Groups> = read(raw, ::parseGroups, ::writeGroups, GROUPS_WITH_BACK)
 
     private val ID_TEXT = Regex("^[A-Za-z0-9_-]{21}[AQgw]$")
 

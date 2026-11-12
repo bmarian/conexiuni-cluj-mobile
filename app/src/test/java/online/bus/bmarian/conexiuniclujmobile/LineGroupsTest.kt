@@ -7,22 +7,30 @@ import online.bus.bmarian.conexiuniclujmobile.data.NetworkTrip
 import online.bus.bmarian.conexiuniclujmobile.data.ShapePoint
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.Leg
 import online.bus.bmarian.conexiuniclujmobile.logic.StopRole
 import online.bus.bmarian.conexiuniclujmobile.logic.StretchEnd
 import online.bus.bmarian.conexiuniclujmobile.logic.boardingStop
 import online.bus.bmarian.conexiuniclujmobile.logic.flipLine
 import online.bus.bmarian.conexiuniclujmobile.logic.followedPart
 import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
+import online.bus.bmarian.conexiuniclujmobile.logic.legsKey
+import online.bus.bmarian.conexiuniclujmobile.logic.legsOf
+import online.bus.bmarian.conexiuniclujmobile.logic.nearerLeg
 import online.bus.bmarian.conexiuniclujmobile.logic.passedBy
 import online.bus.bmarian.conexiuniclujmobile.logic.pickStop
+import online.bus.bmarian.conexiuniclujmobile.logic.readLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.readLines
 import online.bus.bmarian.conexiuniclujmobile.logic.stopRows
 import online.bus.bmarian.conexiuniclujmobile.logic.stretchNames
 import online.bus.bmarian.conexiuniclujmobile.logic.stretchSpan
+import online.bus.bmarian.conexiuniclujmobile.logic.writeLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLines
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -135,5 +143,25 @@ class LineGroupsTest {
         val span = index.stretchSpan(line, shape)!!
         assertTrue(span.passedBy(Vehicle(latitude = 46.776, longitude = 23.6)))
         assertFalse(span.passedBy(Vehicle(latitude = 46.771, longitude = 23.6)))
+    }
+
+    private val there = listOf(GroupLine(1, "1", 1, 3))
+    private val back = listOf(GroupLine(1, "0", 3, 2))
+
+    @Test
+    fun `keeps a group without a way back one-way`() {
+        assertEquals(GroupLegs(there), legsOf(there, emptyList()))
+        assertNotEquals(legsKey(legsOf(there, back)), legsKey(GroupLegs(there)))
+        assertEquals(legsOf(there, back), index.readLegs(index.writeLegs(legsOf(there, back))))
+    }
+
+    @Test
+    fun `opens on the leg you board nearest to, the way there on a tie`() {
+        val legs = legsOf(there, back)
+        assertEquals(Leg.Dus, index.nearerLeg(legs, 46.771, 23.6))
+        assertEquals(Leg.Intors, index.nearerLeg(legs, 46.773, 23.6))
+        assertEquals(Leg.Dus, index.nearerLeg(legsOf(there, there), 46.773, 23.6))
+        assertEquals(Leg.Dus, index.nearerLeg(GroupLegs(there), 46.773, 23.6))
+        assertEquals(Leg.Dus, index.nearerLeg(legs, null, null))
     }
 }

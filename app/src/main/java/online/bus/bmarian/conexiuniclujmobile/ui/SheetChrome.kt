@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Links
+import online.bus.bmarian.conexiuniclujmobile.logic.Leg
 
 interface Navigator {
     val canGoBack: Boolean
@@ -66,12 +67,13 @@ interface Navigator {
     fun news()
     fun destinations()
     fun destination(slug: String)
-    fun group(lines: String, replace: Boolean = false)
-    fun groupPick(lines: String, edit: String? = null, replace: Boolean = false)
-    fun groupAdd(lines: String, edit: String? = null)
-    fun groupStops(lines: String, edit: String? = null, line: String)
+    /** No [leg]: the one you board nearest to. */
+    fun group(lines: String, replace: Boolean = false, leg: Leg? = null)
+    fun groupPick(lines: String, edit: String? = null, replace: Boolean = false, leg: Leg = Leg.Dus)
+    fun groupAdd(lines: String, edit: String? = null, leg: Leg = Leg.Dus)
+    fun groupStops(lines: String, edit: String? = null, line: String, leg: Leg = Leg.Dus)
     /** Back at the group being put together, now with [lines]. */
-    fun groupBuilt(lines: String, edit: String? = null)
+    fun groupBuilt(lines: String, edit: String? = null, leg: Leg = Leg.Dus)
 }
 
 /** Same keys as the website's /plan query. */

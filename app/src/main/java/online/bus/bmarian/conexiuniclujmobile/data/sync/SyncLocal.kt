@@ -105,11 +105,12 @@ object SyncLocal {
     fun recentsFromLocal(slug: String) =
         SyncRecords.Recents(Services.favorites.saved(slug).recents.mapNotNull(::toRecentItem).distinctBy(SyncRecords::recentId))
 
-    /** Recents carry no stops: a known group with the same lines keeps its own. */
+    /** A known group with the same lines keeps its stops and way back. */
     fun applyRecents(slug: String, r: SyncRecords.Recents) {
-        val known = Services.favorites.saved(slug).recents.filterIsInstance<RecentGroup>().map { it.lines } + Services.groups.savedIn(slug).map { it.lines }
+        val known = Services.favorites.saved(slug).recents.filterIsInstance<RecentGroup>().map { it.legs } + Services.groups.savedIn(slug).map { it.legs }
         val recents = r.recent.map(::toRecent).map { recent ->
-            if (recent is RecentGroup) RecentGroup(known.firstOrNull { fromLines(toLines(it)) == recent.lines } ?: recent.lines) else recent
+            if (recent !is RecentGroup) return@map recent
+            known.firstOrNull { fromLines(toLines(it.lines)) == recent.lines }?.let { RecentGroup(it.lines, it.back) } ?: recent
         }
         Services.favorites.replaceRecents(slug, recents)
     }
@@ -126,11 +127,12 @@ object SyncLocal {
 
     private fun toGroup(g: SavedGroup): Group? {
         val lines = toRides(g.lines).takeIf { it.isNotEmpty() } ?: return null
-        return Group(lines, cleanText(g.name, 40))
+        return Group(lines, cleanText(g.name, 40), back = g.back?.let(::toRides)?.takeIf { it.isNotEmpty() })
     }
 
-    private fun fromGroup(g: Group) =
-        SavedGroup(g.lines.map { GroupLine(it.route.toInt(), it.dir, it.from?.toInt(), it.to?.toInt()) }, g.name.ifEmpty { null })
+    private fun fromRides(lines: List<SyncRecords.Ride>) = lines.map { GroupLine(it.route.toInt(), it.dir, it.from?.toInt(), it.to?.toInt()) }
+
+    private fun fromGroup(g: Group) = SavedGroup(fromRides(g.lines), g.name.ifEmpty { null }, g.back?.let(::fromRides))
 
     fun groupsFromLocal(slug: String) = SyncRecords.Groups(Services.groups.savedIn(slug).mapNotNull(::toGroup).distinctBy(SyncRecords::groupId))
 

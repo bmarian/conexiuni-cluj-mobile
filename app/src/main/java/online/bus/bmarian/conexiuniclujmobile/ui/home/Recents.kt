@@ -26,10 +26,10 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
-import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
+import online.bus.bmarian.conexiuniclujmobile.logic.GroupLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.groupRoutes
-import online.bus.bmarian.conexiuniclujmobile.logic.groupKey
 import online.bus.bmarian.conexiuniclujmobile.logic.groupLabel
+import online.bus.bmarian.conexiuniclujmobile.logic.legsKey
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
@@ -43,7 +43,7 @@ class RecentItem(
     val plan: FavoritePlan? = null,
     val stop: Stop? = null,
     val route: Route? = null,
-    val group: List<GroupLine>? = null,
+    val group: GroupLegs? = null,
 )
 
 /** Port of useRecents. */
@@ -60,7 +60,7 @@ fun recentItems(
             is RecentStop -> stops.find { it.stopId == recent.stopId }?.let { RecentItem(recent, stop = it) }
             is RecentRoute -> routes.find { it.routeId == recent.routeId }?.let { RecentItem(recent, route = it) }
             is RecentPlan -> recent.plan.takeIf { p -> online && favoritePlans.none { it.samePlace(p) } }?.let { RecentItem(recent, plan = it) }
-            is RecentGroup -> RecentItem(recent, group = recent.lines)
+            is RecentGroup -> RecentItem(recent, group = recent.legs)
         }
     }.take(shown)
 
@@ -101,9 +101,9 @@ fun RecentRow(
         FavoriteRow(
             modifier = modifier,
             icon = null,
-            title = saved.firstOrNull { it.key == groupKey(group) }?.name,
+            title = saved.firstOrNull { it.key == legsKey(group) }?.name,
             kicker = null,
-            lines = { LineBadges(index?.groupRoutes(group).orEmpty()) },
+            lines = { LineBadges(index?.groupRoutes(group.lines).orEmpty()) },
             removeLabel = stringResource(R.string.w_remove_from_recents),
             onClick = onClick,
             onRemove = { Services.favorites.removeRecent(item.recent) },
@@ -148,7 +148,7 @@ private fun RecentKindRow(item: RecentItem, modifier: Modifier, iconSize: Dp, ba
         plan != null -> plan.name
         stop != null -> stop.name
         route != null -> route.shortName
-        group != null -> saved.firstOrNull { it.key == groupKey(group) }?.name ?: groupLabel(index?.groupRoutes(group).orEmpty())
+        group != null -> saved.firstOrNull { it.key == legsKey(group) }?.name ?: groupLabel(index?.groupRoutes(group.lines).orEmpty())
         else -> ""
     }
     val kind = when {

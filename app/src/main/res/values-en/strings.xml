@@ -170,6 +170,9 @@
     <string name="group_name">Name</string>
     <string name="group_rename">Rename</string>
     <string name="group_flip">Switch direction</string>
+    <string name="group_leg_dus">There</string>
+    <string name="group_leg_intors">Back</string>
+    <string name="group_same_back">Same lines, the other way</string>
     <string name="group_remove_line">Remove line</string>
     <string name="group_no_more">No more today</string>
     <string name="group_show_line">Show on the map</string>

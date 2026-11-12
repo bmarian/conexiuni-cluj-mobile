@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -100,6 +101,7 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.journey.JourneyManager
+import online.bus.bmarian.conexiuniclujmobile.logic.Leg
 import online.bus.bmarian.conexiuniclujmobile.logic.delayed
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import online.bus.bmarian.conexiuniclujmobile.ui.follow.ReminderLocationDialog
@@ -508,23 +510,23 @@ private fun AppNavHost(navController: NavHostController) {
                 )
             }
         }
-        composable("group?l={l}", arguments = listOf(navArgument("l") { type = NavType.StringType; defaultValue = "" })) { entry ->
-            Page { GroupScreen(entry.arguments?.getString("l").orEmpty()) }
+        val lines = navArgument("l") { type = NavType.StringType; defaultValue = "" }
+        val leg = navArgument("leg") { type = NavType.StringType; nullable = true; defaultValue = null }
+        composable("group?l={l}&leg={leg}", arguments = listOf(lines, leg)) { entry ->
+            Page { GroupScreen(entry.arguments?.getString("l").orEmpty(), Leg.of(entry.arguments?.getString("leg"))) }
         }
-        val group = listOf(
-            navArgument("l") { type = NavType.StringType; defaultValue = "" },
-            navArgument("edit") { type = NavType.StringType; nullable = true; defaultValue = null },
-        )
+        val group = listOf(lines, leg, navArgument("edit") { type = NavType.StringType; nullable = true; defaultValue = null })
+        fun builderLeg(entry: NavBackStackEntry) = Leg.of(entry.arguments?.getString("leg")) ?: Leg.Dus
         composable(GROUP_PICK, arguments = group) { entry ->
-            Page { GroupPickScreen(entry.arguments?.getString("l").orEmpty(), entry.arguments?.getString("edit")) }
+            Page { GroupPickScreen(entry.arguments?.getString("l").orEmpty(), entry.arguments?.getString("edit"), builderLeg(entry)) }
         }
         composable(GROUP_ADD, arguments = group) { entry ->
-            Page { GroupAddScreen(entry.arguments?.getString("l").orEmpty(), entry.arguments?.getString("edit")) }
+            Page { GroupAddScreen(entry.arguments?.getString("l").orEmpty(), entry.arguments?.getString("edit"), builderLeg(entry)) }
         }
         val line = navArgument("line") { type = NavType.StringType; defaultValue = "" }
         composable(GROUP_STOPS, arguments = group + line) { entry ->
             val args = entry.arguments
-            Page { GroupStopsScreen(args?.getString("l").orEmpty(), args?.getString("edit"), args?.getString("line").orEmpty()) }
+            Page { GroupStopsScreen(args?.getString("l").orEmpty(), args?.getString("edit"), args?.getString("line").orEmpty(), builderLeg(entry)) }
         }
         composable(
             "plan?q={q}",
@@ -605,19 +607,20 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
         go("to/${Uri.encode(slug)}")
     }
 
-    override fun group(lines: String, replace: Boolean) = open("group?l=${Uri.encode(lines)}", replace)
+    override fun group(lines: String, replace: Boolean, leg: Leg?) = open("group?l=${Uri.encode(lines)}" + (leg?.let { "&leg=${it.slug}" } ?: ""), replace)
 
-    private fun groupPage(page: String, lines: String, edit: String?) = "$page?l=${Uri.encode(lines)}" + (edit?.let { "&edit=${Uri.encode(it)}" } ?: "")
+    private fun groupPage(page: String, lines: String, edit: String?, leg: Leg) =
+        "$page?l=${Uri.encode(lines)}&leg=${leg.slug}" + (edit?.let { "&edit=${Uri.encode(it)}" } ?: "")
 
-    override fun groupPick(lines: String, edit: String?, replace: Boolean) = open(groupPage("group-pick", lines, edit), replace)
+    override fun groupPick(lines: String, edit: String?, replace: Boolean, leg: Leg) = open(groupPage("group-pick", lines, edit, leg), replace)
 
-    override fun groupAdd(lines: String, edit: String?) = go(groupPage("group-add", lines, edit))
+    override fun groupAdd(lines: String, edit: String?, leg: Leg) = go(groupPage("group-add", lines, edit, leg))
 
-    override fun groupStops(lines: String, edit: String?, line: String) = go(groupPage("group-stops", lines, edit) + "&line=${Uri.encode(line)}")
+    override fun groupStops(lines: String, edit: String?, line: String, leg: Leg) = go(groupPage("group-stops", lines, edit, leg) + "&line=${Uri.encode(line)}")
 
-    override fun groupBuilt(lines: String, edit: String?) {
+    override fun groupBuilt(lines: String, edit: String?, leg: Leg) {
         for (page in GROUP_PAGES) if (nav.currentDestination?.route == page) nav.popBackStack()
-        nav.navigate(groupPage("group-pick", lines, edit))
+        nav.navigate(groupPage("group-pick", lines, edit, leg))
     }
 
     private fun open(target: String, replace: Boolean) {
@@ -644,9 +647,9 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
 
 private val MAP_PICKS = setOf("stop/{stopId}", "stops/{stopIds}")
 
-private const val GROUP_PICK = "group-pick?l={l}&edit={edit}"
-private const val GROUP_ADD = "group-add?l={l}&edit={edit}"
-private const val GROUP_STOPS = "group-stops?l={l}&edit={edit}&line={line}"
+private const val GROUP_PICK = "group-pick?l={l}&leg={leg}&edit={edit}"
+private const val GROUP_ADD = "group-add?l={l}&leg={leg}&edit={edit}"
+private const val GROUP_STOPS = "group-stops?l={l}&leg={leg}&edit={edit}&line={line}"
 
 /** From the top of the pages a group is put together on. */
 private val GROUP_PAGES = listOf(GROUP_STOPS, GROUP_ADD, GROUP_PICK)
@@ -686,12 +689,13 @@ private suspend fun openLink(navigator: Navigator, uri: Uri) {
         }
         "plan" -> navigator.plan(PlanQuery.fromUri(uri))
         "grup" -> {
-            val lines = uri.getQueryParameter("linii").orEmpty()
+            val lines = uri.getQueryParameter("linii").orEmpty() + (uri.getQueryParameter("intors")?.let { "|$it" } ?: "")
+            val leg = Leg.of(uri.getQueryParameter("sens"))
             when {
-                segments.getOrNull(1) != "alege" -> navigator.group(lines)
-                segments.getOrNull(2) == "linie" -> navigator.groupAdd(lines)
-                segments.getOrNull(2) == "statii" -> navigator.groupStops(lines, line = uri.getQueryParameter("linie").orEmpty())
-                else -> navigator.groupPick(lines)
+                segments.getOrNull(1) != "alege" -> navigator.group(lines, leg = leg)
+                segments.getOrNull(2) == "linie" -> navigator.groupAdd(lines, leg = leg ?: Leg.Dus)
+                segments.getOrNull(2) == "statii" -> navigator.groupStops(lines, line = uri.getQueryParameter("linie").orEmpty(), leg = leg ?: Leg.Dus)
+                else -> navigator.groupPick(lines, leg = leg ?: Leg.Dus)
             }
         }
         "spre", "to" -> segments.getOrNull(1)?.let(navigator::destination) ?: navigator.destinations()
