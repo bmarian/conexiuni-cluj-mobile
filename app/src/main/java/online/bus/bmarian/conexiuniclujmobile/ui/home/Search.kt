@@ -41,19 +41,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkIndex
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
+import online.bus.bmarian.conexiuniclujmobile.logic.Ranked
 import online.bus.bmarian.conexiuniclujmobile.logic.matching
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
 import androidx.compose.ui.unit.Dp
 import online.bus.bmarian.conexiuniclujmobile.data.FavoritePlan
 import online.bus.bmarian.conexiuniclujmobile.data.Fix
-import online.bus.bmarian.conexiuniclujmobile.data.Places
+import online.bus.bmarian.conexiuniclujmobile.data.Search
+import online.bus.bmarian.conexiuniclujmobile.data.SearchAnswer
 import online.bus.bmarian.conexiuniclujmobile.data.Place
 import online.bus.bmarian.conexiuniclujmobile.data.Route
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
@@ -68,7 +69,9 @@ import java.text.Normalizer
 private val DIACRITICS = Regex("\\p{Mn}+")
 
 const val RESULTS_PER_KIND = 3
-private const val PLACES_KEPT = 10
+// Shorter queries are matched on the device alone.
+private const val SERVER_MIN_CHARS = 3
+private const val ASK_DELAY_MS = 350L
 
 /** Port of norm(). */
 fun norm(s: String): String = Normalizer.normalize(s, Normalizer.Form.NFD).replace(DIACRITICS, "").lowercase()
@@ -86,23 +89,32 @@ fun <T> sortByDistance(items: List<T>, lat: Double, lon: Double, latOf: (T) -> D
 @Stable
 class SearchState {
     var query by mutableStateOf("")
-    var places by mutableStateOf<List<Place>>(emptyList())
+    var answer by mutableStateOf<SearchAnswer?>(null)
         private set
-    // The query the places are for.
-    private var placesQuery by mutableStateOf("")
+    private var answerQuery by mutableStateOf("")
     var placesOpen by mutableStateOf(false)
     var openOnResults = false
 
     val active: Boolean get() = query.trim().isNotEmpty()
 
+    val best: String? get() = answer?.best
+
+    val places: List<Place>
+        get() = answer?.places.orEmpty().let { if (best == SearchAnswer.BEST_PLACE) it.drop(1) else it }
+
     fun placesLoading(online: Boolean): Boolean {
         val q = query.trim()
-        return online && q.length >= 3 && placesQuery != q
+        return online && q.length >= SERVER_MIN_CHARS && answerQuery != q
     }
 
     fun routes(routes: List<Route>): List<Route> {
         val q = norm(query.trim())
         if (q.isEmpty()) return emptyList()
+        answer?.let { found ->
+            val byId = routes.associateBy { it.routeId }
+            val ids = if (best == SearchAnswer.BEST_LINE) found.lines.drop(1) else found.lines
+            return ids.mapNotNull(byId::get).take(RESULTS_PER_KIND)
+        }
         return matching(routes, { norm("${it.shortName} ${it.longName}") }, q).take(RESULTS_PER_KIND).map { it.item }
     }
 
@@ -110,7 +122,14 @@ class SearchState {
     fun stops(stops: List<Stop>, me: Fix?, index: NetworkIndex?): List<Stop> {
         val q = norm(query.trim())
         if (q.isEmpty()) return emptyList()
-        val matches = matching(stops, { norm(it.name) }, q)
+        val found = answer
+        val matches = if (found != null) {
+            val byId = stops.associateBy { it.stopId }
+            val hits = if (best == SearchAnswer.BEST_STOP) found.stops.drop(1) else found.stops
+            hits.mapNotNull { hit -> byId[hit.id]?.let { Ranked(it, hit.rank) } }
+        } else {
+            matching(stops, { norm(it.name) }, q)
+        }
         val sorted = if (me != null) sortByDistance(matches, me.lat, me.lon, { it.item.lat }, { it.item.lon }) else matches
         val ranked = sorted.sortedBy { it.rank }.map { it.item }
         return (index?.oneStopPerStation(ranked) ?: ranked).take(RESULTS_PER_KIND)
@@ -123,22 +142,17 @@ class SearchState {
     fun shownPlaces(me: Fix?): List<Place> =
         nearestFirst(places.take(RESULTS_PER_KIND), me) + if (placesOpen) nearestFirst(places.drop(RESULTS_PER_KIND), me) else emptyList()
 
-    suspend fun searchPlaces(query: String, online: Boolean) {
+    suspend fun ask(query: String, online: Boolean) {
         val trimmed = query.trim()
-        if (placesQuery == trimmed) return
-        if (!online || trimmed.length < 3) {
-            places = emptyList()
-            placesQuery = trimmed
+        if (answerQuery == trimmed) return
+        answer = null
+        if (!online || trimmed.length < SERVER_MIN_CHARS) {
+            answerQuery = trimmed
             return
         }
-        delay(350)
-        places = try {
-            Places.search(trimmed, PLACES_KEPT)
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            emptyList()
-        }
-        placesQuery = trimmed
+        delay(ASK_DELAY_MS)
+        answer = Search.find(trimmed)
+        answerQuery = trimmed
     }
 }
 
@@ -185,6 +199,7 @@ fun LazyListScope.searchResults(
     onRoute: (Route) -> Unit,
     onStop: (Stop) -> Unit,
     onDropPin: () -> Unit,
+    top: SearchTopActions,
 ) {
     val savedResults = if (online) matchingPlans(plans, state.query) else emptyList()
     val routeResults = state.routes(routes)
@@ -195,6 +210,8 @@ fun LazyListScope.searchResults(
     if (loading) {
         item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) }
     }
+    val answer = if (online) state.answer else null
+    answer?.let { searchTop(it, routes, stops, index, me, top) }
     if (savedResults.isNotEmpty()) {
         item { SubLabel(stringResource(R.string.w_favorite_plans), Modifier.padding(top = 8.dp)) }
         items(savedResults, key = { "saved-result-${it.lat}-${it.lon}-${it.originLat}" }) { plan ->
@@ -241,7 +258,8 @@ fun LazyListScope.searchResults(
             }
         }
     }
-    if (!loading && places.isEmpty() && savedResults.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()) {
+    val nothing = places.isEmpty() && savedResults.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()
+    if (!loading && nothing && answer?.best == null && answer?.notice == null) {
         item {
             if (online) {
                 Row(

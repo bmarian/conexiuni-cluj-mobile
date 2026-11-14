@@ -61,7 +61,7 @@ interface Navigator {
     /** Stops picked one after another on the map replace each other on the stack. */
     fun mapStop(stopId: Int)
     fun mapStops(stopIds: List<Int>)
-    fun route(routeId: Int, direction: String, fromStopId: Int? = null, change: Long? = null)
+    fun route(routeId: Int, direction: String, fromStopId: Int? = null, change: Long? = null, timetable: Boolean = false)
     fun plan(query: PlanQuery)
     fun settings()
     fun news()

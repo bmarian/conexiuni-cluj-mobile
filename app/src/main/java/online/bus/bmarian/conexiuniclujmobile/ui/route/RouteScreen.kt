@@ -64,6 +64,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,6 +88,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
@@ -175,7 +177,7 @@ fun routeViewModel(routeId: Int, direction: String, fromStopId: Int?, changeId: 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Long?) {
+fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Long?, timetable: Boolean = false) {
     val vm = routeViewModel(routeId, direction, fromStopId, changeId)
     val nav = LocalNavigator.current
     val map = LocalMap.current
@@ -333,6 +335,16 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     val trip = remember(selectedTime, hourlyTrip, stops) { selectedTime?.let { tripStops(it, hourlyTrip, stops) }.orEmpty() }
     val nowLabel = stringResource(R.string.w_now)
     val soonLabel = stringResource(R.string.w_soon)
+    var atTimetable by rememberSaveable { mutableStateOf(!timetable) }
+    LaunchedEffect(tabs.isNotEmpty(), groups.isNotEmpty()) {
+        if (atTimetable || tabs.isEmpty() || groups.isEmpty()) return@LaunchedEffect
+        atTimetable = true
+        // The timetable heading, counted from the end of the list.
+        val notes = listOf(special != null, suspended, frequency != null).count { it }
+        val after = 1 + notes + groups.size + (if (trip.isNotEmpty()) trip.size + 1 else 0) + 1
+        val total = snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > after }
+        listState.scrollToItem(total - after - 1)
+    }
 
     fun mark(idx: Int, stop: IndexedStop): StopMark = when {
         stop.stop.stopId == fromStopId -> StopMark.From

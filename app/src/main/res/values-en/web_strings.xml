@@ -84,6 +84,17 @@
     <string name="w_search_results_places">Places</string>
     <string name="w_search_results_routes">Lines</string>
     <string name="w_search_results_stops">Stops</string>
+    <string name="w_search_bus">Bus %1$s</string>
+    <string name="w_search_bus_off">Bus %1$s isn\'t running now</string>
+    <string name="w_search_switch_city">Switch to %1$s</string>
+    <string name="w_search_change_city">Change city</string>
+    <string name="w_search_far_town">Buses don\'t go to %1$s</string>
+    <string name="w_search_far_place">Buses don\'t go to %1$s</string>
+    <string name="w_search_far_closest">%1$s gets closest, %2$s away.</string>
+    <string name="w_search_far_then">Then %1$s to %2$s</string>
+    <string name="w_search_city_missing">%1$s isn\'t in the app yet</string>
+    <string name="w_search_tickets">Ticket prices aren\'t in the app</string>
+    <string name="w_search_operator_site">%1$s website</string>
     <string name="w_no_results">No results</string>
     <string name="w_drop_pin">Choose on map</string>
     <string name="w_dropped_pin">Dropped pin</string>
@@ -106,6 +117,9 @@
     <string name="w_green_friday_desc">Public transport is free today!</string>
     <string name="w_dismiss">Dismiss</string>
     <string name="w_plan_title">Plan a trip</string>
+    <string name="w_plan_beyond_to">No bus goes here</string>
+    <string name="w_plan_beyond_from">No bus leaves from here</string>
+    <string name="w_plan_beyond_stop">The nearest stop is %1$s away.</string>
     <string name="w_plan_title_generic">Plan a trip</string>
     <string name="w_plan_from">From</string>
     <string name="w_plan_to">To</string>

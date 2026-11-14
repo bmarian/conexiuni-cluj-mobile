@@ -455,6 +455,8 @@ fun PlanScreen(query: PlanQuery) {
             )
         }
 
+        val beyond = planData?.beyond
+        if (beyond != null && !calculating && !gpsResolving) item(key = "beyond") { PlanBeyondRow(beyond) }
         when {
             gpsResolving -> item { LoadingRow(text = stringResource(R.string.w_plan_locating)) }
             calculating -> item { LoadingRow(text = stringResource(R.string.w_plan_calculating)) }
@@ -463,7 +465,7 @@ fun PlanScreen(query: PlanQuery) {
                     PlanCard(vm, plan, destName, index == selected, mode, now, clockMs, expanded.value, ::toggleExpanded) { vm.selectPlanAt(index) }
                 }
             }
-            else -> item {
+            beyond == null -> item {
                 Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.DirectionsBus, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.outlineVariant)
                     Text(

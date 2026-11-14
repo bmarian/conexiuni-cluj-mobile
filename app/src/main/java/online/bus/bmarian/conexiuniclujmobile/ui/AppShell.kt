@@ -492,12 +492,13 @@ private fun AppNavHost(navController: NavHostController) {
             Page { StopsScreen(entry.arguments?.getString("stopIds").orEmpty().split(',').mapNotNull(String::toIntOrNull)) }
         }
         composable(
-            "route/{routeId}/{direction}?from={from}&change={change}",
+            "route/{routeId}/{direction}?from={from}&change={change}&timetable={timetable}",
             arguments = listOf(
                 navArgument("routeId") { type = NavType.IntType },
                 navArgument("direction") { type = NavType.StringType },
                 navArgument("from") { type = NavType.IntType; defaultValue = -1 },
                 navArgument("change") { type = NavType.LongType; defaultValue = -1L },
+                navArgument("timetable") { type = NavType.BoolType; defaultValue = false },
             ),
         ) { entry ->
             val args = entry.arguments
@@ -507,6 +508,7 @@ private fun AppNavHost(navController: NavHostController) {
                     direction = args?.getString("direction") ?: "auto",
                     fromStopId = args?.getInt("from")?.takeIf { it >= 0 },
                     changeId = args?.getLong("change")?.takeIf { it > 0 },
+                    timetable = args?.getBoolean("timetable") == true,
                 )
             }
         }
@@ -583,8 +585,8 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
         }
     }
 
-    override fun route(routeId: Int, direction: String, fromStopId: Int?, change: Long?) {
-        go("route/$routeId/$direction?from=${fromStopId ?: -1}&change=${change ?: -1}")
+    override fun route(routeId: Int, direction: String, fromStopId: Int?, change: Long?, timetable: Boolean) {
+        go("route/$routeId/$direction?from=${fromStopId ?: -1}&change=${change ?: -1}&timetable=$timetable")
     }
 
     override fun plan(query: PlanQuery) {

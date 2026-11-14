@@ -6,12 +6,13 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import okhttp3.Request
 import java.util.Locale
 
-data class Place(val id: String, val lat: String, val lon: String, val label: String, val name: String = label) {
+data class Place(val id: String, val lat: String, val lon: String, val label: String, val name: String = label, val far: Boolean = false) {
     val latitude: Double? get() = lat.toDoubleOrNull()
     val longitude: Double? get() = lon.toDoubleOrNull()
 
@@ -27,11 +28,9 @@ private fun jsNumber(value: Double): String =
 object Places {
     private const val CACHED = 64
 
-    private val cache = object : LinkedHashMap<String, List<Place>>(CACHED, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<Place>>?) = size > CACHED
-    }
+    private val cache = RecentCache<List<Place>>(CACHED)
 
-    private fun place(raw: JsonElement): Place? {
+    fun place(raw: JsonElement): Place? {
         val o = raw as? JsonObject ?: return null
         val lat = (o["lat"] as? JsonPrimitive)?.doubleOrNull ?: return null
         val lon = (o["lon"] as? JsonPrimitive)?.doubleOrNull ?: return null
@@ -41,11 +40,12 @@ object Places {
         val id = (o["id"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() } ?: "$latS:$lonS"
         val shown = label.ifEmpty { fallbackLabel(latS, lonS) }
         val name = (o["name"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
-        return Place(id, latS, lonS, shown, name.takeIf { label.isNotEmpty() && it.isNotEmpty() } ?: shown)
+        val far = (o["far"] as? JsonPrimitive)?.booleanOrNull == true
+        return Place(id, latS, lonS, shown, name.takeIf { label.isNotEmpty() && it.isNotEmpty() } ?: shown, far)
     }
 
     private suspend fun request(url: String): List<Place> {
-        synchronized(cache) { cache[url] }?.let { return it }
+        cache[url]?.let { return it }
         val places = withContext(Dispatchers.IO) {
             runCatching {
                 Api.client.newCall(Request.Builder().url(url).build()).execute().use { response ->
@@ -55,7 +55,7 @@ object Places {
                 }
             }.getOrNull()
         } ?: return emptyList()
-        synchronized(cache) { cache[url] = places }
+        cache[url] = places
         return places
     }
 

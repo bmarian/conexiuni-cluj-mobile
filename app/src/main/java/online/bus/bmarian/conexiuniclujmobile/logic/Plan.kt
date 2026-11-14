@@ -82,7 +82,15 @@ data class PlanResponse(
     val lines: Map<String, PlanLine> = emptyMap(),
     /** Seconds until the timings change; 0 when they don't. */
     @SerialName("refresh_in") val refreshIn: Long = 0,
+    val beyond: PlanBeyond? = null,
 )
+
+@Serializable
+data class PlanEnd(@SerialName("stop_id") val stopId: Int, val meters: Int)
+
+// Ends out of walking reach; the options use their nearest stop.
+@Serializable
+data class PlanBeyond(val from: PlanEnd? = null, val to: PlanEnd? = null)
 
 enum class TimeMode(val key: String) { Now("now"), Leave("leave"), Arrive("arrive"), Last("last") }
 

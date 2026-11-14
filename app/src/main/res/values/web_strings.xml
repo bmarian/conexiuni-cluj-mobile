@@ -84,6 +84,17 @@
     <string name="w_search_results_places">Locuri</string>
     <string name="w_search_results_routes">Linii</string>
     <string name="w_search_results_stops">Stații</string>
+    <string name="w_search_bus">Autobuzul %1$s</string>
+    <string name="w_search_bus_off">Autobuzul %1$s nu circulă acum</string>
+    <string name="w_search_switch_city">Treci la %1$s</string>
+    <string name="w_search_change_city">Schimbă orașul</string>
+    <string name="w_search_far_town">Autobuzele nu ajung în %1$s</string>
+    <string name="w_search_far_place">Autobuzele nu ajung la %1$s</string>
+    <string name="w_search_far_closest">Cel mai aproape ajunge %1$s, la %2$s.</string>
+    <string name="w_search_far_then">Apoi %1$s până la %2$s</string>
+    <string name="w_search_city_missing">%1$s nu e încă în aplicație</string>
+    <string name="w_search_tickets">Prețurile biletelor nu sunt în aplicație</string>
+    <string name="w_search_operator_site">Site-ul %1$s</string>
     <string name="w_no_results">Niciun rezultat</string>
     <string name="w_drop_pin">Alege pe hartă</string>
     <string name="w_dropped_pin">Indicator plasat</string>
@@ -106,6 +117,9 @@
     <string name="w_green_friday_desc">Transportul public este gratuit astăzi!</string>
     <string name="w_dismiss">Închide</string>
     <string name="w_plan_title">Planifică o călătorie</string>
+    <string name="w_plan_beyond_to">Nu ajungi aici cu autobuzul</string>
+    <string name="w_plan_beyond_from">Nu pleacă niciun autobuz de aici</string>
+    <string name="w_plan_beyond_stop">Cea mai apropiată stație e la %1$s.</string>
     <string name="w_plan_title_generic">Planifică o călătorie</string>
     <string name="w_plan_from">De la</string>
     <string name="w_plan_to">Până la</string>

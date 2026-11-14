@@ -1,5 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import android.content.Intent
+import androidx.core.net.toUri
 import android.icu.text.Collator
 import android.icu.text.RuleBasedCollator
 import androidx.activity.compose.BackHandler
@@ -81,6 +83,9 @@ import online.bus.bmarian.conexiuniclujmobile.data.RecentPlan
 import online.bus.bmarian.conexiuniclujmobile.data.RecentRoute
 import online.bus.bmarian.conexiuniclujmobile.data.RecentStop
 import online.bus.bmarian.conexiuniclujmobile.data.Route
+import online.bus.bmarian.conexiuniclujmobile.data.Links
+import online.bus.bmarian.conexiuniclujmobile.data.SearchAnswer
+import online.bus.bmarian.conexiuniclujmobile.data.directionFromTripId
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.logic.sortedRoutes
 import online.bus.bmarian.conexiuniclujmobile.logic.writeLegs
@@ -165,7 +170,7 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
     LaunchedEffect(state.query, online) {
         state.placesOpen = false
         state.openOnResults = false
-        state.searchPlaces(state.query, online)
+        state.ask(state.query, online)
     }
     BackHandler { onClose(true) }
 
@@ -211,7 +216,50 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
         if (lat != null && lon != null) Services.favorites.addRecent(RecentPlan(FavoritePlan(place.label, lat = lat, lon = lon)))
         nav.plan(PlanQuery(lat = place.lat, lon = place.lon, name = place.label))
     }
+    fun openLine(route: Route, timetable: Boolean) = go {
+        Services.favorites.addRecent(RecentRoute(route.routeId))
+        nav.route(route.routeId, "auto", timetable = timetable)
+    }
+    fun openInApp(uri: android.net.Uri) = go { context.startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage(context.packageName)) }
+    val top = SearchTopActions(
+        line = ::openLine,
+        stop = ::openStop,
+        place = ::openPlace,
+        bus = { bus -> go { nav.route(bus.routeId, directionFromTripId(bus.tripId)) } },
+        other = { line -> openInApp(Links.app(line.slug?.let { "/linia/$it" } ?: "/route/${line.routeId}/auto", line.city)) },
+        city = { slug -> openInApp(Links.app("/", slug)) },
+        trip = { trip ->
+            val from = trip.from
+            go {
+                nav.plan(
+                    PlanQuery(
+                        lat = "${trip.to.lat}", lon = "${trip.to.lon}", name = trip.to.name,
+                        originLat = from?.let { "${it.lat}" }, originLon = from?.let { "${it.lon}" }, originName = from?.name,
+                    ),
+                )
+            }
+        },
+        link = { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+    )
+    fun openBest(): Boolean {
+        val answer = state.answer ?: return false
+        val first = answer.places.firstOrNull()
+        when (answer.best) {
+            SearchAnswer.BEST_LINE -> sortedAll.firstOrNull { it.routeId == answer.lines.firstOrNull() }?.let {
+                top.line(it, answer.show == SearchAnswer.SHOW_TIMETABLE)
+            }
+            SearchAnswer.BEST_STOP -> stops.firstOrNull { it.stopId == answer.stops.firstOrNull()?.id }?.let(top.stop)
+            SearchAnswer.BEST_PLACE, SearchAnswer.BEST_FAR -> first?.let(top.place)
+            SearchAnswer.BEST_BUS -> answer.buses.firstOrNull()?.let(top.bus)
+            SearchAnswer.BEST_OTHER -> answer.other.firstOrNull()?.let(top.other)
+            SearchAnswer.BEST_CITY -> answer.cities.firstOrNull()?.let { top.city(it.slug) }
+            SearchAnswer.BEST_TRIP -> answer.trip?.let(top.trip)
+            else -> return false
+        }
+        return true
+    }
     fun openTopResult(): Boolean {
+        if (online && openBest()) return true
         val plan = if (online) matchingPlans(favoritePlans, state.query).firstOrNull() else null
         val route = state.routes(sortedAll).firstOrNull()
         val stop = state.stops(stops, me, index).firstOrNull()
@@ -284,6 +332,7 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                         onDropPin = {
                             go { nav.plan(PlanQuery(lat = "46.7712", lon = "23.6236", name = resources.getString(R.string.w_dropped_pin))) }
                         },
+                        top = top,
                     )
                     item { Spacer(Modifier.height(24.dp)) }
                     return@LazyColumn
