@@ -92,7 +92,9 @@ fun DrawScope.stopMarker(
     path: Path? = null,
     lineShadow: Boolean = false,
     ring: Color = Color.White,
+    drawn: Boolean = false,
 ) {
+    if (drawn) return drawnStop(center, diameter, fill, glyph, mode, heart, path, ring)
     val r = diameter / 2
     drawCircle(Color.Black.copy(alpha = 0.18f * shadow), r + 1.dp.toPx(), center + Offset(0f, 1.dp.toPx()))
     drawCircle(ring, r, center)

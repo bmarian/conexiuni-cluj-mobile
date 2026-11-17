@@ -94,20 +94,23 @@ internal class MapImages(context: Context) {
     }
 
     fun stop(dark: Boolean) = draw(28f, 28f) {
-        stopMarker(center, 24.dp.toPx(), if (dark) MapColors.StopDark else MapColors.StopLight, 14.dp.toPx(), ring = ring)
+        stopMarker(center, 24.dp.toPx(), if (dark) MapColors.StopDark else MapColors.StopLight, 14.dp.toPx(), ring = ring, drawn = doodle)
     }
 
     fun highlight(h: StopHighlight) = draw(28f, 28f) {
         val favorite = h == StopHighlight.Favorite
-        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), if (favorite) 13.dp.toPx() else 14.dp.toPx(), shadow = 1.2f, heart = favorite, ring = ring)
+        val glyph = if (favorite) 13.dp.toPx() else 14.dp.toPx()
+        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), glyph, shadow = 1.2f, heart = favorite, ring = ring, drawn = doodle)
     }
 
-    fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f, ring = ring) }
+    fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f, ring = ring, drawn = doodle) }
 
-    fun station(mode: Mode, color: String) = draw(28f, 28f) { stopMarker(center, 24.dp.toPx(), routeColor(color), 14.dp.toPx(), mode = mode, ring = ring) }
+    fun station(mode: Mode, color: String) = draw(28f, 28f) {
+        stopMarker(center, 24.dp.toPx(), routeColor(color), 14.dp.toPx(), mode = mode, ring = ring, drawn = doodle)
+    }
 
     fun selectedStation(mode: Mode, color: String) = draw(36f, 36f) {
-        stopMarker(center, 32.dp.toPx(), routeColor(color), 16.dp.toPx(), shadow = 1.6f, mode = mode, ring = ring)
+        stopMarker(center, 32.dp.toPx(), routeColor(color), 16.dp.toPx(), shadow = 1.6f, mode = mode, ring = ring, drawn = doodle)
     }
 
     private val plainLabel = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp)
@@ -152,8 +155,8 @@ internal class MapImages(context: Context) {
     private fun DrawScope.groupIcon(icon: GroupIcon, at: Offset) {
         val cell = CELL_DP.dp.toPx()
         when (icon) {
-            is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode, ring = ring)
-            GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true, ring = ring)
+            is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode, ring = ring, drawn = doodle)
+            GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true, ring = ring, drawn = doodle)
         }
     }
 
@@ -238,10 +241,12 @@ internal class MapImages(context: Context) {
         }
     }
 
-    fun pin(color: Color) = draw(22f, 28f) { pinMarker(Offset(11.dp.toPx(), 28.dp.toPx()), color) }
+    fun pin(color: Color) = draw(22f, 28f) { pin(Offset(11.dp.toPx(), 28.dp.toPx()), color) }
+
+    private fun DrawScope.pin(tip: Offset, color: Color) = if (doodle) drawnPin(tip, color, PaperInk.rim, PaperInk.window) else pinMarker(tip, color)
 
     fun liftedPin(color: Color) = draw(22f, 66f) {
-        pinMarker(Offset(11.dp.toPx(), 28.dp.toPx()), color)
+        pin(Offset(11.dp.toPx(), 28.dp.toPx()), color)
         drawRect(MapColors.InkDark.copy(alpha = 0.55f), Offset(10.dp.toPx(), 30.dp.toPx()), Size(2.dp.toPx(), 24.dp.toPx()))
         val dot = Offset(11.dp.toPx(), 59.dp.toPx())
         drawCircle(Color.Black.copy(alpha = 0.25f), 6.dp.toPx(), dot + Offset(0f, 1.dp.toPx()))
@@ -252,7 +257,7 @@ internal class MapImages(context: Context) {
     /** Port of lineEndIcon: a station marker in the line's colour. */
     fun end(color: String) = draw(28f, 28f) {
         val fill = if (color.isEmpty()) MapColors.ShapeFallback else routeColor(color)
-        stopMarker(center, 24.dp.toPx(), fill, 14.dp.toPx(), path = Glyphs.flag, lineShadow = true)
+        stopMarker(center, 24.dp.toPx(), fill, 14.dp.toPx(), path = Glyphs.flag, lineShadow = true, ring = ring, drawn = doodle)
     }
 
     /** Port of lineStartIcon: the app's line badges in the station markers' outline, centred on the start. */

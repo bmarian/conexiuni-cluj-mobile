@@ -5,4 +5,5 @@
     <color name="doodle_splash_window">#FFFBF2</color>
     <color name="doodle_splash_blob">#FFFBF2</color>
     <color name="doodle_splash_wheel">#23201C</color>
+    <color name="doodle_launcher_paper">#FFFBF2</color>
 </resources>

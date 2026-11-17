@@ -1,5 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
+import org.maplibre.android.style.expressions.Expression.all
+import online.bus.bmarian.conexiuniclujmobile.R
 import org.maplibre.android.style.expressions.Expression.neq
 import org.maplibre.android.style.expressions.Expression.product
 import org.maplibre.android.style.expressions.Expression.stop
@@ -175,6 +177,9 @@ private const val LAYER_SPIDER = "ct-spider"
 private const val LAYER_SELECTED = "ct-selected"
 private const val LAYER_VEHICLES = "ct-vehicles"
 private const val LAYER_OFFBEAT = "ct-vehicles-offbeat"
+private const val LAYER_GHOSTS = "ct-vehicles-ghosts"
+private const val LAYER_GHOSTS_OFFBEAT = "ct-vehicles-ghosts-offbeat"
+private val VEHICLE_LAYERS = arrayOf(LAYER_GHOSTS, LAYER_GHOSTS_OFFBEAT, LAYER_VEHICLES, LAYER_OFFBEAT)
 private const val CITY_ZOOM = 12f
 private const val STREET_ZOOM = 15f
 private const val CITY_CHARACTER = 0.75f
@@ -224,8 +229,8 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private var dark: Boolean? = null
     private var doodle = false
     private val bob = VehicleBob(BOB_LIFT_DP * context.resources.displayMetrics.density) { on, off ->
-        style?.getLayer(LAYER_VEHICLES)?.setProperties(iconTranslate(arrayOf(0f, on)))
-        style?.getLayer(LAYER_OFFBEAT)?.setProperties(iconTranslate(arrayOf(0f, off)))
+        for (id in listOf(LAYER_VEHICLES, LAYER_GHOSTS)) style?.getLayer(id)?.setProperties(iconTranslate(arrayOf(0f, on)))
+        for (id in listOf(LAYER_OFFBEAT, LAYER_GHOSTS_OFFBEAT)) style?.getLayer(id)?.setProperties(iconTranslate(arrayOf(0f, off)))
     }
     var resumed = true
         set(value) {
@@ -694,6 +699,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             .accuracyAlpha(if (ride == null) 0.15f else 0f)
             .pulseEnabled(false)
             .enableStaleState(false)
+        if (doodle) builder.foregroundDrawable(R.drawable.doodle_me).backgroundDrawable(R.drawable.doodle_me_ring)
         if (ride != null) {
             val name = "nav-arrow-${ride.color}"
             image(name) { images.navArrow(ride.color) }
@@ -724,7 +730,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun shownVehicle(id: String): ShownVehicle? = glide.shown(id)
 
     fun vehicleAt(point: PointF, reach: Float): String? =
-        map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_VEHICLES, LAYER_OFFBEAT)
+        map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), *VEHICLE_LAYERS)
             .firstOrNull { !it.hasProperty("gone") }?.getStringProperty("id")
 
     fun spiderAt(point: PointF, reach: Float): SpiderHit? {
@@ -1050,7 +1056,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
 
         val puck = style.layers.firstOrNull(::isPuckLayer)?.id
         // Map labels make way for markers that stay put.
-        val moving = setOf(LAYER_VEHICLES, LAYER_OFFBEAT)
+        val moving = VEHICLE_LAYERS.toSet()
         fun over(layer: SymbolLayer) {
             layer.setProperties(iconAllowOverlap(true), iconIgnorePlacement(!doodle || layer.id in moving))
             if (puck != null) style.addLayerBelow(layer, puck) else style.addLayer(layer)
@@ -1102,7 +1108,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             stop(CITY_ZOOM, product(get("size"), literal(CITY_CHARACTER))),
             stop(STREET_ZOOM, get("size")),
         )
-        for ((id, beat) in listOf(LAYER_VEHICLES to neq(get("beat"), literal(1)), LAYER_OFFBEAT to eq(get("beat"), literal(1)))) {
+        val onBeat = neq(get("beat"), literal(1))
+        val offBeat = eq(get("beat"), literal(1))
+        val ghost = eq(get("ghost"), literal(true))
+        val live = neq(get("ghost"), literal(true))
+        // Ghosts under the live ones.
+        val vehicleLayers = listOf(
+            LAYER_GHOSTS to all(ghost, onBeat), LAYER_GHOSTS_OFFBEAT to all(ghost, offBeat),
+            LAYER_VEHICLES to all(live, onBeat), LAYER_OFFBEAT to all(live, offBeat),
+        )
+        for ((id, filter) in vehicleLayers) {
             over(
                 SymbolLayer(id, SRC_VEHICLES).withProperties(
                     iconImage(get("img")),
@@ -1113,7 +1128,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                     iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
                     iconTranslateAnchor(Property.ICON_TRANSLATE_ANCHOR_VIEWPORT),
                     symbolSortKey(get("z")),
-                ).withFilter(beat),
+                ).withFilter(filter),
             )
         }
         over(SymbolLayer(LAYER_PINS, SRC_PINS).withProperties(iconImage(get("img")), iconAnchor(Property.ICON_ANCHOR_BOTTOM)))
@@ -1132,10 +1147,9 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         style.addImage("pin-Origin-lifted", images.liftedPin(MapColors.Origin))
         style.addImage("pin-Destination-lifted", images.liftedPin(MapColors.Destination))
         if (doodle) {
-            style.addImage("doodle-hatch", images.hatch(dark))
             style.addImage("doodle-waves", images.waves(dark))
             style.addImage("doodle-paper", images.paper(dark))
-            style.addImage("doodle-tree", images.tree(dark))
+            style.addImage("doodle-trees", images.trees(dark))
         }
     }
 
@@ -1630,6 +1644,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
             addNumberProperty("opacity", (if (faded) FADED_VEHICLE_OPACITY else 1f) * shown.opacity)
+            addBooleanProperty("ghost", faded)
             val bounce = (bounces[shown.vehicle.id]?.animatedValue as Float?) ?: 1f
             addNumberProperty("size", (if (faded) FADED_VEHICLE_SIZE else 1f) * shown.scale * bounce * reveal.vehicle(now, shown.vehicle.shortName))
             if (shown.leaving) addBooleanProperty("gone", true)
