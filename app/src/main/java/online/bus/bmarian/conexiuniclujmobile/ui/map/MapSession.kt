@@ -165,6 +165,7 @@ private const val LAYER_HIGHLIGHTS = "ct-highlights"
 private const val LAYER_SPIDER = "ct-spider"
 private const val LAYER_SELECTED = "ct-selected"
 private const val LAYER_VEHICLES = "ct-vehicles"
+private const val LAYER_GHOSTS = "ct-vehicles-ghosts"
 private const val LAYER_PINS = "ct-pins"
 private const val RIPPLE_GAP_MS = (210 * LONG_PACE).toLong()
 private const val SELECTED_RADIUS_DP = 16f
@@ -695,7 +696,11 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     fun shownVehicle(id: String): ShownVehicle? = glide.shown(id)
 
     fun vehicleAt(point: PointF, reach: Float): String? =
-        map.queryRenderedFeatures(RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach), LAYER_VEHICLES)
+        map.queryRenderedFeatures(
+            RectF(point.x - reach, point.y - reach, point.x + reach, point.y + reach),
+            LAYER_GHOSTS,
+            LAYER_VEHICLES,
+        )
             .firstOrNull { !it.hasProperty("gone") }?.getStringProperty("id")
 
     fun spiderAt(point: PointF, reach: Float): SpiderHit? {
@@ -1066,17 +1071,20 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             ),
             LAYER_SELECTED,
         )
-        over(
-            SymbolLayer(LAYER_VEHICLES, SRC_VEHICLES).withProperties(
-                iconImage(get("img")),
-                iconRotate(get("rot")),
-                iconOffset(get("off")),
-                iconOpacity(get("opacity")),
-                iconSize(get("size")),
-                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
-                symbolSortKey(get("z")),
-            ),
-        )
+        // Ghosts under the live ones.
+        for ((id, ghost) in listOf(LAYER_GHOSTS to true, LAYER_VEHICLES to false)) {
+            over(
+                SymbolLayer(id, SRC_VEHICLES).withProperties(
+                    iconImage(get("img")),
+                    iconRotate(get("rot")),
+                    iconOffset(get("off")),
+                    iconOpacity(get("opacity")),
+                    iconSize(get("size")),
+                    iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
+                    symbolSortKey(get("z")),
+                ).withFilter(eq(get("ghost"), literal(ghost))),
+            )
+        }
         over(SymbolLayer(LAYER_PINS, SRC_PINS).withProperties(iconImage(get("img")), iconAnchor(Property.ICON_ANCHOR_BOTTOM)))
     }
 
@@ -1565,6 +1573,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         return Feature.fromGeometry(point(shown.at)).apply {
             addStringProperty("id", shown.vehicle.id)
             addStringProperty("img", img)
+            addBooleanProperty("ghost", faded)
             addNumberProperty("z", z)
             addNumberProperty("rot", rot)
             addNumberProperty("opacity", (if (faded) FADED_VEHICLE_OPACITY else 1f) * shown.opacity)
