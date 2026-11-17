@@ -183,7 +183,7 @@ fun GroupStopsScreen(raw: String, edit: String?, rawLine: String, leg: Leg) {
                 modifier = Modifier.weight(1f),
                 shapes = ButtonDefaults.shapes(),
             ) {
-                Text(stringResource(if (isNew) R.string.group_add_to_group else R.string.done))
+                Text(stringResource(if (isNew) R.string.group_add_to_group else R.string.group_apply))
             }
         }
     }

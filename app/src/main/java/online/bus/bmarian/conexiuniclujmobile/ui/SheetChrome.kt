@@ -76,6 +76,7 @@ interface Navigator {
     fun groupStops(lines: String, edit: String? = null, line: String, leg: Leg = Leg.Dus)
     /** Back at the group being put together, now with [lines]. */
     fun groupBuilt(lines: String, edit: String? = null, leg: Leg = Leg.Dus)
+    fun inGroupBuilder(): Boolean
 }
 
 /** Same keys as the website's /plan query. */
