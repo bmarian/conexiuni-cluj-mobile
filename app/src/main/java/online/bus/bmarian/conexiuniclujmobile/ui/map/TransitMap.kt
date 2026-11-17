@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
+import androidx.compose.ui.graphics.toArgb
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PointF
@@ -22,7 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessible
 import androidx.compose.material.icons.rounded.PedalBike
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,6 +88,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LineBadges
 import online.bus.bmarian.conexiuniclujmobile.ui.ModeBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.shownTraffic
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LineColors
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.manyLines
 import org.maplibre.android.camera.CameraPosition
@@ -168,6 +170,7 @@ fun TransitMap(
     var drag by remember { mutableStateOf<PinDrag?>(null) }
     var dragAt by remember { mutableStateOf<LatLon?>(null) }
 
+    val ground = LocalDoodle.current?.ground?.toArgb()
     val host = remember {
         val options = MapLibreMapOptions.createFromAttributes(context)
             .camera(
@@ -185,7 +188,7 @@ fun TransitMap(
             .compassEnabled(true)
             .compassFadesWhenFacingNorth(true)
             .compassGravity(Gravity.TOP or Gravity.END)
-            .foregroundLoadColor(if (dark) 0xFF0C0C0C.toInt() else 0xFFF2F3F0.toInt())
+            .foregroundLoadColor(ground ?: if (dark) 0xFF0C0C0C.toInt() else 0xFFF2F3F0.toInt())
         MapHost(context, MapView(context, options).also { it.onCreate(null) })
     }
 
@@ -193,8 +196,14 @@ fun TransitMap(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> host.map.onStart()
-                Lifecycle.Event.ON_RESUME -> host.map.onResume()
-                Lifecycle.Event.ON_PAUSE -> host.map.onPause()
+                Lifecycle.Event.ON_RESUME -> {
+                    host.map.onResume()
+                    session?.resumed = true
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    host.map.onPause()
+                    session?.resumed = false
+                }
                 Lifecycle.Event.ON_STOP -> host.map.onStop()
                 else -> {}
             }
@@ -351,7 +360,8 @@ fun TransitMap(
         s.aim { s.flyTo(target, zoom, restingPadding()) }
     }
 
-    LaunchedEffect(session, dark) { session?.setDark(dark) }
+    val doodle = LocalDoodle.current != null
+    LaunchedEffect(session, dark, doodle) { session?.setBasemap(dark, doodle) }
     val bounds = cityBounds?.let { LatLngBounds.from(it.north, it.east, it.south, it.west) }
     var shownCity by remember { mutableStateOf(camera.city) }
     LaunchedEffect(session, city, bounds) {

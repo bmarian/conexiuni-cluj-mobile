@@ -1,5 +1,9 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.follow
 
+import androidx.compose.material3.BottomSheetDefaults
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.sheetEdgeInk
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.SheetEdgeShape
 import android.content.res.Resources
 import android.content.Intent
 import android.provider.Settings
@@ -35,7 +39,7 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -181,7 +185,13 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
     }
     val next = draft?.next()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    val ink = LocalDoodle.current
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        modifier = ink?.let { Modifier.sheetEdgeInk(it) } ?: Modifier,
+        shape = if (ink != null) SheetEdgeShape else BottomSheetDefaults.ExpandedShape,
+    ) {
         Column(
             Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.route
 
+import androidx.compose.ui.layout.layout
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseInOutQuad
 import androidx.compose.animation.core.tween
@@ -10,7 +13,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableFloatState
@@ -157,7 +160,9 @@ fun StopListBuses(
     color: Color,
     mode: Mode,
     modifier: Modifier = Modifier,
+    badge: (@Composable () -> Unit)? = null,
 ) {
+    val railX = if (LocalDoodle.current != null) DoodleMetrics.Side + DoodleMetrics.RailWidth / 2 else RAIL_X
     val flash = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     Box(
@@ -186,11 +191,24 @@ fun StopListBuses(
                         }
                     }
                 }
-                Box(
+                if (badge != null) {
+                    Box(
+                        Modifier
+                            .offset {
+                                val y = buses.row(id)?.let { list.rowCenter(keys, it) } ?: -railX.toPx()
+                                IntOffset(railX.roundToPx(), y.roundToInt())
+                            }
+                            .layout { measurable, constraints ->
+                                val placeable = measurable.measure(constraints)
+                                layout(placeable.width, placeable.height) { placeable.place(-placeable.width / 2, -placeable.height / 2) }
+                            }
+                            .popped(pop),
+                    ) { badge() }
+                } else Box(
                     Modifier
                         .offset {
-                            val y = buses.row(id)?.let { list.rowCenter(keys, it) } ?: -RAIL_X.toPx()
-                            IntOffset((RAIL_X - BUS / 2).roundToPx(), (y - (BUS / 2).toPx()).roundToInt())
+                            val y = buses.row(id)?.let { list.rowCenter(keys, it) } ?: -railX.toPx()
+                            IntOffset((railX - BUS / 2).roundToPx(), (y - (BUS / 2).toPx()).roundToInt())
                         }
                         .size(BUS)
                         .popped(pop)

@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import androidx.compose.ui.graphics.vector.ImageVector
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleSelect
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +28,15 @@ import androidx.compose.ui.unit.dp
 /** Port of SelectField.vue. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <T> SelectField(label: String?, value: String, options: List<Pair<T, String>>, modifier: Modifier = Modifier, onPick: (T) -> Unit) {
+fun <T> SelectField(
+    label: String?,
+    value: String,
+    options: List<Pair<T, String>>,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    onPick: (T) -> Unit,
+) {
+    LocalDoodle.current?.let { return DoodleSelect(value, options, icon, it, modifier, onPick) }
     var open by remember { mutableStateOf(false) }
     var width by remember { mutableIntStateOf(0) }
     ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = modifier) {

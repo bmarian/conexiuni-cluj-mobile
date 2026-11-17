@@ -1,5 +1,16 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleRowIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleChevron
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleListRow
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Mood
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMoment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +30,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -156,13 +167,19 @@ class SearchState {
     }
 }
 
+private val FIELD_CORNER = 28.dp
+private const val FIELD_SEED = 9
+
 @Composable
 fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
     val focus = LocalFocusManager.current
+    val doodle = LocalDoodle.current != null
+    val drawn = inkShape(FIELD_CORNER, FIELD_SEED)
     TextField(
         value = query,
         onValueChange = onQuery,
-        modifier = modifier.fillMaxWidth().then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+        modifier = modifier.fillMaxWidth().doodleOutline(drawn, InkThick)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
         placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = { Icon(Icons.Rounded.Search, null) },
         trailingIcon = if (query.isNotEmpty()) {
@@ -171,12 +188,12 @@ fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String, m
             }
         } else null,
         singleLine = true,
-        shape = CircleShape,
+        shape = if (doodle) drawn else CircleShape,
         colors = TextFieldDefaults.colors(
             focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
             unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            focusedContainerColor = cardFill(MaterialTheme.colorScheme.surfaceContainerHighest),
+            unfocusedContainerColor = cardFill(MaterialTheme.colorScheme.surfaceContainerHighest),
         ),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
@@ -260,8 +277,11 @@ fun LazyListScope.searchResults(
     }
     val nothing = places.isEmpty() && savedResults.isEmpty() && routeResults.isEmpty() && stopResults.isEmpty()
     if (!loading && nothing && answer?.best == null && answer?.notice == null) {
+        item { DoodleMoment(Mood.Look, caption = stringResource(R.string.w_no_results)) }
         item {
-            if (online) {
+            if (LocalDoodle.current != null) {
+                if (online) DoodleListRow(stringResource(R.string.w_drop_pin), onDropPin, icon = { DoodleRowIcon(Icons.Rounded.Place) }) { DoodleChevron() }
+            } else if (online) {
                 Row(
                     Modifier.fillMaxWidth().squishClickable(onClick = onDropPin).padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -294,6 +314,13 @@ fun StationRow(
     lines: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
+    if (LocalDoodle.current != null) {
+        val icon = @Composable { StationIcon(look, size = DoodleMetrics.RowIcon, heart = favorite) }
+        return DoodleListRow(stop.name, onClick, icon = icon, lines = lines ?: { StationLines(look) }) {
+            distance?.let { Text(it, fontSize = DoodleMetrics.RowSubtitle, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            DoodleChevron()
+        }
+    }
     Row(
         Modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = if (lines == null) Alignment.CenterVertically else Alignment.Top,
@@ -311,6 +338,14 @@ fun StationRow(
 
 @Composable
 fun ResultRow(icon: @Composable () -> Unit, title: String, distance: String?, subtitle: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    if (LocalDoodle.current != null) {
+        return DoodleListRow(title, onClick, modifier, icon = icon, subtitle = subtitle) {
+            distance?.let {
+                Text(it, Modifier.align(Alignment.CenterVertically), fontSize = DoodleMetrics.RowSubtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            DoodleChevron()
+        }
+    }
     Row(
         modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

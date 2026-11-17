@@ -1,11 +1,13 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import androidx.compose.ui.text.style.TextOverflow
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Traffic
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,12 +48,22 @@ fun TrafficNote(jam: Jam, modifier: Modifier = Modifier, between: Boolean = fals
     fun name(stopId: Int) = index?.stop(stopId)?.name.orEmpty()
     val text = if (between) {
         stringResource(R.string.w_traffic_between, name(jam.fromStopId), name(jam.toStopId), jamMinutes(jam))
+    } else if (LocalDoodle.current != null) {
+        stringResource(R.string.traffic_after_short, jamMinutes(jam), name(jam.fromStopId))
     } else {
         stringResource(R.string.w_traffic_after, name(jam.fromStopId), jamMinutes(jam))
     }
-    val color = MaterialTheme.colorScheme.error
+    val doodle = LocalDoodle.current != null
+    val color = if (doodle) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(Icons.Rounded.Traffic, null, Modifier.size(16.dp), tint = color)
-        Text(text, style = style, color = color, fontWeight = FontWeight.Medium)
+        if (!doodle) Icon(Icons.Rounded.Traffic, null, Modifier.size(16.dp), tint = color)
+        Text(
+            text,
+            style = style,
+            color = color,
+            fontWeight = FontWeight.Medium,
+            maxLines = if (doodle && !between) 1 else Int.MAX_VALUE,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

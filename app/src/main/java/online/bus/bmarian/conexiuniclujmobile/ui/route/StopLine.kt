@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.route
 
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +20,7 @@ import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.UTurnLeft
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +43,7 @@ internal enum class StopMark { From, Nearest, Favorite, Terminal, Plain }
 
 @Composable
 internal fun TimeColumns(times: List<Pair<String, Boolean>>, header: Boolean = false, uTurnAt: Int = -1) {
+    if (LocalDoodle.current != null) return DoodleTimeColumns(times, header, uTurnAt)
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         times.forEachIndexed { i, (label, live) ->
             val color = when {
@@ -89,6 +91,12 @@ internal fun StopLine(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
+    LocalDoodle.current?.let {
+        return DoodleStopLine(
+            it, name, mark, favorite, first, last, times, uTurnAt, trailingText, trailingHighlight, paint, paintColor,
+            alerting, reminded, dimmed, onClick, onLongClick,
+        )
+    }
     val rail = MaterialTheme.colorScheme.outlineVariant
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val rowTint = when (mark) {

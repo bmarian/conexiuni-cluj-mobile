@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="doodle_splash_ground">#FFFBF2</color>
+    <color name="doodle_splash_ink">#23201C</color>
+    <color name="doodle_splash_window">#FFFBF2</color>
+    <color name="doodle_splash_blob">#FFFBF2</color>
+    <color name="doodle_splash_wheel">#23201C</color>
+</resources>

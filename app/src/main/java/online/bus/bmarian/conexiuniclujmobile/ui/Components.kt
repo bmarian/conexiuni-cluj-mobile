@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleRowIcon
+import androidx.compose.ui.unit.TextUnit
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleTitle
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -28,7 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +79,10 @@ import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineNumberShadow
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThin
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 
 @Composable
 fun cityName(): String {
@@ -103,15 +110,17 @@ fun LineBadge(
     height: Dp = 28.dp,
     minWidth: Dp = 40.dp,
     corner: Dp = 8.dp,
+    fontSize: TextUnit = (height.value * 0.45f).sp,
 ) {
     val looks = LocalLineLooks.current
     val morph = rememberMorph(shortName, looks.color(shortName, color), looks.favorite(shortName))
-    FavoriteMorph(morph, RoundedCornerShape(corner), modifier.widthIn(min = minWidth).heightIn(min = height)) {
+    val shape = inkShape(corner, shortName.hashCode())
+    FavoriteMorph(morph, shape, modifier.widthIn(min = minWidth).heightIn(min = height).doodleOutline(shape, InkThin, rim = true)) {
         Text(
             shortName,
             Modifier.padding(horizontal = 6.dp),
             color = Color.White,
-            fontSize = (height.value * 0.45f).sp,
+            fontSize = fontSize,
             style = LocalTextStyle.current.copy(shadow = lineNumberShadow()),
             fontWeight = FontWeight.Black,
             maxLines = 1,
@@ -175,6 +184,7 @@ fun SectionLabel(
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
+    if (LocalDoodle.current != null) return DoodleTitle(text, modifier, trailing)
     Row(
         modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -196,6 +206,7 @@ fun SectionLabel(
 
 @Composable
 fun SubLabel(text: String, modifier: Modifier = Modifier) {
+    if (LocalDoodle.current != null) return DoodleTitle(text, modifier)
     Text(
         text,
         modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -239,6 +250,7 @@ fun LoadFailed(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 fun RowIcon(icon: ImageVector, container: Color, tint: Color, size: Dp = 36.dp, emoji: String? = null) {
+    if (LocalDoodle.current != null) return DoodleRowIcon(icon, emoji = emoji)
     Box(
         Modifier.size(size).clip(CircleShape).background(container),
         contentAlignment = Alignment.Center,
@@ -323,7 +335,11 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
         }
         Ticker(
             text,
-            style = TextStyle(fontSize = 13.sp, fontWeight = if (extra) FontWeight.Medium else FontWeight.Bold),
+            style = TextStyle(
+                fontSize = 13.sp,
+                fontWeight = if (extra) FontWeight.Medium else FontWeight.Bold,
+                fontFamily = if (LocalDoodle.current != null) MaterialTheme.typography.labelMedium.fontFamily else null,
+            ),
             color = content,
         )
     }

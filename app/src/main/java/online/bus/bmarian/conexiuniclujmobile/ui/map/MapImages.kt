@@ -33,6 +33,11 @@ import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.logic.SPIDER_LABEL_GAP_DP
 import online.bus.bmarian.conexiuniclujmobile.logic.SpiderLeg
 import online.bus.bmarian.conexiuniclujmobile.logic.spiderRadius
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Characters
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThin
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.DoodleFont
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.PaperInk
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.doodleInk
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineNumberShadow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
 import kotlin.math.ceil
@@ -48,6 +53,7 @@ private const val LABEL_GAP_DP = 2f
 private const val LABEL_PAD_DP = 2f
 private const val STATION_SLOT_DP = 28f
 private const val SPIDER_PAD_DP = 16
+private const val CHARACTER_DP = 64f
 const val CLUSTER_STATIONS_MAX = 3
 const val CLUSTER_NAMES_MAX = 8
 
@@ -62,14 +68,24 @@ sealed interface GroupIcon {
 }
 
 internal class MapImages(context: Context) {
+    @Volatile var doodle = false
+        set(value) {
+            if (field == value) return
+            field = value
+            labelSizes = HashMap()
+            boxLabelSizes = HashMap()
+        }
+
+    private val ring get() = if (doodle) PaperInk.rim else Color.White
+
     private val density = Density(context)
     private val measurer = TextMeasurer(createFontFamilyResolver(context), density, LayoutDirection.Ltr)
 
     // groupBox runs on the clustering thread, so it measures with its own.
     private val boxMeasurer = TextMeasurer(createFontFamilyResolver(context), density, LayoutDirection.Ltr)
-    private val boxLabelSizes = HashMap<String, Pair<Float, Float>>()
+    @Volatile private var boxLabelSizes = HashMap<String, Pair<Float, Float>>()
 
-    private fun draw(widthDp: Float, heightDp: Float, block: DrawScope.() -> Unit): Bitmap {
+    fun draw(widthDp: Float, heightDp: Float, block: DrawScope.() -> Unit): Bitmap {
         val w = ceil(widthDp * density.density).toInt().coerceAtLeast(1)
         val h = ceil(heightDp * density.density).toInt().coerceAtLeast(1)
         val image = ImageBitmap(w, h)
@@ -78,24 +94,26 @@ internal class MapImages(context: Context) {
     }
 
     fun stop(dark: Boolean) = draw(28f, 28f) {
-        stopMarker(center, 24.dp.toPx(), if (dark) MapColors.StopDark else MapColors.StopLight, 14.dp.toPx())
+        stopMarker(center, 24.dp.toPx(), if (dark) MapColors.StopDark else MapColors.StopLight, 14.dp.toPx(), ring = ring)
     }
 
     fun highlight(h: StopHighlight) = draw(28f, 28f) {
         val favorite = h == StopHighlight.Favorite
-        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), if (favorite) 13.dp.toPx() else 14.dp.toPx(), shadow = 1.2f, heart = favorite)
+        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), if (favorite) 13.dp.toPx() else 14.dp.toPx(), shadow = 1.2f, heart = favorite, ring = ring)
     }
 
-    fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f) }
+    fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f, ring = ring) }
 
-    fun station(mode: Mode, color: String) = draw(28f, 28f) { stopMarker(center, 24.dp.toPx(), routeColor(color), 14.dp.toPx(), mode = mode) }
+    fun station(mode: Mode, color: String) = draw(28f, 28f) { stopMarker(center, 24.dp.toPx(), routeColor(color), 14.dp.toPx(), mode = mode, ring = ring) }
 
     fun selectedStation(mode: Mode, color: String) = draw(36f, 36f) {
-        stopMarker(center, 32.dp.toPx(), routeColor(color), 16.dp.toPx(), shadow = 1.6f, mode = mode)
+        stopMarker(center, 32.dp.toPx(), routeColor(color), 16.dp.toPx(), shadow = 1.6f, mode = mode, ring = ring)
     }
 
-    private val labelStyle = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp)
-    private val labelSizes = HashMap<String, Pair<Float, Float>>()
+    private val plainLabel = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp)
+    private val handLabel = plainLabel.copy(fontFamily = DoodleFont)
+    private val labelStyle get() = if (doodle) handLabel else plainLabel
+    private var labelSizes = HashMap<String, Pair<Float, Float>>()
 
     // Port of clusterPill in utils/mapIcons.ts.
     private fun pillGrid(icons: Int): Pair<Int, Int> {
@@ -134,15 +152,17 @@ internal class MapImages(context: Context) {
     private fun DrawScope.groupIcon(icon: GroupIcon, at: Offset) {
         val cell = CELL_DP.dp.toPx()
         when (icon) {
-            is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode)
-            GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true)
+            is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode, ring = ring)
+            GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true, ring = ring)
         }
     }
 
     private fun DrawScope.groupText(name: String, more: Int, dark: Boolean, topLeft: Offset) {
         val text = measurer.measure(if (more > 0) "$name +$more" else name, labelStyle)
-        drawText(text, color = if (dark) MapColors.InkDark else Color.White, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
-        val ink = if (dark) MapColors.Paper else MapColors.InkDark
+        val hand = if (doodle) doodleInk(dark) else null
+        val halo = hand?.ground ?: if (dark) MapColors.InkDark else Color.White
+        drawText(text, color = halo, topLeft = topLeft, drawStyle = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
+        val ink = hand?.text ?: if (dark) MapColors.Paper else MapColors.InkDark
         // Fill must be explicit: drawText keeps the halo's Stroke otherwise.
         if (more == 0) {
             drawText(text, color = ink, topLeft = topLeft, drawStyle = Fill)
@@ -160,9 +180,14 @@ internal class MapImages(context: Context) {
             val top = 1.dp.toPx()
             val radius = CornerRadius((CELL_DP / 2 + PILL_PAD_DP).dp.toPx())
             val pill = Size(pw.dp.toPx(), ph.dp.toPx())
-            drawRoundRect(Color.Black.copy(alpha = 0.14f), Offset(0f, top + 1.dp.toPx()), pill, radius)
-            drawRoundRect(if (dark) MapColors.InkSoft else Color.White, Offset(0f, top), pill, radius)
-            if (dark) drawRoundRect(Color.White.copy(alpha = 0.18f), Offset(0f, top), pill, radius, style = Stroke(1.dp.toPx()))
+            val hand = if (doodle) doodleInk(dark) else null
+            if (hand == null) drawRoundRect(Color.Black.copy(alpha = 0.14f), Offset(0f, top + 1.dp.toPx()), pill, radius)
+            drawRoundRect(hand?.paper ?: if (dark) MapColors.InkSoft else Color.White, Offset(0f, top), pill, radius)
+            if (hand != null) {
+                drawRoundRect(hand.outline, Offset(0f, top), pill, radius, style = Stroke(InkThin.toPx()))
+            } else if (dark) {
+                drawRoundRect(Color.White.copy(alpha = 0.18f), Offset(0f, top), pill, radius, style = Stroke(1.dp.toPx()))
+            }
             val cell = CELL_DP.dp.toPx()
             val gap = PILL_GAP_DP.dp.toPx()
             val cols = pillGrid(icons.size).first
@@ -303,6 +328,17 @@ internal class MapImages(context: Context) {
         val layout = measurer.measure(label, style)
         drawText(layout, topLeft = Offset(at.x - layout.size.width / 2f, at.y - layout.size.height / 2f))
     }
+
+    fun character(mode: Mode, color: String, label: String, flip: Boolean, dark: Boolean) =
+        draw(CHARACTER_DP, CHARACTER_DP * Characters.HEIGHT / Characters.WIDTH) {
+            val hand = doodleInk(dark)
+            val colors = Characters.Colors(routeColor(color), hand.outline, hand.window, hand.rim, hand.blob, PaperInk.text)
+            with(Characters) {
+                shadow(dark)
+                character(mode, colors, flip, minLine = InkThin.toPx())
+                number(measurer, mode, label, flip, DoodleFont)
+            }
+        }
 
     /** MapLibre's own location arrow, with the arrow in the line's colour. */
     fun navArrow(color: String) = draw(75f, 75f) {

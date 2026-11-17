@@ -183,4 +183,11 @@
     <string name="group_no_more">Nu mai pleacă azi</string>
     <string name="group_show_line">Arată pe hartă</string>
     <string name="group_hide_line">Ascunde de pe hartă</string>
+    <string name="theme_label">Temă</string>
+    <string name="look_label">Aspect</string>
+    <string name="line_number">Linia %1$s</string>
+    <string name="toward">spre %1$s</string>
+    <string name="traffic_after_short">+%1$d min · Trafic după %2$s</string>
+    <string name="look_standard">Standard</string>
+    <string name="look_doodle">Desenat</string>
 </resources>

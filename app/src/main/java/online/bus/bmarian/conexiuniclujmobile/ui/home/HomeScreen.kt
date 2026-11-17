@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import androidx.compose.ui.unit.TextUnit
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleListRow
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
 import androidx.compose.foundation.layout.Box
 import online.bus.bmarian.conexiuniclujmobile.logic.HomeSections
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,7 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Map
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -90,6 +93,9 @@ import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.logic.FirstSteps
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
@@ -334,9 +340,9 @@ fun HomeScreen() {
                         )
                     }
                     HomeSections.LINES -> FlowRow(
-                        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = if (LocalDoodle.current != null) DoodleMetrics.Side else 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (LocalDoodle.current != null) DoodleMetrics.ChipGap else 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (LocalDoodle.current != null) DoodleMetrics.ChipGap else 8.dp),
                         maxItemsInEachRow = 2,
                     ) {
                         for (chip in chips) key(chip.route.routeId) {
@@ -419,12 +425,15 @@ private fun rowBackground(lifted: Boolean) = if (lifted) MaterialTheme.colorSche
 
 @Composable
 private fun FavoriteRouteChip(chip: RouteChip, modifier: Modifier, onClick: () -> Unit) {
+    LocalDoodle.current?.let { return DoodleRouteCard(chip.route.shortName, chip.route.color, chip.parts, chip.both, it, modifier, onClick) }
     val press = remember { MutableInteractionSource() }
+    val doodle = LocalDoodle.current != null
+    val shape = inkShape(14.dp, chip.route.shortName.hashCode())
     Surface(
         onClick = onClick,
-        modifier = modifier.squish(press, 0.93f),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = modifier.squish(press, 0.93f).doodleOutline(shape),
+        shape = shape,
+        color = if (doodle) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
         interactionSource = press,
     ) {
         Row(Modifier.padding(start = 10.dp, end = 12.dp, top = 6.dp, bottom = 6.dp).heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -466,12 +475,13 @@ private fun FavoriteGroupRow(group: SavedGroup, index: NetworkIndex?, modifier: 
 @Composable
 private fun FavoriteStopRow(stop: Stop, look: StationLook?, modifier: Modifier, lifted: Boolean, onClick: () -> Unit) = FavoriteRow(
     modifier = modifier,
-    icon = { StationIcon(look, size = 30.dp) },
+    icon = { StationIcon(look, size = if (LocalDoodle.current != null) DoodleMetrics.FavoriteStopIcon else 30.dp) },
     title = stop.name,
     lines = { StationLines(look) },
     kicker = null,
     onClick = onClick,
     background = rowBackground(lifted),
+    titleSize = DoodleMetrics.FavoriteTitle,
 )
 
 @Composable
@@ -509,8 +519,28 @@ fun FavoriteRow(
     subtitle: String? = null,
     lines: (@Composable () -> Unit)? = null,
     background: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    titleSize: TextUnit = DoodleMetrics.RowTitle,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    if (LocalDoodle.current != null) {
+        return DoodleListRow(
+            title = title?.let { (titlePrefix ?: "") + it },
+            onClick = onClick,
+            modifier = modifier,
+            icon = icon,
+            subtitle = listOfNotNull(subtitle, kicker).joinToString(" · ").ifEmpty { null },
+            lines = lines,
+            titleSize = titleSize,
+            background = if (background == MaterialTheme.colorScheme.surfaceContainerLow) Color.Transparent else background,
+        ) {
+            trailing?.invoke()
+            if (removeLabel != null) {
+                IconButton(onClick = onRemove, modifier = Modifier.align(Alignment.CenterVertically)) {
+                    Icon(Icons.Rounded.Close, contentDescription = removeLabel, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
     Row(
         modifier.fillMaxWidth().background(background).squishClickable(onClick = onClick)
             .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),

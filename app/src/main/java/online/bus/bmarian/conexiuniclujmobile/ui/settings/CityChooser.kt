@@ -1,5 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.settings
 
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -16,7 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Place
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -73,11 +74,17 @@ fun CityChooser() {
         query = ""
         Services.chooseCity(slug)
     }
-    ListItem(
-        modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable {
-            open = !open
-            if (!open) query = ""
-        },
+    val toggle = {
+        open = !open
+        if (!open) query = ""
+    }
+    if (LocalDoodle.current != null) {
+        val name = if (automatic) stringResource(R.string.w_city_auto) else info?.name ?: city
+        DoodleSettingRow(name, if (automatic) info?.name else info?.operator, toggle) {
+            Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(turn), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else ListItem(
+        modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = toggle),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = { Icon(Icons.Rounded.Place, null) },
         headlineContent = { Text(if (automatic) stringResource(R.string.w_city_auto) else info?.name ?: city) },

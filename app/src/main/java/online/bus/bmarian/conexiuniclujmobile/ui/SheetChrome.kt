@@ -1,5 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleChips
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMenu
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -26,9 +28,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -52,6 +53,7 @@ import androidx.core.net.toUri
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.Links
 import online.bus.bmarian.conexiuniclujmobile.logic.Leg
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 
 interface Navigator {
     val canGoBack: Boolean
@@ -140,7 +142,7 @@ fun SheetTopBar(
 ) {
     val nav = LocalNavigator.current
     Row(
-        modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp),
+        modifier.fillMaxWidth().height(48.dp).padding(horizontal = if (LocalDoodle.current != null) TOP_BAR_DOODLE else TOP_BAR_PLAIN),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (nav.canGoBack) {
@@ -167,7 +169,7 @@ fun SheetTopBar(
                 IconButton(onClick = { open = true }) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.more_options))
                 }
-                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DoodleMenu(expanded = open, onDismissRequest = { open = false }) {
                     for (action in menu) {
                         DropdownMenuItem(
                             text = { Text(action.label) },
@@ -208,8 +210,12 @@ class ChipAction(
     val onClick: () -> Unit,
 )
 
+private val TOP_BAR_PLAIN = 4.dp
+private val TOP_BAR_DOODLE = 6.dp
+
 @Composable
 fun ActionChips(actions: List<ChipAction>, modifier: Modifier = Modifier) {
+    LocalDoodle.current?.let { return DoodleChips(actions, it, modifier) }
     LazyRow(
         modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp),

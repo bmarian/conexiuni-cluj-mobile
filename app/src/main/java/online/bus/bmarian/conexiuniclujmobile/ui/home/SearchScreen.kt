@@ -1,5 +1,16 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.WobblyShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleChevron
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleListRow
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.PanelCorner
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.panelFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.drawnShape
 import android.content.Intent
 import androidx.core.net.toUri
 import android.icu.text.Collator
@@ -44,7 +55,7 @@ import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -141,11 +152,14 @@ private fun SearchSurface(docked: Boolean, content: @Composable () -> Unit) {
         return
     }
     BoxWithConstraints(Modifier.statusBarsPadding().padding(start = 16.dp, top = 8.dp, end = 16.dp)) {
+        val doodle = LocalDoodle.current != null
+        val shape = drawnShape(PanelCorner, DockedShape)
         Surface(
-            Modifier.fillMaxWidth().heightIn(max = maxOf(DOCKED_MIN_HEIGHT, maxHeight * DOCKED_HEIGHT_RATIO)).darkRing(DockedShape),
-            shape = DockedShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = 6.dp,
+            Modifier.fillMaxWidth().heightIn(max = maxOf(DOCKED_MIN_HEIGHT, maxHeight * DOCKED_HEIGHT_RATIO))
+                .then(if (doodle) Modifier.doodleOutline(shape, InkThick) else Modifier.darkRing(DockedShape)),
+            shape = shape,
+            color = panelFill(MaterialTheme.colorScheme.surfaceContainerHigh),
+            shadowElevation = if (doodle) 0.dp else 6.dp,
             content = content,
         )
     }
@@ -283,7 +297,15 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
 
     SearchSurface(docked) {
         Column(if (docked) Modifier.fillMaxWidth() else Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            val ink = LocalDoodle.current
+            val pill = remember { WobblyShape(DoodleMetrics.SearchHeight / 2, PILL_SEED) }
+            Row(
+                if (ink == null) Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)
+                else Modifier.padding(start = DoodleMetrics.SearchInset, end = DoodleMetrics.SearchInset, top = DoodleMetrics.SearchInset).fillMaxWidth()
+                    .height(DoodleMetrics.SearchHeight)
+                    .inkOutline(pill, ink.outline, InkThick, ink.chalk).clip(pill).background(MaterialTheme.colorScheme.surface),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconButton(onClick = { onClose(true) }) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.w_back))
                 }
@@ -314,7 +336,7 @@ private fun SearchContent(state: SearchState, docked: Boolean, onClose: (clear: 
                     ),
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (ink == null) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             LazyColumn(if (docked) Modifier.weight(1f, fill = false) else Modifier.weight(1f).navigationBarsPadding()) {
                 if (state.active) {
                     searchResults(
@@ -468,6 +490,15 @@ private fun CollapseRow(
     onClick: () -> Unit,
 ) {
     val rotation by animateFloatAsState(if (open) 90f else 0f, label = "chevron")
+    if (LocalDoodle.current != null) {
+        return DoodleListRow(title, onClick, modifier, icon = icon) {
+            if (count > 0) {
+                val pencil = MaterialTheme.colorScheme.onSurfaceVariant
+                Text("$count", Modifier.align(Alignment.CenterVertically), fontSize = DoodleMetrics.RowSubtitle, color = pencil)
+            }
+            DoodleChevron(Modifier.rotate(rotation))
+        }
+    }
     Row(
         modifier.fillMaxWidth().squishClickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -1,8 +1,12 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
 import online.bus.bmarian.conexiuniclujmobile.logic.LONG_PACE
 import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
@@ -36,7 +40,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -330,6 +334,11 @@ fun Ticker(
     }
 }
 
+private val TRACK_CORNER = 24.dp
+private val THUMB_CORNER = 20.dp
+private const val TRACK_SEED = 11
+private const val THUMB_SEED = 5
+
 /** A single pill slides to the choice, stretching as it moves. */
 @Composable
 fun <T> ChoiceRow(
@@ -346,11 +355,16 @@ fun <T> ChoiceRow(
     LaunchedEffect(index) { position.animateTo(index.toFloat(), Bouncy.slide) }
     var width by remember { mutableIntStateOf(0) }
     val scheme = MaterialTheme.colorScheme
+    val ink = LocalDoodle.current
+    val drawnTrack = inkShape(TRACK_CORNER, TRACK_SEED)
+    val drawnThumb = inkShape(THUMB_CORNER, THUMB_SEED)
+    val track = if (ink != null) drawnTrack else CircleShape
     Box(
         modifier
-            .height(48.dp)
-            .clip(CircleShape)
-            .background(scheme.surfaceContainerHighest)
+            .height(if (ink != null) DoodleMetrics.ToggleHeight else 48.dp)
+            .doodleOutline(track, DoodleMetrics.Pen)
+            .clip(track)
+            .background(if (ink != null) Color.Transparent else scheme.surfaceContainerHighest)
             .padding(4.dp)
             .onSizeChanged { width = it.width },
     ) {
@@ -366,14 +380,14 @@ fun <T> ChoiceRow(
                     scaleX = 1f + (speed / 7f).coerceAtMost(0.45f)
                     scaleY = 1f - (speed / 40f).coerceAtMost(0.12f)
                 }
-                .clip(CircleShape)
-                .background(scheme.primary),
+                .clip(if (ink != null) drawnThumb else CircleShape)
+                .background(ink?.marker ?: scheme.primary),
         )
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, option ->
                 val checked = i == index
                 val on = enabled(option)
-                val color by animateColorAsState(if (checked) scheme.onPrimary else scheme.onSurfaceVariant, label = "choice")
+                val color by animateColorAsState(if (checked) ink?.onMarker ?: scheme.onPrimary else scheme.onSurfaceVariant, label = "choice")
                 val press = remember { MutableInteractionSource() }
                 Box(
                     Modifier
@@ -386,9 +400,17 @@ fun <T> ChoiceRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     CompositionLocalProvider(LocalContentColor provides color) {
-                        ProvideTextStyle(MaterialTheme.typography.labelLarge) {
+                        val style = if (ink == null) {
+                            MaterialTheme.typography.labelLarge
+                        } else {
+                            MaterialTheme.typography.labelLarge.copy(
+                                fontSize = DoodleMetrics.ToggleText,
+                                fontWeight = if (checked) FontWeight.Bold else FontWeight.Medium,
+                            )
+                        }
+                        ProvideTextStyle(style) {
                             Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                if (icon != null) {
+                                if (icon != null && ink == null) {
                                     PopIcon(icon(option), checked, Modifier.size(18.dp))
                                     Spacer(Modifier.width(6.dp))
                                 }

@@ -1,5 +1,14 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.follow
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.routeMode
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Mood
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Character
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,7 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -68,17 +77,24 @@ fun rememberWithNotifications(): (() -> Unit) -> Unit {
     }
 }
 
+private val FOLLOW_CORNER = 16.dp
+private val FOLLOW_CHARACTER = 40.dp
+
 @Composable
 fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val followed = state.followed
     val now = rememberNow()
     val clock by Services.clock.collectAsStateWithLifecycle()
     val press = remember { MutableInteractionSource() }
+    val ink = LocalDoodle.current
+    val drawn = inkShape(FOLLOW_CORNER, followed.shortName.hashCode())
+    val minutes = state.minutesAt(clock)
     Card(
         onClick = onOpen,
-        modifier = modifier.fillMaxWidth().squish(press),
+        modifier = modifier.fillMaxWidth().squish(press).doodleOutline(drawn),
+        shape = if (ink != null) drawn else CardDefaults.shape,
         interactionSource = press,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        colors = CardDefaults.cardColors(containerColor = ink?.paper ?: MaterialTheme.colorScheme.primaryContainer),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
@@ -87,12 +103,19 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(
-                        Icons.Rounded.NotificationsActive,
-                        null,
-                        Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
+                    if (ink != null) {
+                        val mode = routeMode(followed.routeId)
+                        val color = LocalLineLooks.current.color(followed.shortName, followed.color)
+                        val mood = if (minutes != null && minutes <= 0) Mood.Wave else Mood.Happy
+                        Character(mode, color, "", mood, Modifier.width(FOLLOW_CHARACTER))
+                    } else {
+                        Icon(
+                            Icons.Rounded.NotificationsActive,
+                            null,
+                            Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
                     Text(
                         stringResource(R.string.following),
                         style = MaterialTheme.typography.labelLarge,
@@ -118,7 +141,7 @@ fun FollowingCard(state: FollowState, onOpen: () -> Unit, onStop: () -> Unit, mo
                 )
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.minutesAt(clock)?.let { TimePill(minutesLabel(it, now), live = state.live) }
+                minutes?.let { TimePill(minutesLabel(it, now), live = state.live) }
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onStop) { Text(stringResource(R.string.stop_following)) }
             }
         }
@@ -130,11 +153,13 @@ fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modif
     val now = rememberNow()
     val clock by Services.clock.collectAsStateWithLifecycle()
     val press = remember { MutableInteractionSource() }
+    val shape = cardShape()
     Card(
         onClick = { onOpen?.invoke() },
-        modifier = modifier.fillMaxWidth().squish(press),
+        modifier = modifier.fillMaxWidth().squish(press).doodleOutline(shape),
+        shape = shape,
         interactionSource = press,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        colors = CardDefaults.cardColors(containerColor = cardFill(MaterialTheme.colorScheme.tertiaryContainer)),
     ) {
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.toColorInt
+import online.bus.bmarian.conexiuniclujmobile.Services
+import online.bus.bmarian.conexiuniclujmobile.data.Look
 
 object Palette {
     val Emerald = Color(0xFF10B981)
@@ -124,6 +126,8 @@ private fun ColorScheme.containersSpacedLike(model: ColorScheme): ColorScheme {
 
 val LocalDarkTheme = staticCompositionLocalOf { false }
 
+fun standardScheme(dark: Boolean): ColorScheme = if (dark) DarkColors else LightColors
+
 @Immutable
 class LiveColors(val content: Color, val container: Color, val onContainer: Color)
 
@@ -137,7 +141,10 @@ fun routeColor(hex: String?): Color =
 @Composable
 fun ConexiuniTheme(dark: Boolean, dynamic: Boolean = true, content: @Composable () -> Unit) {
     val context = LocalContext.current
+    val look by Services.settings.look.collectAsState()
+    val doodle = look == Look.Doodle
     val scheme = when {
+        doodle -> if (dark) DoodleDark else DoodleLight
         dynamic && dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicDarkColorScheme(context).containersSpacedLike(DarkColors)
         dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
         dark -> DarkColors
@@ -146,9 +153,19 @@ fun ConexiuniTheme(dark: Boolean, dynamic: Boolean = true, content: @Composable 
     val lineLooks by LineColors.looks.collectAsState()
     androidx.compose.runtime.CompositionLocalProvider(
         LocalDarkTheme provides dark,
-        LocalLiveColors provides if (dark) LiveDark else LiveLight,
+        LocalLiveColors provides when {
+            doodle -> if (dark) DoodleLiveDark else DoodleLiveLight
+            dark -> LiveDark
+            else -> LiveLight
+        },
         LocalLineLooks provides lineLooks,
+        LocalDoodle provides if (doodle) doodleInk(dark) else null,
     ) {
-        MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive(), content = content)
+        MaterialExpressiveTheme(
+            colorScheme = scheme,
+            motionScheme = MotionScheme.expressive(),
+            typography = if (doodle) DoodleTypography else null,
+            content = content,
+        )
     }
 }
