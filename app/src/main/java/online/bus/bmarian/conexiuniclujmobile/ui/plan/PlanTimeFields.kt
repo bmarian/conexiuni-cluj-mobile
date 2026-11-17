@@ -1,5 +1,12 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.plan
 
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.AlertDialogDefaults
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.PanelCorner
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.panelFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.drawnShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +18,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
@@ -114,8 +121,12 @@ private fun dayLabel(day: LocalDate, today: LocalDate): String = when (day) {
 private fun TimeDialog(current: LocalDateTime, onDismiss: () -> Unit, onPick: (Int, Int) -> Unit) {
     val state = rememberTimePickerState(current.hour, current.minute, is24Hour = true)
     var mode by remember { mutableStateOf(TimePickerDisplayMode.Picker) }
+    val shape = drawnShape(PanelCorner, AlertDialogDefaults.shape)
     TimePickerDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.doodleOutline(shape, InkThick),
+        shape = shape,
+        containerColor = panelFill(AlertDialogDefaults.containerColor),
         confirmButton = {
             TextButton(shapes = ButtonDefaults.shapes(), onClick = { onPick(state.hour, state.minute) }) { Text(stringResource(android.R.string.ok)) }
         },
@@ -142,8 +153,11 @@ private fun DayDialog(current: LocalDate, today: LocalDate, onDismiss: () -> Uni
                 !Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate().isBefore(today)
         },
     )
+    val shape = drawnShape(PanelCorner, DatePickerDefaults.shape)
     DatePickerDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.doodleOutline(shape, InkThick),
+        shape = shape,
         confirmButton = {
             TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                 onPick(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } ?: current)

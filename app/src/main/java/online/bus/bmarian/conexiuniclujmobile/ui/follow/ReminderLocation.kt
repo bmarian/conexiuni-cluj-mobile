@@ -1,5 +1,12 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.follow
 
+import androidx.compose.ui.Modifier
+import androidx.compose.material3.AlertDialogDefaults
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.PanelCorner
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.panelFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.drawnShape
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -12,7 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -90,8 +97,12 @@ fun ReminderLocationDialog() {
     if (!asking) return
     val option = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) context.packageManager.backgroundPermissionOptionLabel.toString()
     else stringResource(R.string.location_all_the_time)
+    val shape = drawnShape(PanelCorner, AlertDialogDefaults.shape)
     AlertDialog(
         onDismissRequest = { ReminderLocation.asking.value = false },
+        modifier = Modifier.doodleOutline(shape, InkThick),
+        shape = shape,
+        containerColor = panelFill(AlertDialogDefaults.containerColor),
         icon = { Icon(Icons.Rounded.MyLocation, null) },
         title = { Text(stringResource(R.string.location_reminders)) },
         text = { Text(stringResource(R.string.location_reminders_body, stringResource(R.string.app_name), option)) },

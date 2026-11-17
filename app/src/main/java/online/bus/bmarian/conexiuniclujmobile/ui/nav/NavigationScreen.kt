@@ -1,5 +1,11 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.nav
 
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.sheetEdgeInk
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.SheetEdgeShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -48,7 +54,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
@@ -215,6 +221,11 @@ internal fun navScene(journey: Journey, vehicles: List<MapVehicle>, progress: Pr
     return NavScene(shapes, walks, highlights, vehicles, destination)
 }
 
+private val BANNER_CORNER = 24.dp
+private const val BANNER_SEED = 4
+private val NEXT_CORNER = 16.dp
+private const val NEXT_SEED = 8
+
 @Composable
 private fun thenText(journey: Journey, sync: JourneySync): String? {
     val leg = journey.legs.getOrNull(sync.legIndex) ?: return null
@@ -314,11 +325,14 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding().padding(8.dp)
                 .onGloballyPositioned { bannerBottom = it.boundsInRoot().bottom },
         ) {
+            val ink = LocalDoodle.current
+            val banner = inkShape(BANNER_CORNER, BANNER_SEED)
             Surface(
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(24.dp),
-                shadowElevation = 6.dp,
+                color = ink?.marker ?: MaterialTheme.colorScheme.primary,
+                contentColor = ink?.onMarker ?: MaterialTheme.colorScheme.onPrimary,
+                shape = if (ink != null) banner else RoundedCornerShape(BANNER_CORNER),
+                shadowElevation = if (ink != null) 0.dp else 6.dp,
+                modifier = Modifier.doodleOutline(banner, InkThick),
             ) {
                 AnimatedContent(sync.step to sync.detail, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "step") { (step, detail) ->
                     Row(
@@ -343,12 +357,13 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             }
             val then = trip?.let { thenText(it, sync) }
             AnimatedVisibility(then != null, enter = fadeIn(), exit = fadeOut()) {
+                val next = inkShape(NEXT_CORNER, NEXT_SEED)
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = RoundedCornerShape(16.dp),
-                    shadowElevation = 3.dp,
-                    modifier = Modifier.padding(top = 6.dp, start = 12.dp),
+                    color = ink?.paper ?: MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = ink?.text ?: MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = if (ink != null) next else RoundedCornerShape(NEXT_CORNER),
+                    shadowElevation = if (ink != null) 0.dp else 3.dp,
+                    modifier = Modifier.padding(top = 6.dp, start = 12.dp).doodleOutline(next),
                 ) {
                     Row(
                         Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -430,10 +445,10 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(with(density) { drawerMax.toDp() })
                 .offset { IntOffset(0, (drawer.anchored.offset.takeUnless { it.isNaN() } ?: (drawerMax - headerPx - navBar)).roundToInt()) }
                 .then(rememberSheetGestures(drawer))
-                .darkEdge(SheetShape, dy = (-1).dp),
-            shape = SheetShape,
+                .then(LocalDoodle.current?.let { Modifier.sheetEdgeInk(it) } ?: Modifier.darkEdge(SheetShape, dy = (-1).dp)),
+            shape = if (LocalDoodle.current != null) SheetEdgeShape else SheetShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = 8.dp,
+            shadowElevation = if (LocalDoodle.current != null) 0.dp else 8.dp,
         ) {
             Column {
                 Column(

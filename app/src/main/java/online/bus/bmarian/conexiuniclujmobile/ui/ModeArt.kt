@@ -1,5 +1,10 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThin
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,7 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -115,7 +120,8 @@ fun StationIcon(
 ) {
     val container = if (heart) Palette.Rose else look?.let { routeColor(it.color) } ?: MaterialTheme.colorScheme.secondaryContainer
     val tint = if (look != null || heart) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
-    FavoriteMorph(rememberMorph(null, container, favorite), shape, modifier.size(size)) {
+    val drawn = if (LocalDoodle.current != null) inkShape(size / 2, size.value.toInt()) else shape
+    FavoriteMorph(rememberMorph(null, container, favorite), drawn, modifier.size(size).doodleOutline(drawn, InkThin, rim = true)) {
         Icon(if (heart) Icons.Rounded.Favorite else ModeGlyphs.vector(look?.mode ?: Mode.BUS), null, Modifier.size(size * 0.5f), tint = tint)
     }
 }
@@ -133,6 +139,18 @@ fun StationLines(look: StationLook?, modifier: Modifier = Modifier) = LineBadges
 @Composable
 fun LineBadges(routes: List<NetworkRoute>, modifier: Modifier = Modifier) {
     if (routes.isEmpty()) return
+    if (LocalDoodle.current != null) {
+        val gap = Arrangement.spacedBy(DoodleMetrics.SmallBadgeGap)
+        return FlowRow(modifier, horizontalArrangement = gap, verticalArrangement = gap) {
+            for (route in routes) {
+                LineBadge(
+                    route.shortName, route.color,
+                    height = DoodleMetrics.RailBadgeHeight, minWidth = DoodleMetrics.SmallBadgeWidth,
+                    corner = DoodleMetrics.BadgeCorner, fontSize = DoodleMetrics.RailBadgeText,
+                )
+            }
+        }
+    }
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (route in routes) {
             Box(

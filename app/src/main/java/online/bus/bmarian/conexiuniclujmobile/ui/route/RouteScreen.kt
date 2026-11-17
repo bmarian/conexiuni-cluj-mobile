@@ -1,5 +1,16 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.route
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleTitle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.RideWithLine
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMenu
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.routeMode
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Mood
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMoment
 import android.icu.text.PluralRules
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
@@ -44,10 +55,9 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -186,9 +196,17 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     LaunchedEffect(vm) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.live() } }
 
     val info by vm.shapeInfo.collectAsStateWithLifecycle()
+    val mode = routeMode(routeId)
     val dir by vm.direction.collectAsStateWithLifecycle()
     val ui by vm.ui.collectAsStateWithLifecycle()
     val headings by vm.headings.collectAsStateWithLifecycle()
+    RideWithLine(
+        routeId to dir,
+        info?.let { mode },
+        LocalLineLooks.current.color(info?.shortName.orEmpty(), info?.color.orEmpty()),
+        info?.shortName.orEmpty(),
+        headings[dir]?.minus(map.bearing),
+    )
     val failed by vm.failed.collectAsStateWithLifecycle()
     val initialLoading by vm.initialLoading.collectAsStateWithLifecycle()
     val fromStopName by vm.fromStopName.collectAsStateWithLifecycle()
@@ -390,6 +408,13 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             }
         }
         item {
+            if (LocalDoodle.current != null) {
+                return@item DoodleLineHeader(
+                    route.shortName, route.color, stringResource(R.string.line_number, route.shortName),
+                    route.timetable.routeLongName.ifEmpty { route.shortName },
+                    fromStopName?.let { stringResource(R.string.w_from, it) }, Modifier.sharedBadge(badgeKey(routeId, tripId)),
+                )
+            }
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -448,29 +473,45 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         item {
             ChoiceRow(
                 listOf("0", "1"), dir, { vm.direction.value = it },
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                Modifier.fillMaxWidth().padding(horizontal = if (LocalDoodle.current != null) DoodleMetrics.Side else 16.dp),
                 enabled = vm::hasDirection,
             ) { d ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val heading = headings[d]?.minus(map.bearing)
                     if (d == "0") DirectionArrow(Icons.AutoMirrored.Rounded.ArrowForward, 90.0, heading, d == dir)
-                    Text(vm.terminal(d), Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val terminal = vm.terminal(d)
+                    Text(
+                        if (LocalDoodle.current != null) stringResource(R.string.toward, terminal) else terminal,
+                        Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                     if (d == "1") DirectionArrow(Icons.AutoMirrored.Rounded.ArrowBack, 270.0, heading, d == dir)
                 }
             }
         }
         if (stops.isEmpty()) {
-            item { MessageText(stringResource(R.string.w_no_schedule), Modifier.padding(top = 16.dp)) }
+            item {
+                Column {
+                    DoodleMoment(Mood.Sleep, mode = routeMode(routeId))
+                    MessageText(stringResource(R.string.w_no_schedule), Modifier.padding(top = 16.dp))
+                }
+            }
         } else {
             jam?.let {
                 item(key = "traffic") {
+                    val side = if (LocalDoodle.current != null) DoodleMetrics.Side else 16.dp
                     TrafficNote(
-                        it, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                        it, Modifier.fillMaxWidth().padding(start = side, end = side, top = 12.dp),
                         between = true, style = MaterialTheme.typography.labelMedium,
                     )
                 }
             }
             item {
+                if (LocalDoodle.current != null) {
+                    return@item DoodleStopsHead(
+                        stringResource(R.string.w_stops), stringResource(R.string.stops_hold_hint), stringResource(R.string.w_next_departures),
+                    )
+                }
+                val headTimes = current?.headerTimes.orEmpty().map { formatMinutesFromNow(it, current!!.now, nowLabel) to false }
                 Row(
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.Bottom,
@@ -486,7 +527,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 1.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        TimeColumns(current?.headerTimes.orEmpty().map { formatMinutesFromNow(it, current!!.now, nowLabel) to false }, header = true)
+                        TimeColumns(headTimes, header = true)
                     }
                 }
             }
@@ -523,7 +564,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                             menuFor = idx
                         },
                     )
-                    DropdownMenu(expanded = menuFor == idx, onDismissRequest = { menuFor = null }, offset = DpOffset(44.dp, 0.dp)) {
+                    DoodleMenu(expanded = menuFor == idx, onDismissRequest = { menuFor = null }, offset = DpOffset(44.dp, 0.dp)) {
                         if (alerting != null) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.stop_menu_notify_off)) },
@@ -559,6 +600,12 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
 
         if (tabs.isNotEmpty()) {
             item {
+                if (LocalDoodle.current != null) {
+                    return@item DoodleTitle(stringResource(R.string.w_timetable)) {
+                        val pencil = MaterialTheme.colorScheme.onSurfaceVariant
+                        Text(stringResource(R.string.w_timetable_click_hint), fontSize = DoodleMetrics.ListHeadText, color = pencil)
+                    }
+                }
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.w_timetable), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.weight(1f).padding(horizontal = 8.dp))
@@ -570,7 +617,8 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                 }
             }
             item {
-                ChoiceRow(tabs, selectedTab, { tab = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { t ->
+                val side = if (LocalDoodle.current != null) DoodleMetrics.Side else 16.dp
+                ChoiceRow(tabs, selectedTab, { tab = it }, Modifier.fillMaxWidth().padding(horizontal = side)) { t ->
                     val label = stringResource(
                         when (t) {
                             TimetableTab.Weekdays -> R.string.w_weekdays
@@ -681,6 +729,15 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
         color = lineColor,
         mode = modeOf(route.type),
         modifier = Modifier.matchParentSize(),
+        badge = if (LocalDoodle.current == null) null else {
+            {
+                LineBadge(
+                    route.shortName, route.color,
+                    height = DoodleMetrics.RailBadgeHeight, minWidth = DoodleMetrics.RailBadgeWidth,
+                    corner = DoodleMetrics.BadgeCorner, fontSize = DoodleMetrics.RailBadgeText,
+                )
+            }
+        },
     )
     }
     }
@@ -690,6 +747,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect: (String) -> Unit) {
+    LocalDoodle.current?.let { return DoodleHourRow(group, selected, next, it, onSelect) }
     val gone = group.chips.all { it.isPast }
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
         Text(

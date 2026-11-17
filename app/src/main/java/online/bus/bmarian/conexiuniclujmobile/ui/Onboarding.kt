@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.drawnShape
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -31,7 +34,7 @@ import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -117,9 +120,12 @@ fun Onboarding(onDone: () -> Unit) {
     }
 }
 
+private val PERMISSION_CORNER = 20.dp
+
 @Composable
 private fun PermissionCard(icon: ImageVector, title: Int, body: Int, granted: Boolean, onAllow: () -> Unit) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+    val shape = drawnShape(PERMISSION_CORNER, RoundedCornerShape(PERMISSION_CORNER))
+    Surface(Modifier.doodleOutline(shape), shape = shape, color = cardFill(MaterialTheme.colorScheme.surfaceContainer)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             RoundIcon(icon, 40.dp, 22.dp)
             Column(Modifier.weight(1f)) {

@@ -26,6 +26,14 @@ enum class ThemeMode(val key: String) {
     }
 }
 
+enum class Look(val key: String) {
+    Standard("standard"), Doodle("doodle");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key }
+    }
+}
+
 class Toast(val id: Long, val title: String, val body: String?, val actionLabel: String?, val action: (() -> Unit)?)
 
 /** Same keys and defaults as stores/settings.ts. */
@@ -45,6 +53,15 @@ class Settings(private val context: Context) {
     fun setTheme(mode: ThemeMode) {
         _theme.value = mode
         prefs.edit { putString("theme", mode.key) }
+    }
+
+    // Phone only, so not synced.
+    private val _look = MutableStateFlow(Look.of(prefs.getString("look", null)) ?: Look.Standard)
+    val look: StateFlow<Look> = _look
+
+    fun setLook(look: Look) {
+        _look.value = look
+        prefs.edit { putString("look", look.key) }
     }
 
     private val _locale = MutableStateFlow(detectInitialLocale())

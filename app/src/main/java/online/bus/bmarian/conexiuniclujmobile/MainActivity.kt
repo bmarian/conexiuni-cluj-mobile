@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile
 
+import online.bus.bmarian.conexiuniclujmobile.data.LauncherIcon
+import android.content.res.Resources
+import online.bus.bmarian.conexiuniclujmobile.data.Look
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -45,6 +48,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            Services.settings.look.collect { look ->
+                LauncherIcon.follow(this@MainActivity, look)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    splashScreen.setSplashScreenTheme(if (look == Look.Doodle) R.style.Theme_ConexiuniClujMobile_DoodleSplash else Resources.ID_NULL)
+                }
+            }
+        }
         if (savedInstanceState == null) take(intent)
         setContent {
             val mode by Services.settings.theme.collectAsStateWithLifecycle()

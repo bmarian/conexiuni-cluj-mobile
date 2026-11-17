@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.widget
 
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.DoodleWidgetColors
+import online.bus.bmarian.conexiuniclujmobile.data.Look
+import online.bus.bmarian.conexiuniclujmobile.Services
 import android.content.Context
 import android.content.Intent
 import android.util.TypedValue
@@ -62,8 +65,9 @@ class StopWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val doodle = Services.settings.look.value == Look.Doodle
         provideContent {
-            GlanceTheme { Content(context, currentState()) }
+            GlanceTheme(colors = if (doodle) DoodleWidgetColors else GlanceTheme.colors) { Content(context, currentState()) }
         }
     }
 

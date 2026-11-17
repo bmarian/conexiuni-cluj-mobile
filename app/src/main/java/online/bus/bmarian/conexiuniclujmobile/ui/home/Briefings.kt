@@ -1,5 +1,9 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import androidx.compose.foundation.lazy.itemsIndexed
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleTitle
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -20,7 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Newspaper
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -120,11 +124,15 @@ fun NewsPage() {
     }
 
     val listState = rememberLazyListState()
+    val doodle = LocalDoodle.current != null
+    val title = stringResource(R.string.w_news)
     Column(Modifier.fillMaxSize()) {
-        SheetTopBar(stringResource(R.string.w_news), listState.pastHeader())
+        SheetTopBar(title, listState.pastHeader())
         LazyColumn(Modifier.weight(1f), state = listState) {
+            if (doodle) item(key = "title") { DoodleNewsHeader(title) }
             when {
-                entries.isNotEmpty() -> items(entries, key = { it.key }) { entry ->
+                entries.isNotEmpty() -> itemsIndexed(entries, key = { _, entry -> entry.key }) { i, entry ->
+                    if (doodle && entries.getOrNull(i - 1)?.date != entry.date) DoodleTitle(entry.date)
                     when (entry) {
                         is NewsEntry.Change -> ChangeRow(entry.change, entry.date, entry.change.id in freshIds) { openChange(entry.change) }
                         is NewsEntry.News -> NewsRow(entry.item, entry.date) {
@@ -143,22 +151,32 @@ fun NewsPage() {
 @Composable
 private fun ChangeRow(change: RouteChange, date: String, isNew: Boolean, onClick: () -> Unit) {
     val context = LocalContext.current
+    val doodle = LocalDoodle.current != null
     FeedRow(
         title = changeTitle(change, context),
-        meta = (listOf(date) + changeKindLabels(change, context)).joinToString(" · "),
+        meta = (listOfNotNull(date.takeUnless { doodle }) + changeKindLabels(change, context)).joinToString(" · "),
         isNew = isNew,
         enabled = change.routeId != 0,
         onClick = onClick,
     ) {
-        LineBadge(change.routeShortName, change.routeColor.ifEmpty { "#64748b" }, height = 28.dp, minWidth = 36.dp, corner = 6.dp)
+        val color = change.routeColor.ifEmpty { "#64748b" }
+        if (doodle) {
+            LineBadge(
+                change.routeShortName, color,
+                height = DoodleMetrics.BadgeHeight, minWidth = DoodleMetrics.BadgeWidth, corner = DoodleMetrics.BadgeCorner, fontSize = DoodleMetrics.BadgeText,
+            )
+        } else {
+            LineBadge(change.routeShortName, color, height = 28.dp, minWidth = 36.dp, corner = 6.dp)
+        }
     }
 }
 
 @Composable
 private fun NewsRow(item: NewsItem, date: String, onClick: () -> Unit) {
+    val host = item.url.toUri().host.orEmpty().removePrefix("www.")
     FeedRow(
         title = item.title,
-        meta = "$date · ${item.url.toUri().host.orEmpty().removePrefix("www.")}",
+        meta = if (LocalDoodle.current != null) host else "$date · $host",
         external = true,
         onClick = onClick,
     ) {
@@ -176,6 +194,7 @@ private fun FeedRow(
     onClick: () -> Unit,
     lead: @Composable () -> Unit,
 ) {
+    LocalDoodle.current?.let { return DoodleFeedRow(title, meta, isNew, external, enabled, it, onClick, lead.takeUnless { external }) }
     Row(
         Modifier.fillMaxWidth().squishClickable(enabled = enabled, onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

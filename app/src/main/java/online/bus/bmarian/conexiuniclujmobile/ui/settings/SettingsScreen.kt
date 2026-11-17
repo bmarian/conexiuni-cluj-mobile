@@ -1,5 +1,11 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.settings
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.dottedRule
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleField
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleTitle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import android.app.NotificationManager
 import android.content.Intent
 import android.os.Build
@@ -33,6 +39,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BrightnessMedium
+import androidx.compose.material.icons.rounded.Draw
+import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CropFree
@@ -47,7 +55,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -84,6 +92,7 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
 import online.bus.bmarian.conexiuniclujmobile.data.RegionSettings
 import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
+import online.bus.bmarian.conexiuniclujmobile.data.Look
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
@@ -100,6 +109,7 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
     val settings = Services.settings
     val locale by settings.locale.collectAsStateWithLifecycle()
     val theme by settings.theme.collectAsStateWithLifecycle()
+    val look by settings.look.collectAsStateWithLifecycle()
     val colorful by settings.colorfulLines.collectAsStateWithLifecycle()
     val traffic by settings.traffic.collectAsStateWithLifecycle()
     val city by Cities.current.collectAsStateWithLifecycle()
@@ -128,14 +138,21 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
         val pastHeader by remember { derivedStateOf { scroll.value > 120 } }
-        SheetTopBar(stringResource(R.string.w_settings), pastHeader)
+        val ink = LocalDoodle.current
+        val title = stringResource(R.string.w_settings)
+        SheetTopBar(
+            title, pastHeader,
+            lead = ink?.let { { Text(title, Modifier.weight(1f).padding(start = 4.dp), fontSize = DoodleMetrics.TitleText, fontWeight = FontWeight.Bold) } },
+        )
         Column(Modifier.weight(1f).verticalScroll(scroll)) {
-            Text(
-                stringResource(R.string.w_settings),
-                Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
+            if (ink == null) {
+                Text(
+                    title,
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
             Prompt(
                 update,
                 stringResource(R.string.update_question),
@@ -145,7 +162,8 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
                 onNo = AppUpdates::decline,
             ) { RisingArrow(tint = it) }
 
-            Section(stringResource(R.string.w_language))
+            val languages = listOf("ro" to "Română", "en" to "English")
+            if (ink == null) Section(stringResource(R.string.w_language))
             if (locale == "en") {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -156,13 +174,22 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
                     Text(stringResource(R.string.w_language_desc), style = MaterialTheme.typography.bodySmall)
                 }
             }
-            val languages = listOf("ro" to "Română", "en" to "English")
-            ChoiceRow(languages.map { it.first }, locale, settings::setLocale, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { tag ->
-                Text(languages.first { it.first == tag }.second)
+            if (ink == null) {
+                val row = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                ChoiceRow(languages.map { it.first }, locale, settings::setLocale, row) { tag ->
+                    Text(languages.first { it.first == tag }.second)
+                }
             }
 
             Section(stringResource(R.string.w_display))
+            if (ink != null) DoodleField(stringResource(R.string.theme_label))
             ThemeRow(theme, settings::setTheme)
+            if (ink != null) {
+                DoodleField(stringResource(R.string.look_label))
+                DoodleLookTiles(look, settings::setLook, Look.entries.associateWith { stringResource(lookLabel(it)) }, ink)
+            } else {
+                LookRow(look, settings::setLook)
+            }
             Toggle(
                 Icons.Rounded.Palette, stringResource(R.string.w_colorful_lines), stringResource(R.string.w_colorful_lines_desc), colorful,
                 onChange = settings::setColorfulLines,
@@ -184,7 +211,11 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
                 onChange = settings::setAutoFitMap,
             )
 
-            Section(stringResource(R.string.w_city))
+            if (ink == null) {
+                Section(stringResource(R.string.w_city))
+            } else {
+                Box(Modifier.fillMaxWidth().height(RULE_HEIGHT).dottedRule(MaterialTheme.colorScheme.onSurfaceVariant))
+            }
             CityChooser()
             for (setting in RegionSettings.forCity(city)) {
                 Toggle(
@@ -193,7 +224,8 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
                 ) { settings.setRegionSetting(city, setting.key, it) }
             }
 
-            Section(stringResource(R.string.w_settings_notifications))
+            if (ink != null) DoodleLanguageRow(stringResource(R.string.w_language), locale, languages, settings::setLocale, ink)
+            if (ink == null) Section(stringResource(R.string.w_settings_notifications))
             Toggle(Icons.Rounded.Alarm, stringResource(R.string.alarm_setting), stringResource(R.string.alarm_setting_desc), alarms, onChange = ::toggleAlarms)
 
             Section(stringResource(R.string.w_sync_title))
@@ -214,10 +246,16 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
 }
 
 private const val CONTACT_EMAIL = "ceautobuziau@gmail.com"
+private val RULE_HEIGHT = 12.dp
 
 @Composable
 private fun LinkRow(icon: ImageVector, title: String, description: String, intent: Intent) {
     val context = LocalContext.current
+    if (LocalDoodle.current != null) {
+        return DoodleSettingRow(title, description, onClick = { runCatching { context.startActivity(intent) } }) {
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
     ListItem(
         modifier = Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp)).clickable {
             runCatching { context.startActivity(intent) }
@@ -288,6 +326,7 @@ private fun Prompt(
 
 @Composable
 private fun Section(title: String) {
+    if (LocalDoodle.current != null) return DoodleTitle(title)
     Text(
         title,
         Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
@@ -298,6 +337,9 @@ private fun Section(title: String) {
 
 @Composable
 internal fun Toggle(icon: ImageVector, title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    LocalDoodle.current?.let { ink ->
+        return DoodleSettingRow(title, null, onClick = { onChange(!checked) }) { DoodleSwitch(checked, onChange, ink) }
+    }
     ListItem(
         modifier = Modifier.padding(horizontal = 4.dp),
         leadingContent = { Icon(icon, null) },
@@ -321,11 +363,26 @@ private fun ThemeRow(theme: ThemeMode, onChange: (ThemeMode) -> Unit) {
         Triple(ThemeMode.Dark, Icons.Rounded.DarkMode, R.string.w_theme_dark),
         Triple(ThemeMode.System, Icons.Rounded.BrightnessMedium, R.string.w_theme_system),
     )
+    val side = if (LocalDoodle.current != null) DoodleMetrics.Side else 16.dp
     ChoiceRow(
         options.map { it.first }, theme, onChange,
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = side, vertical = 8.dp),
         icon = { mode -> options.first { it.first == mode }.second },
     ) { mode ->
         Text(stringResource(options.first { it.first == mode }.third), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
+
+@Composable
+private fun LookRow(look: Look, onChange: (Look) -> Unit) {
+    val options = Look.entries.map { Triple(it, if (it == Look.Doodle) Icons.Rounded.Draw else Icons.Rounded.Smartphone, lookLabel(it)) }
+    ChoiceRow(
+        options.map { it.first }, look, onChange,
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        icon = { choice -> options.first { it.first == choice }.second },
+    ) { choice ->
+        Text(stringResource(options.first { it.first == choice }.third), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+private fun lookLabel(look: Look): Int = if (look == Look.Doodle) R.string.look_doodle else R.string.look_standard

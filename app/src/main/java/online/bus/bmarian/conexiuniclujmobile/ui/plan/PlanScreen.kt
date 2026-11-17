@@ -1,5 +1,22 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.plan
 
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Mood
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMoment
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleRoundButton
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleTitle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleRowIcon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodlePageTitle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodlePageHeader
+import online.bus.bmarian.conexiuniclujmobile.logic.modeOf
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.routeLook
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.RideOnOpen
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardShape
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.RepeatMode
@@ -61,7 +78,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -162,6 +179,9 @@ fun planViewModel(query: PlanQuery): PlanViewModel {
 
 private typealias PlanQuery = online.bus.bmarian.conexiuniclujmobile.ui.PlanQuery
 
+private val ENDPOINT_LABEL = 12.5.sp
+private val ENDPOINT_VALUE = 17.sp
+
 private fun clock(ms: Long): String {
     val t = LocalDateTime.ofInstant(Instant.ofEpochMilli(ms), CLUJ_ZONE)
     return "%02d:%02d".format(t.hour, t.minute)
@@ -202,6 +222,13 @@ fun PlanScreen(query: PlanQuery) {
 
     val validCoords = destLatText?.toDoubleOrNull() != null && destLonText?.toDoubleOrNull() != null
     val selectedPlan = plans.getOrNull(selected)
+    val firstRoute = routeLook(selectedPlan?.firstRide?.routeId)
+    RideOnOpen(
+        vm,
+        firstRoute?.let { modeOf(it.type) },
+        LocalLineLooks.current.color(firstRoute?.shortName.orEmpty(), firstRoute?.color.orEmpty()),
+        firstRoute?.shortName.orEmpty(),
+    )
     val scope = rememberCoroutineScope()
     val swapMotion = remember { SwapMotion() }
     val draw = remember { TimelineDraw() }
@@ -288,10 +315,18 @@ fun PlanScreen(query: PlanQuery) {
 
     val listState = rememberLazyListState()
     val favoriteName = favoriteLabel?.let(::placeIcon)
+    val doodle = LocalDoodle.current != null
     Column(Modifier.fillMaxSize()) {
     SheetTopBar(favoriteLabel ?: destName.ifEmpty { null }, listState.pastHeader())
     LazyColumn(Modifier.weight(1f), state = listState) {
         item {
+            if (doodle && !renaming) {
+                return@item DoodlePageHeader(
+                    icon = { DoodleRowIcon(Icons.Rounded.Map, DoodleMetrics.StationIcon, favoriteName?.icon) },
+                    kicker = stringResource(R.string.w_plan_title),
+                    title = { DoodlePageTitle(favoriteName?.name ?: destName.ifEmpty { stringResource(R.string.w_plan_title_generic) }) },
+                )
+            }
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -379,9 +414,11 @@ fun PlanScreen(query: PlanQuery) {
         }
 
         item {
+            val shape = cardShape()
             Card(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).doodleOutline(shape),
+                shape = shape,
+                colors = CardDefaults.cardColors(containerColor = cardFill(MaterialTheme.colorScheme.surfaceContainer)),
             ) {
                 CompositionLocalProvider(LocalTimelineDraw provides draw) {
                 Column(Modifier.padding(vertical = 8.dp).timelineDraw(draw)) {
@@ -421,6 +458,7 @@ fun PlanScreen(query: PlanQuery) {
         }
 
         item {
+            if (doodle) return@item DoodleTitle(stringResource(R.string.w_plan_routes_label))
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
                 Text(
@@ -466,6 +504,7 @@ fun PlanScreen(query: PlanQuery) {
                 }
             }
             beyond == null -> item {
+                if (doodle) return@item DoodleMoment(Mood.Look, caption = stringResource(R.string.w_plan_no_results))
                 Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.DirectionsBus, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.outlineVariant)
                     Text(
@@ -509,8 +548,10 @@ private fun LiveDot() {
 private fun TripSummary(plan: PlanOption, mode: TimeMode, clockMs: Long) {
     val nowLabel = stringResource(R.string.w_now)
     val now = remember(clockMs) { LocalDateTime.ofInstant(Instant.ofEpochMilli(clockMs), CLUJ_ZONE) }
+    val shape = cardShape()
     Card(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).doodleOutline(shape),
+        shape = shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -573,16 +614,22 @@ private fun EndpointRow(
     onOpen: () -> Unit,
 ) {
     if (searching) return
+    val doodle = LocalDoodle.current != null
     TimelineRow(
         top = top,
         bottom = bottom,
         dot = TimelineDot.Station,
-        color = dot,
+        color = if (doodle) MaterialTheme.colorScheme.onSurface else dot,
         modifier = Modifier.squishClickable(enabled = enabled, onClick = onOpen).alpha(if (enabled) 1f else 0.5f),
         trailing = { Icon(Icons.Rounded.Edit, null, Modifier.padding(8.dp).size(16.dp), tint = MaterialTheme.colorScheme.outline) },
     ) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, valueModifier, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (doodle) {
+            Text(label, fontSize = ENDPOINT_LABEL, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, valueModifier, fontSize = ENDPOINT_VALUE, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        } else {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, valueModifier, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -614,6 +661,11 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { vm.searchNow() }),
             shape = RoundedCornerShape(14.dp),
+            colors = if (LocalDoodle.current == null) OutlinedTextFieldDefaults.colors() else OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                disabledBorderColor = Color.Transparent,
+            ),
         )
         if (hasLocation) {
             SearchResultRow(Icons.Rounded.MyLocation, stringResource(R.string.w_plan_origin_current_location), MaterialTheme.colorScheme.primary) {
@@ -623,7 +675,7 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
         if (field == SearchField.Origin || online) {
             for (pick in picks) {
                 val icon = if (pick.recent) Icons.Rounded.Schedule else Icons.Rounded.Place
-                val tint = if (pick.recent) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
+                val tint = if (pick.recent || LocalDoodle.current != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
                 SearchResultRow(icon, pick.place.label, tint) { select(pick.place) }
             }
         }
@@ -635,7 +687,8 @@ private fun PlaceSearch(vm: PlanViewModel, field: SearchField, hasLocation: Bool
             return@Column
         }
         for (place in results) {
-            SearchResultRow(Icons.Rounded.Place, place.label, MaterialTheme.colorScheme.tertiary) { select(place) }
+            val tint = if (LocalDoodle.current != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
+            SearchResultRow(Icons.Rounded.Place, place.label, tint) { select(place) }
         }
         if (field == SearchField.Destination && online && results.isEmpty() && picks.isEmpty() && query.trim().length >= 3) {
             SearchResultRow(Icons.Rounded.PushPin, stringResource(R.string.w_drop_pin), MaterialTheme.colorScheme.onSurfaceVariant) {
@@ -793,21 +846,38 @@ private fun TimeFilter(
         TimeMode.Arrive to stringResource(R.string.w_plan_time_arrive_by),
         TimeMode.Last to stringResource(R.string.w_plan_time_last),
     )
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val ink = LocalDoodle.current
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = if (ink != null) DoodleMetrics.Side else 12.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SelectField(null, labels.getValue(mode), TimeMode.entries.map { it to labels.getValue(it) }, Modifier.weight(1f), onMode)
+            SelectField(
+                null, labels.getValue(mode), TimeMode.entries.map { it to labels.getValue(it) },
+                if (ink == null) Modifier.weight(1f) else Modifier, icon = Icons.Rounded.Schedule, onPick = onMode,
+            )
+            if (ink != null) Spacer(Modifier.weight(1f))
             if (mode == TimeMode.Leave || mode == TimeMode.Arrive) {
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onSearch, enabled = !calculating && value.isNotEmpty() && hasOrigin) {
                     Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.w_plan_time_search_aria), Modifier.size(18.dp))
                     Text(stringResource(R.string.w_plan_time_search), Modifier.padding(start = 4.dp))
                 }
             }
-            if (canSwap) {
+            if (canSwap && ink != null) {
+                DoodleRoundButton(
+                    Icons.Rounded.SwapVert, stringResource(R.string.w_plan_swap), ink, small = true, enabled = !calculating,
+                    iconModifier = Modifier.graphicsLayer { rotationZ = spin }, onClick = onSwap,
+                )
+            } else if (canSwap) {
                 FilledTonalIconButton(onClick = onSwap, enabled = !calculating) {
                     Icon(Icons.Rounded.SwapVert, contentDescription = stringResource(R.string.w_plan_swap), Modifier.graphicsLayer { rotationZ = spin })
                 }
             }
-            if (canRefresh) {
+            if (canRefresh && ink != null) {
+                DoodleRoundButton(
+                    Icons.Rounded.Refresh, stringResource(R.string.w_plan_refresh), ink, small = true, enabled = !calculating && hasOrigin, onClick = onRefresh,
+                )
+            } else if (canRefresh) {
                 FilledTonalIconButton(onClick = onRefresh, enabled = !calculating && hasOrigin) {
                     if (calculating) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.w_plan_refresh))
@@ -837,13 +907,28 @@ private fun PlanCard(
     val nowLabel = stringResource(R.string.w_now)
     val first = plan.firstRide
     val rides = plan.rides
+    LocalDoodle.current?.let { ink ->
+        val later = plan.laterRides.takeIf { it.isNotEmpty() }?.let { rides ->
+            stringResource(if (mode == TimeMode.Last) R.string.w_plan_earlier else R.string.w_plan_then) + " " + rides.joinToString("  ") {
+                val depart = if (mode == TimeMode.Now) formatMinutesFromNow(minutesUntil(it.depart, clockMs), now, nowLabel) else clock(it.depart * 1000)
+                (if (it.live) "" else "~ ") + depart
+            }
+        }
+        val times = listOfNotNull(first?.let { relativeDeparture(it, mode, clockMs) }, arrivalTime(plan).ifEmpty { null }).joinToString(" · ")
+        return DoodlePlanCard(
+            vm, plan, if (rides.isNotEmpty()) vm.stopName(rides.last().to) else destName, selected, times, later, first?.live == true,
+            expanded, toggle, ink, onClick,
+        )
+    }
     val press = remember { MutableInteractionSource() }
+    val shape = cardShape()
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press).doodleOutline(shape),
+        shape = shape,
         interactionSource = press,
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else cardFill(MaterialTheme.colorScheme.surfaceContainer),
         ),
         border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
     ) {

@@ -1,5 +1,22 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.stop
 
+import androidx.compose.foundation.layout.widthIn
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleField
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleChevron
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleListRow
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleTitle
+import androidx.compose.ui.unit.sp
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.MarkerTime
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMenu
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardShape
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Mood
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMoment
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.RideOnOpen
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.core.Animatable
@@ -36,9 +53,8 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
@@ -191,6 +207,7 @@ fun StopScreen(stopId: Int) {
     val infos by vm.infos.collectAsStateWithLifecycle()
     val index by Services.repository.network.index.collectAsStateWithLifecycle()
     val look = remember(index, stopId) { index?.look(stopId) }
+    RideOnOpen(stopId, look?.mode, routeColor(look?.color), "")
     val favoritePlatform = index.favoritePlatform(stopId, favoriteStops)
     val isFavorite = favoritePlatform != null
     val follows by FollowManager.follows.collectAsStateWithLifecycle()
@@ -375,6 +392,10 @@ fun StopScreen(stopId: Int) {
     SheetTopBar(name, listState.pastHeader(), menu = menu)
     LazyColumn(Modifier.weight(1f), state = listState) {
         item {
+            val kind = stringResource(stopKind(look?.mode ?: mainMode(routesHere.map { it.type })))
+            if (LocalDoodle.current != null) {
+                return@item DoodleStopHeader(look, kind, info?.stopCode, name, isFavorite.takeIf { infos.isNotEmpty() && look != null })
+            }
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.Top,
@@ -384,7 +405,7 @@ fun StopScreen(stopId: Int) {
                 Column(Modifier.weight(1f).padding(top = 2.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            stringResource(stopKind(look?.mode ?: mainMode(routesHere.map { it.type }))),
+                            kind,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -431,7 +452,12 @@ fun StopScreen(stopId: Int) {
                 item { DeparturesLabel() }
                 when {
                     departures == null -> items(3) { DepartureSkeleton() }
-                    departures.isEmpty() -> item { MessageText(stringResource(R.string.w_no_schedule)) }
+                    departures.isEmpty() -> item {
+                        Column {
+                            DoodleMoment(Mood.Sleep, mode = look?.mode ?: Mode.BUS)
+                            MessageText(stringResource(R.string.w_no_schedule))
+                        }
+                    }
                     else -> itemsIndexed(
                         keyedDepartures.orEmpty(),
                         key = { _, keyed -> keyed.first },
@@ -469,7 +495,7 @@ fun StopScreen(stopId: Int) {
                                     menuFor = key
                                 },
                             ) { openDeparture(departure) }
-                            DropdownMenu(expanded = menuFor == key, onDismissRequest = { menuFor = null }, offset = DpOffset(64.dp, 0.dp)) {
+                            DoodleMenu(expanded = menuFor == key, onDismissRequest = { menuFor = null }, offset = DpOffset(64.dp, 0.dp)) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.remind_menu)) },
                                     leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
@@ -494,7 +520,12 @@ fun StopScreen(stopId: Int) {
                         mode to lines.sortedBy { if (Services.favorites.isRouteFavorite(it.routeId)) 0 else 1 }
                     }
                     for ((mode, lines) in groups) {
-                        if (groups.size > 1) item(key = "mode-$mode") { SubLabel(stringResource(modeLines(mode)), Modifier.padding(top = 8.dp)) }
+                        if (groups.size > 1) {
+                            item(key = "mode-$mode") {
+                                val label = stringResource(modeLines(mode))
+                                if (LocalDoodle.current != null) DoodleField(label) else SubLabel(label, Modifier.padding(top = 8.dp))
+                            }
+                        }
                         items(lines, key = { "r-${it.routeId}" }) { shape ->
                             RouteRow(
                                 shortName = shape.shortName,
@@ -524,6 +555,13 @@ private fun stopKind(mode: Mode) = when (mode) {
 
 @Composable
 fun DeparturesLabel(hint: Boolean = true) {
+    if (LocalDoodle.current != null) {
+        return DoodleTitle(stringResource(R.string.w_next_departures)) {
+            if (hint) {
+                Text(stringResource(R.string.departures_hold_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+        }
+    }
     val ring = remember { Animatable(1f) }
     val dot = rememberPop()
     OnLiveBeat {
@@ -558,9 +596,12 @@ fun DeparturesLabel(hint: Boolean = true) {
 
 @Composable
 private fun DepartureSkeleton() {
+    if (LocalDoodle.current != null) return DoodleBusRow("", "#00000000", "", "", onClick = {}) {}
+    val shape = cardShape()
     Card(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).height(64.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).height(64.dp).doodleOutline(shape),
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = cardFill(MaterialTheme.colorScheme.surfaceContainer)),
     ) {}
 }
 
@@ -584,7 +625,7 @@ fun DepartureCard(
         shortName = departure.shortName,
         color = departure.color,
         destination = routeDestination(departure.longName),
-        subtitle = routeOrigin(departure.longName),
+        subtitle = if (LocalDoodle.current != null) "" else routeOrigin(departure.longName),
         onClick = onClick,
         modifier = modifier,
         favorite = favorite,
@@ -607,15 +648,24 @@ fun DepartureCard(
                 }
             }
         },
+        note = jam?.let { { TrafficNote(it, Modifier.padding(top = 4.dp)) } },
     ) {
         DepartureTimes(departure, now, mode)
-        jam?.let { TrafficNote(it, Modifier.padding(top = 4.dp)) }
     }
 }
 
 @Composable
 fun DepartureTimes(departure: StopDeparture, now: java.time.LocalDateTime, mode: Mode) {
     val live = !departure.isStatic
+    if (LocalDoodle.current != null) {
+        val labels = departure.nextTimes.map { minutesLabel(it.minutes, now) }
+        val first = labels.firstOrNull() ?: return
+        MarkerTime(if (departure.isStatic) "~ $first" else first, live)
+        if (labels.size > 1) {
+            Text(labels.drop(1).joinToString("  "), fontSize = DoodleMetrics.LaterTimeText, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+        return
+    }
     Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         departure.nextTimes.forEachIndexed { i, time ->
             val label = minutesLabel(time.minutes, now)
@@ -658,10 +708,25 @@ fun TimetableBadge() {
     )
 }
 
+private const val BUSY_ALPHA = 0.6f
+
 private fun Modifier.badge(color: Color) = clip(RoundedCornerShape(6.dp)).background(color).padding(horizontal = 5.dp, vertical = 1.dp)
 
 @Composable
 fun RouteRow(shortName: String, color: String, name: String, favorite: Boolean = false, busy: Boolean = false, onClick: () -> Unit) {
+    if (LocalDoodle.current != null) {
+        return DoodleListRow(
+            name, onClick = { if (!busy) onClick() }, modifier = Modifier.alpha(if (busy) BUSY_ALPHA else 1f),
+            icon = {
+                Box(Modifier.widthIn(min = DoodleMetrics.BadgeColumn)) {
+                    LineBadge(
+                        shortName, color, height = DoodleMetrics.BadgeHeight, minWidth = DoodleMetrics.BadgeWidth,
+                        corner = DoodleMetrics.BadgeCorner, fontSize = DoodleMetrics.BadgeText,
+                    )
+                }
+            },
+        ) { DoodleChevron() }
+    }
     Row(
         Modifier
             .fillMaxWidth()

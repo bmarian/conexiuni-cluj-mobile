@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.settings
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleButton
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -41,7 +44,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -150,7 +153,8 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
         entering = false
     }
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val side = if (LocalDoodle.current != null) DoodleMetrics.Side else 16.dp
+    Column(Modifier.fillMaxWidth().padding(horizontal = side, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(stringResource(R.string.w_sync_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (removed && status == Sync.Status.Off && !pairingOpen) Note(stringResource(R.string.w_sync_removed))
         if (status == Sync.Status.On) {
@@ -173,21 +177,27 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
             Column { for (device in devices) DeviceRow(device, busy) { ask = Ask.Remove(device.id, it) } }
         }
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = side, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (!pairingOpen && ask == null) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(shapes = ButtonDefaults.shapes(), onClick = ::show, modifier = Modifier.fillMaxWidth()) {
-                    Icon(if (status == Sync.Status.On) Icons.Rounded.Add else Icons.Rounded.QrCode2, null, Modifier.size(18.dp))
-                    Text(
-                        stringResource(if (status == Sync.Status.On) R.string.w_sync_add_device else R.string.w_sync_show_code),
-                        Modifier.padding(start = 8.dp),
-                    )
+            val showLabel = stringResource(if (status == Sync.Status.On) R.string.w_sync_add_device else R.string.w_sync_show_code)
+            val showIcon = if (status == Sync.Status.On) Icons.Rounded.Add else Icons.Rounded.QrCode2
+            fun enter() {
+                lastAction = "enter"
+                vm.cancel()
+                entering = true
+            }
+            val ink = LocalDoodle.current
+            if (ink != null) {
+                Column(verticalArrangement = Arrangement.spacedBy(DoodleMetrics.ChipGap)) {
+                    DoodleButton(showLabel, showIcon, filled = true, ink, Modifier.fillMaxWidth(), ::show)
+                    DoodleButton(stringResource(R.string.w_sync_enter_code), Icons.Rounded.Dialpad, filled = false, ink, Modifier.fillMaxWidth(), ::enter)
                 }
-                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {
-                    lastAction = "enter"
-                    vm.cancel()
-                    entering = true
-                }, modifier = Modifier.fillMaxWidth()) {
+            } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(shapes = ButtonDefaults.shapes(), onClick = ::show, modifier = Modifier.fillMaxWidth()) {
+                    Icon(showIcon, null, Modifier.size(18.dp))
+                    Text(showLabel, Modifier.padding(start = 8.dp))
+                }
+                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = ::enter, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Rounded.Dialpad, null, Modifier.size(18.dp))
                     Text(stringResource(R.string.w_sync_enter_code), Modifier.padding(start = 8.dp))
                 }

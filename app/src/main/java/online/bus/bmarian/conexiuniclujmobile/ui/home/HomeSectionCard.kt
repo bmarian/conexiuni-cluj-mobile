@@ -1,5 +1,8 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import androidx.compose.ui.text.font.FontWeight
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.MarkerOverhang
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -18,7 +21,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,11 +36,17 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import online.bus.bmarian.conexiuniclujmobile.R
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Color
 import online.bus.bmarian.conexiuniclujmobile.ui.ReorderState
 import online.bus.bmarian.conexiuniclujmobile.ui.dragToReorder
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.markerUnderline
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 
-private val CARD_SHAPE = RoundedCornerShape(20.dp)
+private val CARD_CORNER = 20.dp
+private val CARD_SHAPE = RoundedCornerShape(CARD_CORNER)
 
 @Composable
 fun HomeSectionCard(
@@ -52,8 +61,13 @@ fun HomeSectionCard(
     content: @Composable () -> Unit,
 ) {
     val lifted = reorder.dragging == id
-    val card = if (lifted) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer
-    Column(modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().background(card, CARD_SHAPE)) {
+    val doodle = LocalDoodle.current != null
+    val card = when {
+        lifted -> MaterialTheme.colorScheme.surfaceContainerHigh
+        doodle -> Color.Transparent
+        else -> MaterialTheme.colorScheme.surfaceContainer
+    }
+    Column(modifier.padding(horizontal = if (doodle) 0.dp else 12.dp, vertical = 4.dp).fillMaxWidth().background(card, inkShape(CARD_CORNER, id.hashCode()))) {
         SectionHeader(id, title, collapsed, arranging, reorder, onToggle, onArrange)
         AnimatedVisibility(!collapsed && !arranging, enter = expandVertically(), exit = shrinkVertically()) {
             Column(Modifier.padding(bottom = 6.dp)) { content() }
@@ -78,19 +92,24 @@ private fun SectionHeader(
     } else {
         Modifier.squishClickable(pressed = 0.97f, onLongClick = onArrange, onClick = onToggle).semantics { stateDescription = state }
     }
+    val doodle = LocalDoodle.current != null
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(CARD_SHAPE).then(gesture).padding(start = 16.dp, end = 14.dp),
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(CARD_SHAPE).then(gesture)
+            .padding(start = if (doodle) DoodleMetrics.Side + MarkerOverhang else 16.dp, end = if (doodle) DoodleMetrics.Side else 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            title,
-            Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Box(Modifier.weight(1f)) {
+            Text(
+                title,
+                Modifier.markerUnderline(),
+                style = if (doodle) MaterialTheme.typography.titleMedium.copy(fontSize = DoodleMetrics.HeadingText, fontWeight = FontWeight.Bold)
+                else MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         val tint = MaterialTheme.colorScheme.onSurfaceVariant
         if (arranging) {
             Icon(Icons.Rounded.DragIndicator, null, Modifier.size(24.dp), tint = tint)

@@ -1,5 +1,9 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.stop
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardShape
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -20,7 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -50,17 +54,24 @@ fun BusCard(
     onLongClick: (() -> Unit)? = null,
     badgeModifier: Modifier = Modifier,
     flag: @Composable () -> Unit = {},
+    note: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     times: @Composable () -> Unit,
 ) {
+    if (LocalDoodle.current != null) {
+        return DoodleBusRow(shortName, color, destination, subtitle, onClick, modifier, onLongClick, badgeModifier, flag, note, trailing, times)
+    }
     val press = remember { MutableInteractionSource() }
+    val shape = cardShape()
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press)
-            .clip(CardDefaults.shape)
+            .doodleOutline(shape)
+            .clip(shape)
             .combinedClickable(interactionSource = press, indication = ripple(), onLongClick = onLongClick, onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = cardFill(if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer),
         ),
+        shape = shape,
         border = if (favorite) BorderStroke(1.dp, Palette.Rose.copy(alpha = 0.45f)) else null,
     ) {
         Row(
@@ -71,7 +82,7 @@ fun BusCard(
             Box(
                 Modifier.width(4.dp).fillMaxHeight().padding(vertical = 10.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(if (live) liveColor() else Color.Transparent),
+                    .background(if (live && LocalDoodle.current == null) liveColor() else Color.Transparent),
             )
             LineBadge(shortName, color, badgeModifier, height = 36.dp, minWidth = 44.dp, corner = 12.dp)
             Column(Modifier.weight(1f).padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -96,6 +107,7 @@ fun BusCard(
                     )
                 }
                 times()
+                note?.invoke()
             }
             if (trailing != null) {
                 trailing()

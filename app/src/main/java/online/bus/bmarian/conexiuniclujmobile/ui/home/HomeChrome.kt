@@ -1,5 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleRoundButton
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -38,7 +40,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
@@ -75,6 +77,10 @@ import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import kotlin.math.ceil
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkSmallFabRing
 
 @Composable
@@ -87,12 +93,14 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
     // The city's news, or changes to the lines followed here.
     val showNews = online && (followed.isNotEmpty() || cities.any { it.slug == city && it.news })
     Column(modifier) {
+        val doodle = LocalDoodle.current != null
+        val pill = inkShape(28.dp, PILL_SEED)
         Surface(
             onClick = onSearch,
-            modifier = Modifier.searchPill(),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = 4.dp,
+            modifier = Modifier.searchPill().doodleOutline(pill, InkThick),
+            shape = if (doodle) pill else CircleShape,
+            color = if (doodle) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = if (doodle) 0.dp else 4.dp,
         ) {
             Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -111,6 +119,8 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
         }
     }
 }
+
+internal const val PILL_SEED = 3
 
 internal fun Modifier.searchPill() = padding(horizontal = 16.dp).fillMaxWidth().height(56.dp).darkRing(CircleShape)
 
@@ -136,10 +146,11 @@ fun PlaceChips(modifier: Modifier = Modifier) {
     val online by Services.online.collectAsStateWithLifecycle()
     val places by Services.favorites.plans.collectAsStateWithLifecycle()
     if (!online || places.isEmpty()) return
+    val side = if (LocalDoodle.current != null) DoodleMetrics.Side else 16.dp
     LazyRow(
         modifier,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(start = side, end = side, top = 2.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (LocalDoodle.current != null) DoodleMetrics.ChipGap else 8.dp),
     ) {
         items(places, key = { "place-${it.lat}-${it.lon}-${it.originLat}" }) { place ->
             val label = placeIcon(place.label ?: place.name)
@@ -208,6 +219,7 @@ private fun UpdateBadge() {
 
 @Composable
 private fun MapChip(emoji: String?, label: String, from: String?, onClick: () -> Unit) {
+    LocalDoodle.current?.let { return DoodlePlaceChip(emoji, label, from, it, onClick) }
     Surface(
         onClick = onClick,
         modifier = Modifier.widthIn(max = 260.dp),
@@ -239,10 +251,12 @@ private fun MapChip(emoji: String?, label: String, from: String?, onClick: () ->
 
 @Composable
 fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
+    val ink = LocalDoodle.current
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
         AnimatedVisibility(map.shapes.isNotEmpty(), enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
             val press = remember { MutableInteractionSource() }
-            SmallFloatingActionButton(
+            if (ink != null) DoodleRoundButton(Icons.Rounded.CropFree, stringResource(R.string.w_fit_routes), ink, small = true, onClick = map::fitShapes)
+            else SmallFloatingActionButton(
                 onClick = map::fitShapes,
                 modifier = Modifier.squish(press, 0.85f).darkSmallFabRing(),
                 interactionSource = press,
@@ -254,7 +268,12 @@ fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
         val press = remember { MutableInteractionSource() }
         var spins by remember { mutableIntStateOf(0) }
         val spin by animateFloatAsState(spins * 90f, Bouncy.pop, label = "spin")
-        FloatingActionButton(
+        if (ink != null) {
+            DoodleRoundButton(Icons.Rounded.MyLocation, stringResource(R.string.w_center), ink, iconModifier = Modifier.rotate(spin)) {
+                spins++
+                map.centerOnUser()
+            }
+        } else FloatingActionButton(
             onClick = {
                 spins++
                 map.centerOnUser()

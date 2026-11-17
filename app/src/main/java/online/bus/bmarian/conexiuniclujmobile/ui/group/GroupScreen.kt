@@ -1,5 +1,11 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.group
 
+import androidx.compose.material3.AlertDialogDefaults
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.PanelCorner
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.panelFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.drawnShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +27,7 @@ import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -257,8 +263,12 @@ private fun GroupLineCard(
 @Composable
 fun GroupNameDialog(routes: List<NetworkRoute>, name: String?, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var value by rememberSaveable { mutableStateOf(name.orEmpty()) }
+    val shape = drawnShape(PanelCorner, AlertDialogDefaults.shape)
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.doodleOutline(shape, InkThick),
+        shape = shape,
+        containerColor = panelFill(AlertDialogDefaults.containerColor),
         title = { Text(stringResource(R.string.group_name_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

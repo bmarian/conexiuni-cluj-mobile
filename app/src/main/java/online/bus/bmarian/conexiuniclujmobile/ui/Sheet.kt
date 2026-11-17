@@ -67,6 +67,13 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.EdgeRideLayer
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.SheetEdgeShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.sheetEdgeInk
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkEdge
 
 enum class SheetSnap { Peek, Half, Full }
@@ -277,16 +284,17 @@ fun BottomSheet(
                 },
             ) { above() }
         }
+        val ink = LocalDoodle.current
         Surface(
             Modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, state.offsetPx.roundToInt()) }
                 .then(rememberSheetGestures(state, drags))
                 .onFocusChanged { focused = it.hasFocus }
-                .darkEdge(SheetShape, dy = (-1).dp),
-            shape = SheetShape,
+                .then(if (ink != null) Modifier.sheetEdgeInk(ink) else Modifier.darkEdge(SheetShape, dy = (-1).dp)),
+            shape = if (ink != null) SheetEdgeShape else SheetShape,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 6.dp,
+            shadowElevation = if (ink != null) 0.dp else 6.dp,
             tonalElevation = 1.dp,
         ) {
             Column {
@@ -294,6 +302,7 @@ fun BottomSheet(
                 Box(Modifier.weight(1f).imePadding()) { content() }
             }
         }
+        if (ink != null) EdgeRideLayer({ state.offsetPx })
     }
     LaunchedEffect(imeUp, focused) {
         if (imeUp && focused && state.snap != SheetSnap.Full) state.animateTo(SheetSnap.Full)
@@ -317,13 +326,20 @@ private fun SheetHandle(state: SheetState) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier
-                .width(36.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
-        )
+        val color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        if (LocalDoodle.current != null) {
+            Canvas(Modifier.width(40.dp).height(6.dp)) {
+                drawPath(SheetEdgeShape.handle(size.width, size.height), color, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+            }
+        } else {
+            Box(
+                Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(color),
+            )
+        }
     }
 }
 

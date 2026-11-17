@@ -178,4 +178,11 @@
     <string name="group_no_more">No more today</string>
     <string name="group_show_line">Show on the map</string>
     <string name="group_hide_line">Hide from the map</string>
+    <string name="theme_label">Theme</string>
+    <string name="look_label">Look</string>
+    <string name="line_number">Line %1$s</string>
+    <string name="toward">to %1$s</string>
+    <string name="traffic_after_short">+%1$d min · Traffic after %2$s</string>
+    <string name="look_standard">Standard</string>
+    <string name="look_doodle">Doodle</string>
 </resources>

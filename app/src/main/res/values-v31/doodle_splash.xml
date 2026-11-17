@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ConexiuniClujMobile.DoodleSplash" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowSplashScreenBackground">@color/doodle_splash_ground</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/doodle_splash</item>
+    </style>
+</resources>

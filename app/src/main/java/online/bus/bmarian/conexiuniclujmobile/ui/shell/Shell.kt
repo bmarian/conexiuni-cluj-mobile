@@ -1,5 +1,12 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.shell
 
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.modeColor
+import online.bus.bmarian.conexiuniclujmobile.logic.Mode
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Mood
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Character
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -11,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,7 +27,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -52,9 +60,26 @@ import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.Toast
 import online.bus.bmarian.conexiuniclujmobile.logic.clujDate
 
+private val OFFLINE_CORNER = 16.dp
+private const val OFFLINE_SEED = 7
+private val OFFLINE_CHARACTER = 30.dp
+
 @Composable
 fun OfflinePill(online: Boolean, modifier: Modifier = Modifier) {
+    val ink = LocalDoodle.current
+    val drawn = inkShape(OFFLINE_CORNER, OFFLINE_SEED)
     AnimatedVisibility(!online, modifier, enter = fadeIn(), exit = fadeOut()) {
+        if (ink != null) {
+            Row(
+                Modifier.doodleOutline(drawn).clip(drawn).background(ink.paper).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Character(Mode.BUS, modeColor(Mode.BUS), "", Mood.Pale, Modifier.width(OFFLINE_CHARACTER))
+                Text(stringResource(R.string.w_offline_short), color = ink.text, style = MaterialTheme.typography.labelMedium)
+            }
+            return@AnimatedVisibility
+        }
         Row(
             Modifier.clip(CircleShape).background(Color(0xF2B45309)).padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
