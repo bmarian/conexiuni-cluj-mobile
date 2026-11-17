@@ -281,14 +281,19 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                 autoFit = autoFit,
                 autoCenter = autoCenter,
                 onStopTap = { stopId ->
-                    map.stopPick?.invoke(stopId) ?: run {
+                    val pick = map.stopPick
+                    if (pick != null) {
+                        pick(stopId)
+                    } else if (!navigator.inGroupBuilder()) {
                         revealForPick()
                         navigator.mapStop(stopId)
                     }
                 },
                 onStationsTap = {
-                    revealForPick()
-                    navigator.mapStops(it)
+                    if (!navigator.inGroupBuilder()) {
+                        revealForPick()
+                        navigator.mapStops(it)
+                    }
                 },
                 onNeedLocation = {
                     if (!UserLocation.permitted(context)) permission.launch(LOCATION_PERMISSIONS)
@@ -620,10 +625,16 @@ private class AppNavigator(private val nav: NavHostController) : Navigator {
 
     override fun groupStops(lines: String, edit: String?, line: String, leg: Leg) = go(groupPage("group-stops", lines, edit, leg) + "&line=${Uri.encode(line)}")
 
+    private var rebuilding = false
+
     override fun groupBuilt(lines: String, edit: String?, leg: Leg) {
+        rebuilding = true
         for (page in GROUP_PAGES) if (nav.currentDestination?.route == page) nav.popBackStack()
         nav.navigate(groupPage("group-pick", lines, edit, leg))
+        rebuilding = false
     }
+
+    override fun inGroupBuilder() = rebuilding || nav.currentDestination?.route in GROUP_PAGES
 
     private fun open(target: String, replace: Boolean) {
         val current = nav.currentBackStackEntry?.destination

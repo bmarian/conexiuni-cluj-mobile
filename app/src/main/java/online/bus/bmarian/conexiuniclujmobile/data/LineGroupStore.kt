@@ -6,6 +6,7 @@ import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
+import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLegs
 import online.bus.bmarian.conexiuniclujmobile.logic.GroupLine
@@ -68,6 +69,13 @@ class LineGroupStore(private val context: Context) {
         val group = find(from) ?: return
         val key = legsKey(legs)
         persist(_saved.value.filterNot { it.key == key && it != group }.map { if (it == group) it.copy(lines = legs.lines, back = legs.back) else it })
+    }
+
+    fun keepBuilt(legs: GroupLegs, edited: GroupLegs?) {
+        if (legs.lines.isEmpty()) return
+        val before = _saved.value
+        if (edited != null) replace(edited, legs) else if (find(legs) == null) save(legs, null)
+        if (_saved.value != before) Services.settings.showToast(context.getString(R.string.group_saved))
     }
 
     fun reorder(list: List<SavedGroup>) = persist(list)

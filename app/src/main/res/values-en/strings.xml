@@ -152,7 +152,9 @@
     <string name="home_section_collapsed">collapsed</string>
     <string name="group_create">Create group</string>
     <string name="group_lines">Lines</string>
-    <string name="group_show">Show</string>
+    <string name="group_save">Save</string>
+    <string name="group_saved">Group saved</string>
+    <string name="group_apply">Apply</string>
     <string name="group_add_line">Add a line</string>
     <string name="group_search">Search for a line or a station</string>
     <string name="group_yours">Your lines</string>
@@ -165,7 +167,6 @@
     <string name="group_leave_at">Get off</string>
     <string name="group_near_you">Near you</string>
     <string name="group_add_to_group">Add to the group</string>
-    <string name="done">Done</string>
     <string name="group_name_title">Name the group</string>
     <string name="group_name">Name</string>
     <string name="group_rename">Rename</string>

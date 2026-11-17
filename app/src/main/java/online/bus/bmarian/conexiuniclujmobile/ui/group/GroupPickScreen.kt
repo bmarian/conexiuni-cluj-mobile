@@ -63,9 +63,11 @@ fun GroupPickScreen(raw: String, edit: String?, startLeg: Leg) {
     GroupMap(lines)
     val known = index ?: return
     if (legs == null) return
+    val edited = remember(known, edit) { edit?.let(known::readLegs) }
+    SaveOnLeave(legs, edited)
 
-    fun show() {
-        edit?.let { Services.groups.replace(known.readLegs(it), legs) }
+    fun save() {
+        Services.groups.keepBuilt(legs, edited)
         nav.group(known.writeLegs(legs), replace = true)
     }
 
@@ -115,8 +117,8 @@ fun GroupPickScreen(raw: String, edit: String?, startLeg: Leg) {
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.group_add_line))
             }
-            Button(onClick = { show() }, enabled = legs.lines.isNotEmpty(), modifier = Modifier.weight(1f), shapes = ButtonDefaults.shapes()) {
-                Text(stringResource(R.string.group_show))
+            Button(onClick = { save() }, enabled = legs.lines.isNotEmpty(), modifier = Modifier.weight(1f), shapes = ButtonDefaults.shapes()) {
+                Text(stringResource(R.string.group_save))
             }
         }
     }

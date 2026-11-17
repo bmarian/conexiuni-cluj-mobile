@@ -158,7 +158,9 @@
     <string name="home_section_collapsed">restrânsă</string>
     <string name="group_create">Creează grup</string>
     <string name="group_lines">Linii</string>
-    <string name="group_show">Arată</string>
+    <string name="group_save">Salvează</string>
+    <string name="group_saved">Grupul a fost salvat</string>
+    <string name="group_apply">Aplică</string>
     <string name="group_add_line">Adaugă o linie</string>
     <string name="group_search">Caută o linie sau o stație</string>
     <string name="group_yours">Liniile tale</string>
@@ -171,7 +173,6 @@
     <string name="group_leave_at">Coborare</string>
     <string name="group_near_you">Lângă tine</string>
     <string name="group_add_to_group">Adaugă în grup</string>
-    <string name="done">Gata</string>
     <string name="group_name_title">Denumește grupul</string>
     <string name="group_name">Nume</string>
     <string name="group_rename">Redenumește</string>
