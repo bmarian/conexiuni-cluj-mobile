@@ -50,7 +50,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         lifecycleScope.launch {
             Services.settings.look.collect { look ->
-                LauncherIcon.follow(this@MainActivity, look)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     splashScreen.setSplashScreenTheme(if (look == Look.Doodle) R.style.Theme_ConexiuniClujMobile_DoodleSplash else Resources.ID_NULL)
                 }
@@ -81,6 +80,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch { AppUpdates.resume(updateFlow) }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Disabling the alias the task started from closes the app.
+        LauncherIcon.follow(this, Services.settings.look.value)
     }
 
     override fun onNewIntent(intent: Intent) {

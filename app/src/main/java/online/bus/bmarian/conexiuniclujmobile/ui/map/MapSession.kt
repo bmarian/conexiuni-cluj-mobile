@@ -1147,9 +1147,10 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
         style.addImage("pin-Origin-lifted", images.liftedPin(MapColors.Origin))
         style.addImage("pin-Destination-lifted", images.liftedPin(MapColors.Destination))
         if (doodle) {
-            style.addImage("doodle-waves", images.waves(dark))
-            style.addImage("doodle-paper", images.paper(dark))
-            style.addImage("doodle-trees", images.trees(dark))
+            val theme = if (dark) "dark" else "light"
+            style.addImage("doodle-waves-$theme", images.waves(dark))
+            style.addImage("doodle-paper-$theme", images.paper(dark))
+            style.addImage("doodle-trees-$theme", images.trees(dark))
         }
     }
 
