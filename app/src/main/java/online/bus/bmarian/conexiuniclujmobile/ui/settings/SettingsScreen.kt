@@ -39,8 +39,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BrightnessMedium
-import androidx.compose.material.icons.rounded.Draw
-import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CropFree
@@ -95,6 +93,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.ThemeMode
 import online.bus.bmarian.conexiuniclujmobile.data.Look
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
 import online.bus.bmarian.conexiuniclujmobile.ui.ChoiceRow
+import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.LocalSheet
 import online.bus.bmarian.conexiuniclujmobile.ui.PopIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
@@ -182,14 +181,10 @@ fun SettingsScreen(pairCode: String?, pairKey: String?) {
             }
 
             Section(stringResource(R.string.w_display))
-            if (ink != null) DoodleField(stringResource(R.string.theme_label))
+            FieldLabel(stringResource(R.string.theme_label))
             ThemeRow(theme, settings::setTheme)
-            if (ink != null) {
-                DoodleField(stringResource(R.string.look_label))
-                DoodleLookTiles(look, settings::setLook, Look.entries.associateWith { stringResource(lookLabel(it)) }, ink)
-            } else {
-                LookRow(look, settings::setLook)
-            }
+            FieldLabel(stringResource(R.string.look_label))
+            LookTiles(look, settings::setLook, Look.entries.associateWith { stringResource(lookLabel(it)) }, ink)
             Toggle(
                 Icons.Rounded.Palette, stringResource(R.string.w_colorful_lines), stringResource(R.string.w_colorful_lines_desc), colorful,
                 onChange = settings::setColorfulLines,
@@ -325,6 +320,11 @@ private fun Prompt(
 }
 
 @Composable
+private fun FieldLabel(label: String) {
+    if (LocalDoodle.current != null) DoodleField(label) else SubLabel(label, Modifier.padding(top = 8.dp))
+}
+
+@Composable
 private fun Section(title: String) {
     if (LocalDoodle.current != null) return DoodleTitle(title)
     Text(
@@ -370,18 +370,6 @@ private fun ThemeRow(theme: ThemeMode, onChange: (ThemeMode) -> Unit) {
         icon = { mode -> options.first { it.first == mode }.second },
     ) { mode ->
         Text(stringResource(options.first { it.first == mode }.third), maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun LookRow(look: Look, onChange: (Look) -> Unit) {
-    val options = Look.entries.map { Triple(it, if (it == Look.Doodle) Icons.Rounded.Draw else Icons.Rounded.Smartphone, lookLabel(it)) }
-    ChoiceRow(
-        options.map { it.first }, look, onChange,
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        icon = { choice -> options.first { it.first == choice }.second },
-    ) { choice ->
-        Text(stringResource(options.first { it.first == choice }.third), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
