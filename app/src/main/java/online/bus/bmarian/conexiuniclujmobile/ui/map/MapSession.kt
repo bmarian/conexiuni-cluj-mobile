@@ -1,6 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.map
 
 import org.maplibre.android.style.expressions.Expression.all
+import org.maplibre.android.style.expressions.Expression.concat
 import online.bus.bmarian.conexiuniclujmobile.R
 import org.maplibre.android.style.expressions.Expression.neq
 import org.maplibre.android.style.expressions.Expression.product
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.animation.doOnEnd
 import com.google.gson.JsonArray
@@ -133,6 +135,7 @@ import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
 import org.maplibre.android.style.layers.PropertyFactory.lineGapWidth
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
+import org.maplibre.android.style.layers.PropertyFactory.linePattern
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
 import org.maplibre.android.style.layers.PropertyFactory.symbolSortKey
 import org.maplibre.android.style.layers.SymbolLayer
@@ -168,6 +171,7 @@ private const val SRC_PINS = "ct-pins"
 private const val SRC_AREA = "ct-area"
 private const val SRC_SPIDER = "ct-spider"
 private const val SRC_SWEEP = "ct-sweep"
+private const val INK_LINE = "ink-line-"
 private const val SRC_RAILS = "ct-rails"
 private const val SRC_RIPPLE = "ct-ripple"
 
@@ -462,9 +466,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
     private fun paintSweep(parts: List<Pair<List<LatLon>, Int>>) = source(SRC_SWEEP)?.setGeoJson(
         FeatureCollection.fromFeatures(
             parts.filter { it.first.size >= 2 }.map { (part, color) ->
-                Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply {
-                    addStringProperty("color", "#%06X".format(0xFFFFFF and color))
-                }
+                Feature.fromGeometry(LineString.fromLngLats(part.map(::point))).apply { addLineColor(this, color) }
             },
         ),
     )
@@ -995,7 +997,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 LineLayer("ct-rails-${rail.band}", SRC_RAILS).withProperties(
                     lineColor(rail.color),
                     lineWidth(rail.width),
-                    lineGapWidth(LINE_WIDTH + 2 * RAIL_GAP),
+                    lineGapWidth(if (doodle) INK_LINE_DP else LINE_WIDTH + 2 * RAIL_GAP),
                     lineCap(Property.LINE_CAP_ROUND),
                     lineJoin(Property.LINE_JOIN_ROUND),
                 ).withFilter(eq(get("band"), literal(rail.band))),
@@ -1010,7 +1012,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 lineJoin(Property.LINE_JOIN_ROUND),
             ).withFilter(eq(get("dash"), literal(FAINT_DASH))),
         )
-        under(
+        if (!doodle) under(
             LineLayer("ct-lines-casing", SRC_LINES).withProperties(
                 lineColor(if (dark) MapColors.InkDark.toArgb() else android.graphics.Color.WHITE),
                 lineWidth(8f),
@@ -1028,16 +1030,18 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
                 lineJoin(Property.LINE_JOIN_ROUND),
             ).withFilter(eq(get("dash"), literal(i)))
             // Dash arrays are in line widths.
-            if (pattern.isNotEmpty()) layer.setProperties(lineDasharray(pattern.map { it / LINE_WIDTH }.toTypedArray()))
+            if (pattern.isNotEmpty()) layer.setProperties(lineDasharray(pattern.map { it / LINE_WIDTH }.toTypedArray())) else inked(layer)
             under(layer)
         }
         under(
-            LineLayer("ct-sweep", SRC_SWEEP).withProperties(
-                lineColor(toColor(get("color"))),
-                lineWidth(LINE_WIDTH),
-                lineOpacity(0.9f),
-                lineCap(Property.LINE_CAP_ROUND),
-                lineJoin(Property.LINE_JOIN_ROUND),
+            inked(
+                LineLayer("ct-sweep", SRC_SWEEP).withProperties(
+                    lineColor(toColor(get("color"))),
+                    lineWidth(LINE_WIDTH),
+                    lineOpacity(0.9f),
+                    lineCap(Property.LINE_CAP_ROUND),
+                    lineJoin(Property.LINE_JOIN_ROUND),
+                ),
             ),
         )
         under(
@@ -1152,6 +1156,16 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             style.addImage("doodle-paper-$theme", images.paper(dark))
             style.addImage("doodle-trees-$theme", images.trees(dark))
         }
+    }
+
+    private fun inked(layer: LineLayer) = layer.apply {
+        if (doodle) setProperties(linePattern(concat(literal(INK_LINE), get("color"))), lineWidth(INK_LINE_DP), lineOpacity(1f))
+    }
+
+    private fun addLineColor(feature: Feature, argb: Int) {
+        val hex = "#%06X".format(0xFFFFFF and argb)
+        feature.addStringProperty("color", hex)
+        if (doodle) image(INK_LINE + hex) { images.inkLine(Color(argb), dark == true) }
     }
 
     private fun image(name: String, make: () -> android.graphics.Bitmap) {
@@ -1517,7 +1531,7 @@ internal class MapSession(private val context: Context, val map: MapLibreMap) {
             FeatureCollection.fromFeatures(
                 scene.lines.zip(colors).filterIndexed { i, (line, _) -> line.points.size >= 2 && i !in hidden }.map { (line, color) ->
                     Feature.fromGeometry(LineString.fromLngLats(line.points.map(::point))).apply {
-                        addStringProperty("color", "#%06X".format(0xFFFFFF and color))
+                        addLineColor(this, color)
                         addNumberProperty("dash", line.dash)
                         addNumberProperty("v", linesVersion)
                     }
