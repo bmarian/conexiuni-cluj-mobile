@@ -541,7 +541,7 @@ class PlanViewModel(app: Application, query: PlanQuery) : AndroidViewModel(app) 
         val walks = plan.legs.filter { !it.isRide }.map { points(it.path) }
         val highlights = LinkedHashMap<Int, StopHighlight>()
         rides.forEachIndexed { idx, leg ->
-            highlights[leg.from] = if (idx == 0) StopHighlight.Green else StopHighlight.Purple
+            highlights[leg.from] = if (idx == 0) StopHighlight.Green else StopHighlight.Periwinkle
             leg.passed.forEach { highlights[it] = StopHighlight.Gray }
             if (idx == rides.lastIndex) highlights[leg.to] = StopHighlight.Red
             else if (leg.to != rides[idx + 1].from) highlights[leg.to] = StopHighlight.Amber

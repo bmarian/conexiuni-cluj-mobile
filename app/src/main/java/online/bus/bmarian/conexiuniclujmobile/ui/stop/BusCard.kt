@@ -1,7 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.stop
 
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardShape
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.foundation.BorderStroke
@@ -39,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.liveColor
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 @Composable
 fun BusCard(
@@ -65,14 +64,14 @@ fun BusCard(
     val shape = cardShape()
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press)
-            .doodleOutline(shape)
+            .then(if (favorite) Modifier else Modifier.lookOutline(shape))
             .clip(shape)
             .combinedClickable(interactionSource = press, indication = ripple(), onLongClick = onLongClick, onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = cardFill(if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer),
+            containerColor = if (favorite) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
         ),
         shape = shape,
-        border = if (favorite) BorderStroke(1.dp, Palette.Rose.copy(alpha = 0.45f)) else null,
+        border = if (favorite) BorderStroke(1.dp, favoriteColor().copy(alpha = 0.45f)) else null,
     ) {
         Row(
             Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(end = 8.dp),

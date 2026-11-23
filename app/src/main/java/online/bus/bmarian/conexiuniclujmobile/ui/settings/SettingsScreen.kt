@@ -100,6 +100,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.RisingArrow
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetSnap
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetTopBar
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillSwitchColors
 
 @Composable
 fun SettingsScreen(pairCode: String?, pairKey: String?) {
@@ -299,7 +301,7 @@ private fun Prompt(
                     Text(question, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(shapes = ButtonDefaults.shapes(), onClick = onYes, modifier = Modifier.weight(1f)) {
+                    Button(colors = fillButtonColors(), shapes = ButtonDefaults.shapes(), onClick = onYes, modifier = Modifier.weight(1f)) {
                         Icon(yesIcon, null, Modifier.size(18.dp))
                         Text(yes, Modifier.padding(start = 8.dp))
                     }
@@ -349,6 +351,7 @@ internal fun Toggle(icon: ImageVector, title: String, description: String, check
             Switch(
                 checked = checked,
                 onCheckedChange = onChange,
+                colors = fillSwitchColors(),
                 thumbContent = { PopIcon(if (checked) Icons.Rounded.Check else Icons.Rounded.Close, checked, Modifier.size(SwitchDefaults.IconSize)) },
             )
         },

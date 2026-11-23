@@ -44,6 +44,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.markerUnderline
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
 
 private val CARD_CORNER = 20.dp
 private val CARD_SHAPE = RoundedCornerShape(CARD_CORNER)
@@ -65,9 +66,13 @@ fun HomeSectionCard(
     val card = when {
         lifted -> MaterialTheme.colorScheme.surfaceContainerHigh
         doodle -> Color.Transparent
-        else -> MaterialTheme.colorScheme.surfaceContainer
+        else -> Color.Transparent
     }
-    Column(modifier.padding(horizontal = if (doodle) 0.dp else 12.dp, vertical = 4.dp).fillMaxWidth().background(card, inkShape(CARD_CORNER, id.hashCode()))) {
+    val shape = inkShape(CARD_CORNER, id.hashCode())
+    Column(
+        modifier.padding(horizontal = if (doodle) 0.dp else 12.dp, vertical = 4.dp).fillMaxWidth().background(card, shape)
+            .then(if (doodle) Modifier else Modifier.ring(shape)),
+    ) {
         SectionHeader(id, title, collapsed, arranging, reorder, onToggle, onArrange)
         AnimatedVisibility(!collapsed && !arranging, enter = expandVertically(), exit = shrinkVertically()) {
             Column(Modifier.padding(bottom = 6.dp)) { content() }

@@ -14,8 +14,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.routeLook
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.RideOnOpen
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardShape
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -76,7 +75,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Icon
 import androidx.compose.material3.IconButton
@@ -170,6 +168,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineInk
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineNumberShadow
 import online.bus.bmarian.conexiuniclujmobile.ui.timelineDraw
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 @Composable
 fun planViewModel(query: PlanQuery): PlanViewModel {
@@ -332,10 +332,13 @@ fun PlanScreen(query: PlanQuery) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.tertiary), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.tertiaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
                     val emoji = favoriteName?.icon
                     if (emoji != null) Text(emoji, fontSize = 24.sp)
-                    else Icon(Icons.Rounded.Map, null, tint = MaterialTheme.colorScheme.onTertiary)
+                    else Icon(Icons.Rounded.Map, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
                 }
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.w_plan_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
@@ -394,7 +397,7 @@ fun PlanScreen(query: PlanQuery) {
                             stringResource(if (isFavorite) R.string.saved else R.string.save),
                             if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             selected = isFavorite,
-                            tint = if (isFavorite) Palette.Rose else Color.Unspecified,
+                            tint = if (isFavorite) favoriteColor() else Color.Unspecified,
                         ) { if (online) vm.toggleFavorite() },
                         ChipAction(stringResource(R.string.w_share), Icons.Rounded.Share) { share(context, "/plan?" + vm.currentQuery().encode()) },
                         if (online && isFavorite) {
@@ -416,9 +419,9 @@ fun PlanScreen(query: PlanQuery) {
         item {
             val shape = cardShape()
             Card(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).doodleOutline(shape),
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).lookOutline(shape),
                 shape = shape,
-                colors = CardDefaults.cardColors(containerColor = cardFill(MaterialTheme.colorScheme.surfaceContainer)),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             ) {
                 CompositionLocalProvider(LocalTimelineDraw provides draw) {
                 Column(Modifier.padding(vertical = 8.dp).timelineDraw(draw)) {
@@ -533,7 +536,7 @@ private fun NotFound(onHome: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        Button(shapes = ButtonDefaults.shapes(), onClick = onHome) { Text(stringResource(R.string.w_home)) }
+        Button(colors = fillButtonColors(), shapes = ButtonDefaults.shapes(), onClick = onHome) { Text(stringResource(R.string.w_home)) }
     }
 }
 
@@ -550,9 +553,9 @@ private fun TripSummary(plan: PlanOption, mode: TimeMode, clockMs: Long) {
     val now = remember(clockMs) { LocalDateTime.ofInstant(Instant.ofEpochMilli(clockMs), CLUJ_ZONE) }
     val shape = cardShape()
     Card(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).doodleOutline(shape),
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).lookOutline(shape),
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             val stats = mutableListOf<@Composable () -> Unit>()
@@ -593,8 +596,8 @@ private fun Stat(value: String, label: String, live: Boolean = false) {
             Text(
                 value,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = if (live) liveColor() else MaterialTheme.colorScheme.onSecondaryContainer,
+                fontWeight = FontWeight.Medium,
+                color = if (live) liveColor() else MaterialTheme.colorScheme.onSurface,
             )
         }
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f))
@@ -858,7 +861,12 @@ private fun TimeFilter(
             )
             if (ink != null) Spacer(Modifier.weight(1f))
             if (mode == TimeMode.Leave || mode == TimeMode.Arrive) {
-                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onSearch, enabled = !calculating && value.isNotEmpty() && hasOrigin) {
+                Button(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onSearch,
+                    enabled = !calculating && value.isNotEmpty() && hasOrigin,
+                    colors = fillButtonColors(),
+                ) {
                     Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.w_plan_time_search_aria), Modifier.size(18.dp))
                     Text(stringResource(R.string.w_plan_time_search), Modifier.padding(start = 4.dp))
                 }
@@ -924,13 +932,14 @@ private fun PlanCard(
     val shape = cardShape()
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press).doodleOutline(shape),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).squish(press)
+            .then(if (selected && LocalDoodle.current == null) Modifier else Modifier.lookOutline(shape)),
         shape = shape,
         interactionSource = press,
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else cardFill(MaterialTheme.colorScheme.surfaceContainer),
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
         ),
-        border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primaryFixed) else null,
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -36,6 +36,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.FirstSteps
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.StationLines
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
 
 /** Port of components/home/FirstSteps.vue. */
 @Composable
@@ -51,7 +52,7 @@ fun FirstStepsCard(
     onHide: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))) {
+    Column(modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().ring(RoundedCornerShape(20.dp))) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,

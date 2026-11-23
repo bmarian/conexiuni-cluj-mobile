@@ -76,12 +76,13 @@ import online.bus.bmarian.conexiuniclujmobile.ui.map.MapController
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import kotlin.math.ceil
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkSmallFabRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.smallFabRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.flatFab
 
 @Composable
 fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifier) {
@@ -97,10 +98,9 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
         val pill = inkShape(28.dp, PILL_SEED)
         Surface(
             onClick = onSearch,
-            modifier = Modifier.searchPill().doodleOutline(pill, InkThick),
+            modifier = Modifier.searchPill().lookOutline(pill, InkThick),
             shape = if (doodle) pill else CircleShape,
-            color = if (doodle) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = if (doodle) 0.dp else 4.dp,
+            color = MaterialTheme.colorScheme.surface,
         ) {
             Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -122,7 +122,7 @@ fun HomeChrome(query: String, onSearch: () -> Unit, modifier: Modifier = Modifie
 
 internal const val PILL_SEED = 3
 
-internal fun Modifier.searchPill() = padding(horizontal = 16.dp).fillMaxWidth().height(56.dp).darkRing(CircleShape)
+internal fun Modifier.searchPill() = padding(horizontal = 16.dp).fillMaxWidth().height(56.dp).ring(CircleShape)
 
 @Composable
 private fun NewsButton(onClick: () -> Unit) {
@@ -224,10 +224,10 @@ private fun MapChip(emoji: String?, label: String, from: String?, onClick: () ->
         onClick = onClick,
         modifier = Modifier.widthIn(max = 260.dp),
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.surface,
     ) {
         Row(
-            Modifier.height(36.dp).darkRing(CircleShape).padding(start = 12.dp, end = 14.dp),
+            Modifier.height(36.dp).ring(CircleShape).padding(start = 12.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -258,11 +258,11 @@ fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
             if (ink != null) DoodleRoundButton(Icons.Rounded.CropFree, stringResource(R.string.w_fit_routes), ink, small = true, onClick = map::fitShapes)
             else SmallFloatingActionButton(
                 onClick = map::fitShapes,
-                modifier = Modifier.squish(press, 0.85f).darkSmallFabRing(),
+                modifier = Modifier.squish(press, 0.85f).smallFabRing(),
                 interactionSource = press,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
+                elevation = flatFab(),
             ) { Icon(Icons.Rounded.CropFree, contentDescription = stringResource(R.string.w_fit_routes)) }
         }
         val press = remember { MutableInteractionSource() }
@@ -278,11 +278,11 @@ fun MapFabs(map: MapController, modifier: Modifier = Modifier) {
                 spins++
                 map.centerOnUser()
             },
-            modifier = Modifier.squish(press, 0.85f).darkRing(FloatingActionButtonDefaults.shape),
+            modifier = Modifier.squish(press, 0.85f).ring(FloatingActionButtonDefaults.shape),
             interactionSource = press,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
+            elevation = flatFab(),
         ) { Icon(Icons.Rounded.MyLocation, contentDescription = stringResource(R.string.w_center), Modifier.rotate(spin)) }
     }
 }

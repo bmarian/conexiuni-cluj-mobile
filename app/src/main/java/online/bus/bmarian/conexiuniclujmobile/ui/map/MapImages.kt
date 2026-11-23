@@ -100,7 +100,8 @@ internal class MapImages(context: Context) {
     fun highlight(h: StopHighlight) = draw(28f, 28f) {
         val favorite = h == StopHighlight.Favorite
         val glyph = if (favorite) 13.dp.toPx() else 14.dp.toPx()
-        stopMarker(center, 24.dp.toPx(), MapColors.highlight(h), glyph, shadow = 1.2f, heart = favorite, ring = ring, drawn = doodle)
+        val color = if (favorite && doodle) MapColors.Red else MapColors.highlight(h)
+        stopMarker(center, 24.dp.toPx(), color, glyph, shadow = 1.2f, heart = favorite, ring = ring, drawn = doodle)
     }
 
     fun selectedStop() = draw(36f, 36f) { stopMarker(center, 32.dp.toPx(), MapColors.SelectedStop, 16.dp.toPx(), shadow = 1.6f, ring = ring, drawn = doodle) }
@@ -156,7 +157,7 @@ internal class MapImages(context: Context) {
         val cell = CELL_DP.dp.toPx()
         when (icon) {
             is GroupIcon.Station -> stopMarker(at, cell, routeColor(icon.color), 14.dp.toPx(), mode = icon.mode, ring = ring, drawn = doodle)
-            GroupIcon.Heart -> stopMarker(at, cell, MapColors.Red, 13.dp.toPx(), heart = true, ring = ring, drawn = doodle)
+            GroupIcon.Heart -> stopMarker(at, cell, if (doodle) MapColors.Red else MapColors.Favorite, 13.dp.toPx(), heart = true, ring = ring, drawn = doodle)
         }
     }
 

@@ -58,6 +58,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.ConexiuniTheme
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
 
 private val CLOCK = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -183,8 +184,8 @@ private fun AlarmScreen(alarm: AlarmInfo, onStop: () -> Unit, onOpen: () -> Unit
             )
             Spacer(Modifier.height(24.dp))
             Surface(
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                color = MaterialTheme.colorScheme.primaryFixed,
+                contentColor = MaterialTheme.colorScheme.onPrimaryFixed,
                 shape = RoundedCornerShape(24.dp),
             ) {
                 Row(
@@ -234,7 +235,7 @@ private fun AlarmScreen(alarm: AlarmInfo, onStop: () -> Unit, onOpen: () -> Unit
                 FilledTonalButton(onOpen, Modifier.weight(1f).height(56.dp)) {
                     Text(stringResource(if (alarm.journey) R.string.nav_resume else R.string.alarm_open), style = MaterialTheme.typography.titleMedium)
                 }
-                Button(onStop, Modifier.weight(1f).height(56.dp)) {
+                Button(onStop, Modifier.weight(1f).height(56.dp), colors = fillButtonColors()) {
                     Text(stringResource(R.string.alarm_stop), style = MaterialTheme.typography.titleMedium)
                 }
             }

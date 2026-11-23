@@ -266,7 +266,7 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
     val solid = live && due
     val container by animateColorAsState(
         when {
-            solid -> colors.content
+            solid -> colors.due
             live -> colors.container
             extra -> Color.Transparent
             else -> MaterialTheme.colorScheme.surfaceContainerHighest
@@ -276,7 +276,7 @@ fun TimePill(text: String, live: Boolean, modifier: Modifier = Modifier, extra: 
     )
     val content by animateColorAsState(
         when {
-            solid -> colors.container
+            solid -> colors.onDue
             live -> colors.onContainer
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },

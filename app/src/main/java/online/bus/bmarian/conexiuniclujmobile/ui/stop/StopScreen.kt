@@ -166,9 +166,9 @@ import online.bus.bmarian.conexiuniclujmobile.ui.sharedBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLiveColors
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.withUniqueKeys
 import online.bus.bmarian.conexiuniclujmobile.widget.WidgetPinning
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 private const val FRAME_WAIT_MS = 2_000L
 
@@ -433,7 +433,7 @@ fun StopScreen(stopId: Int) {
                         stringResource(if (isFavorite) R.string.saved else R.string.save),
                         if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         selected = isFavorite,
-                        tint = if (isFavorite) Palette.Rose else Color.Unspecified,
+                        tint = if (isFavorite) favoriteColor() else Color.Unspecified,
                     ) {
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleStation(stopId, index?.platforms(stopId).orEmpty().map { it.stopId })
@@ -731,7 +731,7 @@ fun RouteRow(shortName: String, color: String, name: String, favorite: Boolean =
         Modifier
             .fillMaxWidth()
             .squishClickable(enabled = !busy, onClick = onClick)
-            .background(if (favorite) Palette.Rose.copy(alpha = 0.06f) else Color.Transparent)
+            .background(if (favorite) favoriteColor().copy(alpha = 0.06f) else Color.Transparent)
             .padding(horizontal = 16.dp, vertical = 10.dp)
             .alpha(if (busy) 0.6f else 1f),
         verticalAlignment = Alignment.CenterVertically,

@@ -16,6 +16,7 @@ import online.bus.bmarian.conexiuniclujmobile.logic.Mode
 import online.bus.bmarian.conexiuniclujmobile.ui.ModeGlyphs
 import online.bus.bmarian.conexiuniclujmobile.ui.drawModeGlyph
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineShadow
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.FavoriteLight
 
 // Port of the artwork in utils/mapIcons.ts.
 object Glyphs {
@@ -45,8 +46,9 @@ object Glyphs {
 
 object MapColors {
     val Green = Color(0xFF10B981)
-    val Purple = Color(0xFFA855F7)
+    val Periwinkle = Color(0xFF636C94)
     val Red = Color(0xFFF43F5E)
+    val Favorite = FavoriteLight
     val Amber = Color(0xFFF59E0B)
     val Gray = Color(0xFF64748B)
     val SelectedStop = Color(0xFF00BC7D)
@@ -66,15 +68,16 @@ object MapColors {
 
     fun highlight(h: StopHighlight) = when (h) {
         StopHighlight.Green -> Green
-        StopHighlight.Purple -> Purple
-        StopHighlight.Red, StopHighlight.Favorite -> Red
+        StopHighlight.Periwinkle -> Periwinkle
+        StopHighlight.Red -> Red
+        StopHighlight.Favorite -> Favorite
         StopHighlight.Amber -> Amber
         StopHighlight.Gray -> Gray
     }
 
     fun zIndex(h: StopHighlight) = when (h) {
         StopHighlight.Green -> 1200
-        StopHighlight.Purple -> 1100
+        StopHighlight.Periwinkle -> 1100
         StopHighlight.Amber -> 1050
         StopHighlight.Red, StopHighlight.Favorite -> 1000
         StopHighlight.Gray -> 800

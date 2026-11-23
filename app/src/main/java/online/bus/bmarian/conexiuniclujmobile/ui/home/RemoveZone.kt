@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.ui.Bouncy
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
 import kotlin.math.roundToInt
 
 object RemoveZone {
@@ -110,7 +110,6 @@ fun RemoveBar(modifier: Modifier = Modifier) {
             shape = CircleShape,
             color = color,
             contentColor = content,
-            shadowElevation = 4.dp,
         ) {
             Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Delete, null)

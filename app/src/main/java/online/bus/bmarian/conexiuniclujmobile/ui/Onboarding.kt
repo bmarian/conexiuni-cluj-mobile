@@ -1,7 +1,6 @@
 package online.bus.bmarian.conexiuniclujmobile.ui
 
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.drawnShape
 import android.Manifest
 import android.content.Intent
@@ -57,6 +56,8 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.Services
 import online.bus.bmarian.conexiuniclujmobile.data.UserLocation
 import online.bus.bmarian.conexiuniclujmobile.follow.Reminders
+import androidx.compose.ui.graphics.Color
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
 
 @Composable
 fun Onboarding(onDone: () -> Unit) {
@@ -114,7 +115,7 @@ fun Onboarding(onDone: () -> Unit) {
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp), horizontalArrangement = Arrangement.End) {
-                Button(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(stringResource(R.string.onboard_done)) }
+                Button(colors = fillButtonColors(), shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(stringResource(R.string.onboard_done)) }
             }
         }
     }
@@ -125,7 +126,7 @@ private val PERMISSION_CORNER = 20.dp
 @Composable
 private fun PermissionCard(icon: ImageVector, title: Int, body: Int, granted: Boolean, onAllow: () -> Unit) {
     val shape = drawnShape(PERMISSION_CORNER, RoundedCornerShape(PERMISSION_CORNER))
-    Surface(Modifier.doodleOutline(shape), shape = shape, color = cardFill(MaterialTheme.colorScheme.surfaceContainer)) {
+    Surface(Modifier.lookOutline(shape), shape = shape, color = Color.Transparent) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             RoundIcon(icon, 40.dp, 22.dp)
             Column(Modifier.weight(1f)) {
@@ -135,7 +136,7 @@ private fun PermissionCard(icon: ImageVector, title: Int, body: Int, granted: Bo
             if (granted) {
                 Icon(Icons.Rounded.Check, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             } else {
-                Button(shapes = ButtonDefaults.shapes(), onClick = onAllow) { Text(stringResource(R.string.onboard_allow)) }
+                Button(colors = fillButtonColors(), shapes = ButtonDefaults.shapes(), onClick = onAllow) { Text(stringResource(R.string.onboard_allow)) }
             }
         }
     }

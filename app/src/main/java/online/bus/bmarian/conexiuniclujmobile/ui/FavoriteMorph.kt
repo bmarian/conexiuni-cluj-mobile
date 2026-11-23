@@ -38,8 +38,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import online.bus.bmarian.conexiuniclujmobile.logic.LONG_PACE
 import online.bus.bmarian.conexiuniclujmobile.logic.paced
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import kotlin.math.hypot
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 private const val MORPH_MS = (1130 * LONG_PACE).toInt()
 
@@ -150,6 +150,7 @@ fun rememberMorph(subject: Any?, color: Color, favorite: Boolean?): Morph {
 fun FavoriteMorph(morph: Morph, shape: Shape, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val heart = rememberVectorPainter(Icons.Rounded.Favorite)
     val broken = MaterialTheme.colorScheme.outline
+    val favorite = favoriteColor()
     Box(
         modifier
             .graphicsLayer {
@@ -159,7 +160,7 @@ fun FavoriteMorph(morph: Morph, shape: Shape, modifier: Modifier = Modifier, con
             .drawWithContent {
                 drawContent()
                 when (morph.mark) {
-                    Morph.Mark.Heart -> drawHeart(heart, morph)
+                    Morph.Mark.Heart -> drawHeart(heart, morph, favorite)
                     Morph.Mark.Broken -> drawBrokenHeart(heart, morph)
                     null -> {}
                 }
@@ -167,7 +168,7 @@ fun FavoriteMorph(morph: Morph, shape: Shape, modifier: Modifier = Modifier, con
             .clip(shape)
             .drawBehind {
                 val fill = morph.fill.value
-                if (fill >= 1f) return@drawBehind drawRect(morph.background(if (morph.mark == Morph.Mark.Broken) broken else Palette.Rose))
+                if (fill >= 1f) return@drawBehind drawRect(morph.background(if (morph.mark == Morph.Mark.Broken) broken else favorite))
                 drawRect(morph.before)
                 drawCircle(morph.now, hypot(size.width, size.height) / 2 * fill.coerceAtLeast(0f))
             },
@@ -184,9 +185,9 @@ fun FavoriteMorph(morph: Morph, shape: Shape, modifier: Modifier = Modifier, con
 
 private fun DrawScope.heartSide() = size.height * 0.55f
 
-private fun DrawScope.drawHeart(heart: VectorPainter, morph: Morph) {
+private fun DrawScope.drawHeart(heart: VectorPainter, morph: Morph, color: Color) {
     val side = heartSide()
-    drawSparks(morph.burst.value, Palette.Rose, side)
+    drawSparks(morph.burst.value, color, side)
     val scale = morph.heart.value
     if (scale <= 0f) return
     withTransform({

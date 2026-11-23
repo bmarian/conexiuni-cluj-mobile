@@ -4,7 +4,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMetrics
 import online.bus.bmarian.conexiuniclujmobile.logic.LONG_PACE
 import online.bus.bmarian.conexiuniclujmobile.logic.paced
 import online.bus.bmarian.conexiuniclujmobile.logic.pacedStiffness
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.animation.AnimatedContent
@@ -362,9 +362,8 @@ fun <T> ChoiceRow(
     Box(
         modifier
             .height(if (ink != null) DoodleMetrics.ToggleHeight else 48.dp)
-            .doodleOutline(track, DoodleMetrics.Pen)
+            .lookOutline(track, DoodleMetrics.Pen)
             .clip(track)
-            .background(if (ink != null) Color.Transparent else scheme.surfaceContainerHighest)
             .padding(4.dp)
             .onSizeChanged { width = it.width },
     ) {
@@ -381,13 +380,13 @@ fun <T> ChoiceRow(
                     scaleY = 1f - (speed / 40f).coerceAtMost(0.12f)
                 }
                 .clip(if (ink != null) drawnThumb else CircleShape)
-                .background(ink?.marker ?: scheme.primary),
+                .background(ink?.marker ?: scheme.primaryFixed),
         )
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, option ->
                 val checked = i == index
                 val on = enabled(option)
-                val color by animateColorAsState(if (checked) ink?.onMarker ?: scheme.onPrimary else scheme.onSurfaceVariant, label = "choice")
+                val color by animateColorAsState(if (checked) ink?.onMarker ?: scheme.onPrimaryFixed else scheme.onSurfaceVariant, label = "choice")
                 val press = remember { MutableInteractionSource() }
                 Box(
                     Modifier

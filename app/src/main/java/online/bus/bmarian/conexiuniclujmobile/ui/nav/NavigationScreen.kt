@@ -146,9 +146,10 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.ridesApart
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkSmallFabRing
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkEdge
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.smallFabRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.edge
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.flatFab
 import online.bus.bmarian.conexiuniclujmobile.ui.SheetShape
 
 private val COMPASS_ROOM = 64.dp
@@ -214,7 +215,7 @@ internal fun navScene(journey: Journey, vehicles: List<MapVehicle>, progress: Pr
     }
     val highlights = LinkedHashMap<Int, StopHighlight>()
     journey.legs.forEachIndexed { i, leg ->
-        highlights[leg.boarding.id] = if (i == 0) StopHighlight.Green else StopHighlight.Purple
+        highlights[leg.boarding.id] = if (i == 0) StopHighlight.Green else StopHighlight.Periwinkle
         highlights[leg.alighting.id] = if (i == journey.legs.lastIndex) StopHighlight.Red else StopHighlight.Amber
     }
     val destination = if (journey.endsAtStop) null else MapPin(journey.destination.lat, journey.destination.lon, journey.destination.name)
@@ -328,10 +329,9 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             val ink = LocalDoodle.current
             val banner = inkShape(BANNER_CORNER, BANNER_SEED)
             Surface(
-                color = ink?.marker ?: MaterialTheme.colorScheme.primary,
-                contentColor = ink?.onMarker ?: MaterialTheme.colorScheme.onPrimary,
+                color = ink?.marker ?: MaterialTheme.colorScheme.primaryFixed,
+                contentColor = ink?.onMarker ?: MaterialTheme.colorScheme.onPrimaryFixed,
                 shape = if (ink != null) banner else RoundedCornerShape(BANNER_CORNER),
-                shadowElevation = if (ink != null) 0.dp else 6.dp,
                 modifier = Modifier.doodleOutline(banner, InkThick),
             ) {
                 AnimatedContent(sync.step to sync.detail, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "step") { (step, detail) ->
@@ -362,7 +362,6 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     color = ink?.paper ?: MaterialTheme.colorScheme.primaryContainer,
                     contentColor = ink?.text ?: MaterialTheme.colorScheme.onPrimaryContainer,
                     shape = if (ink != null) next else RoundedCornerShape(NEXT_CORNER),
-                    shadowElevation = if (ink != null) 0.dp else 3.dp,
                     modifier = Modifier.padding(top = 6.dp, start = 12.dp).doodleOutline(next),
                 ) {
                     Row(
@@ -380,9 +379,9 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
         SmallFloatingActionButton(
             onClick = { Services.settings.setJourneyVoice(!voice) },
             modifier = Modifier.align(Alignment.TopEnd).padding(top = with(density) { bannerBottom.toDp() } + COMPASS_ROOM, end = 16.dp)
-                .darkSmallFabRing(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
+                .smallFabRing(),
+            containerColor = MaterialTheme.colorScheme.surface,
+            elevation = flatFab(),
         ) {
             Icon(
                 if (voice) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
@@ -402,9 +401,9 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                         overview = true
                         map.overview()
                     },
-                    modifier = Modifier.darkSmallFabRing(),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
+                    modifier = Modifier.smallFabRing(),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    elevation = flatFab(),
                 ) { Icon(Icons.Rounded.Route, contentDescription = stringResource(R.string.nav_overview)) }
             }
             AnimatedVisibility(overview || map.trackingLost, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
@@ -416,9 +415,10 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
                     },
                     icon = { Icon(Icons.Rounded.Navigation, null) },
                     text = { Text(stringResource(R.string.nav_recenter)) },
-                    modifier = Modifier.darkRing(FloatingActionButtonDefaults.extendedFabShape),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.ring(FloatingActionButtonDefaults.extendedFabShape),
+                    containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary,
+                    elevation = flatFab(),
                 )
             }
         }
@@ -445,10 +445,9 @@ fun NavigationScreen(onClose: () -> Unit, onInsets: (top: Float, bottom: Float) 
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(with(density) { drawerMax.toDp() })
                 .offset { IntOffset(0, (drawer.anchored.offset.takeUnless { it.isNaN() } ?: (drawerMax - headerPx - navBar)).roundToInt()) }
                 .then(rememberSheetGestures(drawer))
-                .then(LocalDoodle.current?.let { Modifier.sheetEdgeInk(it) } ?: Modifier.darkEdge(SheetShape, dy = (-1).dp)),
+                .then(LocalDoodle.current?.let { Modifier.sheetEdgeInk(it) } ?: Modifier.edge(SheetShape, dy = (-1).dp)),
             shape = if (LocalDoodle.current != null) SheetEdgeShape else SheetShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = if (LocalDoodle.current != null) 0.dp else 8.dp,
         ) {
             Column {
                 Column(

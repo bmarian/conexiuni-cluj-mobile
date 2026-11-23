@@ -99,6 +99,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import java.text.DateFormat
 import java.util.Date
 import java.util.TimeZone
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
 
 private sealed interface Ask {
     data class Remove(val id: String, val name: String) : Ask
@@ -193,7 +194,7 @@ fun SyncPanel(pairCode: String?, pairKey: String?, onPairing: () -> Unit) {
                     DoodleButton(stringResource(R.string.w_sync_enter_code), Icons.Rounded.Dialpad, filled = false, ink, Modifier.fillMaxWidth(), ::enter)
                 }
             } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(shapes = ButtonDefaults.shapes(), onClick = ::show, modifier = Modifier.fillMaxWidth()) {
+                Button(colors = fillButtonColors(), shapes = ButtonDefaults.shapes(), onClick = ::show, modifier = Modifier.fillMaxWidth()) {
                     Icon(showIcon, null, Modifier.size(18.dp))
                     Text(showLabel, Modifier.padding(start = 8.dp))
                 }
@@ -440,6 +441,7 @@ private fun PairingPanel(vm: SyncPairingViewModel, entering: Boolean, onConnect:
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when {
                         entering -> Button(
+                            colors = fillButtonColors(),
                             shapes = ButtonDefaults.shapes(),
                             onClick = { onConnect(digits, null) },
                             enabled = digits.length == 6,
@@ -447,11 +449,16 @@ private fun PairingPanel(vm: SyncPairingViewModel, entering: Boolean, onConnect:
                         ) {
                             Text(stringResource(R.string.w_sync_connect))
                         }
-                        phase == PairPhase.Confirm -> Button(shapes = ButtonDefaults.shapes(), onClick = vm::confirm, modifier = Modifier.weight(1f)) {
+                        phase == PairPhase.Confirm -> Button(
+                            shapes = ButtonDefaults.shapes(),
+                            onClick = vm::confirm,
+                            modifier = Modifier.weight(1f),
+                            colors = fillButtonColors(),
+                        ) {
                             Text(stringResource(R.string.w_sync_confirm))
                         }
                         phase == PairPhase.Failed && failure != PairFailure.OverCap && failure != PairFailure.Both ->
-                            Button(shapes = ButtonDefaults.shapes(), onClick = onRetry, modifier = Modifier.weight(1f)) {
+                            Button(colors = fillButtonColors(), shapes = ButtonDefaults.shapes(), onClick = onRetry, modifier = Modifier.weight(1f)) {
                                 Text(stringResource(R.string.w_sync_try_again))
                             }
                     }

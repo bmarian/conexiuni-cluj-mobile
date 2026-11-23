@@ -7,7 +7,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleListRow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.cardFill
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.InkThick
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.Mood
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.DoodleMoment
@@ -178,7 +178,7 @@ fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String, m
     TextField(
         value = query,
         onValueChange = onQuery,
-        modifier = modifier.fillMaxWidth().doodleOutline(drawn, InkThick)
+        modifier = modifier.fillMaxWidth().lookOutline(drawn, InkThick)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
         placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = { Icon(Icons.Rounded.Search, null) },
@@ -192,8 +192,8 @@ fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String, m
         colors = TextFieldDefaults.colors(
             focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
             unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-            focusedContainerColor = cardFill(MaterialTheme.colorScheme.surfaceContainerHighest),
-            unfocusedContainerColor = cardFill(MaterialTheme.colorScheme.surfaceContainerHighest),
+            focusedContainerColor = cardFill(MaterialTheme.colorScheme.surface),
+            unfocusedContainerColor = cardFill(MaterialTheme.colorScheme.surface),
         ),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),

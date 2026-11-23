@@ -97,7 +97,7 @@ fun StretchMap(line: GroupLine?, others: List<GroupLine>, nearest: Int?, onPick:
         val stretch = line?.let { index?.stretchOf(it) } ?: return@LaunchedEffect
         val marks = LinkedHashMap<Int, StopHighlight>()
         stretch.stops.forEachIndexed { at, id ->
-            marks[id] = if (at == stretch.from) StopHighlight.Green else if (id == nearest) StopHighlight.Purple else marks[id] ?: StopHighlight.Gray
+            marks[id] = if (at == stretch.from) StopHighlight.Green else if (id == nearest) StopHighlight.Periwinkle else marks[id] ?: StopHighlight.Gray
         }
         map.highlightedStops = marks
     }

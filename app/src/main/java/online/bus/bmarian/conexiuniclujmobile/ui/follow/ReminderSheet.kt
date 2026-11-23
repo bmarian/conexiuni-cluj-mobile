@@ -98,6 +98,7 @@ import java.time.LocalDateTime
 import java.time.format.TextStyle
 import java.util.Locale
 import java.util.UUID
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
 
 /** "Today 23:42", "Tomorrow 07:40" or "Mon 07:40". */
 fun reminderWhen(resources: Resources, atMs: Long, locale: Locale): String {
@@ -361,6 +362,7 @@ fun ReminderSheet(followed: Followed, onDismiss: () -> Unit) {
                     ) { Text(stringResource(R.string.remind_delete)) }
                 }
                 Button(
+                    colors = fillButtonColors(),
                     shapes = ButtonDefaults.shapes(),
                     enabled = draft != null && next != null,
                     onClick = {
@@ -416,10 +418,10 @@ private fun TimeChoice(
     val press = remember { MutableInteractionSource() }
     val corner by animateDpAsState(if (selected) 18.dp else 8.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "corner")
     val container by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+        if (selected) MaterialTheme.colorScheme.primaryFixed else MaterialTheme.colorScheme.surfaceContainerHighest,
         label = "container",
     )
-    val content = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val content = if (selected) MaterialTheme.colorScheme.onPrimaryFixed else MaterialTheme.colorScheme.onSurface
     Surface(
         onClick = onClick,
         modifier = modifier.heightIn(min = 36.dp).squish(press, 0.88f),

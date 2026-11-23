@@ -56,6 +56,8 @@ fun doodleInk(dark: Boolean): DoodleInk = if (dark) ChalkInk else PaperInk
 internal val DoodleLight = lightColorScheme(
     primary = Ink,
     onPrimary = Paper,
+    primaryFixed = Ink,
+    onPrimaryFixed = Paper,
     primaryContainer = Marker,
     onPrimaryContainer = Ink,
     inversePrimary = Marker,
@@ -95,6 +97,8 @@ internal val DoodleLight = lightColorScheme(
 internal val DoodleDark = darkColorScheme(
     primary = Chalk,
     onPrimary = Board,
+    primaryFixed = Chalk,
+    onPrimaryFixed = Board,
     primaryContainer = NightMarker,
     onPrimaryContainer = Ink,
     inversePrimary = Ink,
@@ -133,8 +137,8 @@ internal val DoodleDark = darkColorScheme(
 
 val DoodleWidgetColors = ColorProviders(light = DoodleLight, dark = DoodleDark)
 
-internal val DoodleLiveLight = LiveColors(Ink, Marker, Ink)
-internal val DoodleLiveDark = LiveColors(Chalk, NightMarker, Ink)
+internal val DoodleLiveLight = LiveColors(Ink, Marker, Ink, Ink, Marker)
+internal val DoodleLiveDark = LiveColors(Chalk, NightMarker, Ink, Chalk, NightMarker)
 
 // Shantell's INFM axis, 0 (tidy) to 100.
 private const val INFORMALITY = 60f

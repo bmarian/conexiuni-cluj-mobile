@@ -88,7 +88,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.stop.BusCard
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.DepartureTimes
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.DeparturesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.directedDestination
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 @Composable
 fun groupViewModel(raw: String, leg: Leg?): GroupViewModel = viewModel(key = "group-$raw") { GroupViewModel(raw, leg, createSavedStateHandle()) }
@@ -178,7 +178,7 @@ fun GroupScreen(raw: String, picked: Leg?) {
                             stringResource(if (group != null) R.string.saved else R.string.save),
                             if (group != null) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             selected = group != null,
-                            tint = if (group != null) Palette.Rose else Color.Unspecified,
+                            tint = if (group != null) favoriteColor() else Color.Unspecified,
                         ) { if (group != null) legs?.let(Services.groups::remove) else naming = true },
                         edit,
                     ) + listOfNotNull(

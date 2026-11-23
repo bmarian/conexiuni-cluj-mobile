@@ -107,7 +107,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.SubLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.RouteRow
 import java.util.Locale
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
 import androidx.compose.runtime.produceState
 import online.bus.bmarian.conexiuniclujmobile.data.Api
 import online.bus.bmarian.conexiuniclujmobile.data.Cities
@@ -156,10 +156,9 @@ private fun SearchSurface(docked: Boolean, content: @Composable () -> Unit) {
         val shape = drawnShape(PanelCorner, DockedShape)
         Surface(
             Modifier.fillMaxWidth().heightIn(max = maxOf(DOCKED_MIN_HEIGHT, maxHeight * DOCKED_HEIGHT_RATIO))
-                .then(if (doodle) Modifier.doodleOutline(shape, InkThick) else Modifier.darkRing(DockedShape)),
+                .then(if (doodle) Modifier.doodleOutline(shape, InkThick) else Modifier.ring(DockedShape)),
             shape = shape,
             color = panelFill(MaterialTheme.colorScheme.surfaceContainerHigh),
-            shadowElevation = if (doodle) 0.dp else 6.dp,
             content = content,
         )
     }

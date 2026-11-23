@@ -60,6 +60,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.route.StopLine
 import online.bus.bmarian.conexiuniclujmobile.ui.route.StopMark
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.directedDestination
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
 
 private val StopRow.painted: ClosedFloatingPointRange<Float>?
     get() = if (paintedTop || paintedBottom) (if (paintedTop) 0f else 0.5f)..(if (paintedBottom) 1f else 0.5f) else null
@@ -176,6 +177,7 @@ fun GroupStopsScreen(raw: String, edit: String?, rawLine: String, leg: Leg) {
                 }
             }
             Button(
+                colors = fillButtonColors(),
                 onClick = {
                     val next = if (isNew) lines + line else lines.map { if (it.routeId == line.routeId) line else it }
                     legs?.let { nav.groupBuilt(known.writeLegs(it.with(leg, next)), edit, leg) }

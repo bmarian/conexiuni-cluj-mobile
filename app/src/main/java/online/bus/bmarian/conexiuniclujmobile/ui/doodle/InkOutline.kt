@@ -1,5 +1,7 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.doodle
 
+import androidx.compose.foundation.border
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -21,6 +23,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 private val ChalkGaps = floatArrayOf(14f, 1.6f, 6f, 1.1f, 21f, 2f, 9f, 1.3f)
 
 val InkThin = 1.6.dp
+private val LineWidth = 1.dp
 val InkThick = 2.4.dp
 
 fun chalkEffect(density: Float): PathEffect = PathEffect.dashPathEffect(FloatArray(ChalkGaps.size) { ChalkGaps[it] * density })
@@ -43,4 +46,8 @@ fun inkShape(corner: Dp, seed: Int = 0): Shape {
 fun Modifier.doodleOutline(shape: Shape, width: Dp = 2.dp, rim: Boolean = false): Modifier = composed {
     val ink = LocalDoodle.current ?: return@composed Modifier
     Modifier.inkOutline(shape, if (rim) ink.rim else ink.outline, width, ink.chalk && !rim)
+}
+
+fun Modifier.lookOutline(shape: Shape, width: Dp = 2.dp): Modifier = composed {
+    if (LocalDoodle.current != null) Modifier.doodleOutline(shape, width) else Modifier.border(LineWidth, MaterialTheme.colorScheme.outlineVariant, shape)
 }

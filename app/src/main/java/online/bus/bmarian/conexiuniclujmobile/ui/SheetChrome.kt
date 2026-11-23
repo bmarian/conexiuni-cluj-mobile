@@ -226,12 +226,12 @@ fun ActionChips(actions: List<ChipAction>, modifier: Modifier = Modifier) {
         itemsIndexed(actions, key = { i, _ -> i }) { _, action ->
             val scheme = MaterialTheme.colorScheme
             val container = when {
-                action.primary -> scheme.primary
+                action.primary -> scheme.primaryFixed
                 action.selected -> scheme.secondaryContainer
                 else -> Color.Transparent
             }
             val content = when {
-                action.primary -> scheme.onPrimary
+                action.primary -> scheme.onPrimaryFixed
                 action.selected -> scheme.onSecondaryContainer
                 else -> scheme.onSurface
             }

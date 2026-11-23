@@ -50,6 +50,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.home.FavoriteRow
 import online.bus.bmarian.conexiuniclujmobile.ui.pastHeader
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.BusCard
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.directedDestination
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
 
 /** Port of views/GroupPickView.vue. */
 @Composable
@@ -117,7 +118,13 @@ fun GroupPickScreen(raw: String, edit: String?, startLeg: Leg) {
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.group_add_line))
             }
-            Button(onClick = { save() }, enabled = legs.lines.isNotEmpty(), modifier = Modifier.weight(1f), shapes = ButtonDefaults.shapes()) {
+            Button(
+                onClick = { save() },
+                enabled = legs.lines.isNotEmpty(),
+                modifier = Modifier.weight(1f),
+                shapes = ButtonDefaults.shapes(),
+                colors = fillButtonColors(),
+            ) {
                 Text(stringResource(R.string.group_save))
             }
         }

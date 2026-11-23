@@ -45,10 +45,10 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.data.NetworkRoute
 import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.logic.Mode
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineNumberShadow
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.routeColor
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 /** Port of utils/modeIcons.ts. */
 object ModeGlyphs {
@@ -118,7 +118,7 @@ fun StationIcon(
     favorite: Boolean? = null,
     heart: Boolean = false,
 ) {
-    val container = if (heart) Palette.Rose else look?.let { routeColor(it.color) } ?: MaterialTheme.colorScheme.secondaryContainer
+    val container = if (heart) favoriteColor() else look?.let { routeColor(it.color) } ?: MaterialTheme.colorScheme.secondaryContainer
     val tint = if (look != null || heart) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
     val drawn = if (LocalDoodle.current != null) inkShape(size / 2, size.value.toInt()) else shape
     FavoriteMorph(rememberMorph(null, container, favorite), drawn, modifier.size(size).doodleOutline(drawn, InkThin, rim = true)) {

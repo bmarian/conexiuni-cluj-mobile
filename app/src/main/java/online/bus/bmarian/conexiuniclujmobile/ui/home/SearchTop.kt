@@ -1,6 +1,5 @@
 package online.bus.bmarian.conexiuniclujmobile.ui.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,6 +43,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.LineBadge
 import online.bus.bmarian.conexiuniclujmobile.ui.RowIcon
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.RouteRow
 import online.bus.bmarian.conexiuniclujmobile.ui.stop.directedDestination
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
 
 private val CARD_SHAPE = RoundedCornerShape(20.dp)
 
@@ -69,7 +69,7 @@ fun LazyListScope.searchTop(
     if (answer.best == null && answer.notice == null) return
     item(key = "search-top") {
         if (answer.best != null) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer, CARD_SHAPE)) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().ring(CARD_SHAPE)) {
                 Best(answer, routes, stops, index, me, actions)
             }
         } else {

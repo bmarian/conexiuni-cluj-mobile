@@ -74,7 +74,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.doodle.EdgeRideLayer
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.SheetEdgeShape
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.sheetEdgeInk
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkEdge
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.edge
 
 enum class SheetSnap { Peek, Half, Full }
 
@@ -291,11 +291,9 @@ fun BottomSheet(
                 .offset { IntOffset(0, state.offsetPx.roundToInt()) }
                 .then(rememberSheetGestures(state, drags))
                 .onFocusChanged { focused = it.hasFocus }
-                .then(if (ink != null) Modifier.sheetEdgeInk(ink) else Modifier.darkEdge(SheetShape, dy = (-1).dp)),
+                .then(if (ink != null) Modifier.sheetEdgeInk(ink) else Modifier.edge(SheetShape, dy = (-1).dp)),
             shape = if (ink != null) SheetEdgeShape else SheetShape,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = if (ink != null) 0.dp else 6.dp,
-            tonalElevation = 1.dp,
         ) {
             Column {
                 SheetHandle(state)
@@ -387,9 +385,8 @@ fun SideSheet(
         modifier
             .offset { IntOffset((state.anchored.offset.takeUnless { it.isNaN() } ?: 0f).roundToInt(), 0) }
             .anchoredDraggable(state.anchored, Orientation.Horizontal, enabled = draggable, flingBehavior = fling)
-            .darkEdge(shape, dx = 1.dp),
+            .edge(shape, dx = 1.dp),
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 6.dp,
     ) { content() }
 }

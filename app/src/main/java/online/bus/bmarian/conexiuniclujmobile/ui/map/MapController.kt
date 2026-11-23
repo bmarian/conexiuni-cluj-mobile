@@ -9,7 +9,7 @@ import online.bus.bmarian.conexiuniclujmobile.data.Fix
 import online.bus.bmarian.conexiuniclujmobile.data.Vehicle
 import online.bus.bmarian.conexiuniclujmobile.logic.LatLon
 
-enum class StopHighlight { Green, Purple, Red, Gray, Amber, Favorite }
+enum class StopHighlight { Green, Periwinkle, Red, Gray, Amber, Favorite }
 
 class MapShape(
     val tripId: String,

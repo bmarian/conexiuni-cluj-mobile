@@ -58,6 +58,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.TimePill
 import online.bus.bmarian.conexiuniclujmobile.ui.minutesLabel
 import online.bus.bmarian.conexiuniclujmobile.ui.rememberNow
 import online.bus.bmarian.conexiuniclujmobile.ui.squish
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillButtonColors
 
 @Composable
 fun rememberWithNotifications(): (() -> Unit) -> Unit {
@@ -193,7 +194,7 @@ fun JourneyCard(state: JourneySync, onNext: () -> Unit, onEnd: () -> Unit, modif
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onEnd) { Text(stringResource(R.string.journey_end)) }
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onNext) { Text(stringResource(R.string.journey_next)) }
                 if (onOpen != null) {
-                    Button(shapes = ButtonDefaults.shapes(), onClick = onOpen) {
+                    Button(colors = fillButtonColors(), shapes = ButtonDefaults.shapes(), onClick = onOpen) {
                         Icon(Icons.Rounded.Navigation, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.nav_resume))

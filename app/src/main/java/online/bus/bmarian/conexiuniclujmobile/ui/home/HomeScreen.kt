@@ -93,11 +93,11 @@ import online.bus.bmarian.conexiuniclujmobile.data.StationLook
 import online.bus.bmarian.conexiuniclujmobile.data.Stop
 import online.bus.bmarian.conexiuniclujmobile.logic.FirstSteps
 import online.bus.bmarian.conexiuniclujmobile.logic.haversineMeters
-import online.bus.bmarian.conexiuniclujmobile.ui.doodle.doodleOutline
 import online.bus.bmarian.conexiuniclujmobile.ui.doodle.inkShape
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalDoodle
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
 
 /** One chip per line: both directions saved show as one and open the direction nearest the user. */
 private class RouteChip(val route: Route, val parts: List<String>, val both: Boolean, val favorites: List<FavoriteRoute>) {
@@ -427,13 +427,12 @@ private fun rowBackground(lifted: Boolean) = if (lifted) MaterialTheme.colorSche
 private fun FavoriteRouteChip(chip: RouteChip, modifier: Modifier, onClick: () -> Unit) {
     LocalDoodle.current?.let { return DoodleRouteCard(chip.route.shortName, chip.route.color, chip.parts, chip.both, it, modifier, onClick) }
     val press = remember { MutableInteractionSource() }
-    val doodle = LocalDoodle.current != null
     val shape = inkShape(14.dp, chip.route.shortName.hashCode())
     Surface(
         onClick = onClick,
-        modifier = modifier.squish(press, 0.93f).doodleOutline(shape),
+        modifier = modifier.squish(press, 0.93f).lookOutline(shape),
         shape = shape,
-        color = if (doodle) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = Color.Transparent,
         interactionSource = press,
     ) {
         Row(Modifier.padding(start = 10.dp, end = 12.dp, top = 6.dp, bottom = 6.dp).heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -51,6 +51,9 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import online.bus.bmarian.conexiuniclujmobile.ui.doodle.lookOutline
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.fillTimePickerColors
+import androidx.compose.material3.MaterialTheme
 
 private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val MODEL: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
@@ -124,9 +127,9 @@ private fun TimeDialog(current: LocalDateTime, onDismiss: () -> Unit, onPick: (I
     val shape = drawnShape(PanelCorner, AlertDialogDefaults.shape)
     TimePickerDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.doodleOutline(shape, InkThick),
+        modifier = Modifier.lookOutline(shape, InkThick),
         shape = shape,
-        containerColor = panelFill(AlertDialogDefaults.containerColor),
+        containerColor = panelFill(MaterialTheme.colorScheme.surface),
         confirmButton = {
             TextButton(shapes = ButtonDefaults.shapes(), onClick = { onPick(state.hour, state.minute) }) { Text(stringResource(android.R.string.ok)) }
         },
@@ -139,7 +142,7 @@ private fun TimeDialog(current: LocalDateTime, onDismiss: () -> Unit, onPick: (I
         },
         dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(stringResource(R.string.w_cancel)) } },
     ) {
-        if (mode == TimePickerDisplayMode.Picker) TimePicker(state) else TimeInput(state)
+        if (mode == TimePickerDisplayMode.Picker) TimePicker(state, colors = fillTimePickerColors()) else TimeInput(state)
     }
 }
 

@@ -180,6 +180,7 @@ import online.bus.bmarian.conexiuniclujmobile.ui.theme.LocalLineLooks
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineColor
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.lineInk
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 @Composable
 fun routeViewModel(routeId: Int, direction: String, fromStopId: Int?, changeId: Long?): RouteViewModel =
@@ -251,7 +252,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
             val id = stop.stop.stopId
             id to when {
                 id == fromStopId -> StopHighlight.Green
-                idx == current.nearestStopIdx -> StopHighlight.Purple
+                idx == current.nearestStopIdx -> StopHighlight.Periwinkle
                 id in favoriteStops -> StopHighlight.Favorite
                 else -> StopHighlight.Gray
             }
@@ -455,7 +456,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
                         stringResource(if (isFavorite) R.string.saved else R.string.save),
                         if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         selected = isFavorite,
-                        tint = if (isFavorite) Palette.Rose else Color.Unspecified,
+                        tint = if (isFavorite) favoriteColor() else Color.Unspecified,
                     ) {
                         haptics.performHapticFeedback(if (!isFavorite) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         Services.favorites.toggleRoute(routeId, dir)
@@ -725,7 +726,7 @@ fun RouteScreen(routeId: Int, direction: String, fromStopId: Int?, changeId: Lon
     }
     StopListBuses(
         buses, listState, stopKeys, busTarget,
-        mark = if (stops.getOrNull(busTarget)?.stop?.stopId == fromStopId) Palette.Emerald else Palette.Purple,
+        mark = if (stops.getOrNull(busTarget)?.stop?.stopId == fromStopId) Palette.Emerald else MaterialTheme.colorScheme.tertiary,
         color = lineColor,
         mode = modeOf(route.type),
         modifier = Modifier.matchParentSize(),
@@ -775,7 +776,7 @@ private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect
                     interactionSource = press,
                     shape = RoundedCornerShape(corner),
                     color = when {
-                        isSelected -> MaterialTheme.colorScheme.primary
+                        isSelected -> MaterialTheme.colorScheme.primaryFixed
                         chip.isPast -> Color.Transparent
                         else -> MaterialTheme.colorScheme.surfaceContainerHighest
                     },
@@ -787,7 +788,7 @@ private fun HourRow(group: HourGroup, selected: String?, next: String?, onSelect
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (chip.isPast && !isSelected) FontWeight.Normal else FontWeight.Bold,
                         color = when {
-                            isSelected -> MaterialTheme.colorScheme.onPrimary
+                            isSelected -> MaterialTheme.colorScheme.onPrimaryFixed
                             chip.isPast -> MaterialTheme.colorScheme.outlineVariant
                             else -> MaterialTheme.colorScheme.onSurface
                         },

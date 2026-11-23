@@ -137,7 +137,8 @@ import online.bus.bmarian.conexiuniclujmobile.ui.stop.StopsScreen
 import org.maplibre.android.MapLibre
 import org.maplibre.android.module.http.HttpRequestUtil
 import org.maplibre.android.offline.OfflineManager
-import online.bus.bmarian.conexiuniclujmobile.ui.theme.darkSmallFabRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.smallFabRing
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.flatFab
 import androidx.compose.material3.FloatingActionButtonDefaults
 
 val LocalMap = compositionLocalOf<MapController> { error("no map") }
@@ -341,9 +342,10 @@ fun AppShell(dark: Boolean, links: MutableStateFlow<Uri?>) {
                     SmallFloatingActionButton(
                         onClick = { scope.launch { sidePanel.toggle() } },
                         modifier = Modifier.align(Alignment.CenterStart).then(panelOffset).padding(start = 8.dp).squish(press, 0.85f)
-                            .darkSmallFabRing(),
+                            .smallFabRing(),
                         interactionSource = press,
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        elevation = flatFab(),
                     ) {
                         Icon(
                             if (sidePanel.isOpen) Icons.AutoMirrored.Rounded.KeyboardArrowLeft else Icons.AutoMirrored.Rounded.KeyboardArrowRight,

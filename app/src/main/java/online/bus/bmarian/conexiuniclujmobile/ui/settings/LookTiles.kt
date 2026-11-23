@@ -63,7 +63,7 @@ private val PreviewBus = 40.dp
 @Composable
 internal fun LookTiles(look: Look, onChange: (Look) -> Unit, labels: Map<Look, String>, ink: DoodleInk?) {
     val scheme = MaterialTheme.colorScheme
-    val accent = ink?.marker ?: scheme.primary
+    val accent = ink?.marker ?: scheme.primaryFixed
     Row(
         Modifier.fillMaxWidth().padding(horizontal = if (ink != null) DoodleMetrics.Side else 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(TileGap),
@@ -79,7 +79,7 @@ internal fun LookTiles(look: Look, onChange: (Look) -> Unit, labels: Map<Look, S
             Box(Modifier.weight(1f)) {
                 Column(
                     Modifier.fillMaxWidth()
-                        .inkOutline(shape, rim, if (chosen) TileChosenLine else TileLine, ink?.chalk == true)
+                        .inkOutline(shape, rim, if (chosen && ink != null) TileChosenLine else TileLine, ink?.chalk == true)
                         .clip(shape)
                         .squishClickable { onChange(option) }
                         .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 6.dp),
@@ -98,7 +98,7 @@ internal fun LookTiles(look: Look, onChange: (Look) -> Unit, labels: Map<Look, S
                     Box(
                         Modifier.align(Alignment.TopEnd).offset(x = BadgeOut, y = -BadgeOut).size(Badge).clip(CircleShape).background(accent),
                         contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Rounded.Check, null, Modifier.size(BadgeIcon), tint = ink?.onMarker ?: scheme.onPrimary) }
+                    ) { Icon(Icons.Rounded.Check, null, Modifier.size(BadgeIcon), tint = ink?.onMarker ?: scheme.onPrimaryFixed) }
                 }
             }
         }

@@ -42,7 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.ring
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -617,7 +617,7 @@ private fun MapTooltip(session: MapSession, tip: Tooltip) {
     }
     Anchored(session, { tip.at }, lift, shift = tip.shift, pointer = arrow) {
         Column(
-            Modifier.shadow(4.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp)).background(bg)
+            Modifier.clip(RoundedCornerShape(12.dp)).background(bg).ring(RoundedCornerShape(12.dp))
                 .widthIn(max = 320.dp).padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             val station = @Composable { name: String, look: StationLook? ->
@@ -665,8 +665,8 @@ private fun VehicleBubble(session: MapSession, id: String) {
     val reported = vehicle.vehicle.speed
     Anchored(session, { session.shownVehicle(id)?.at }, 0f, alignStart = offset) {
         Row(
-            Modifier.shadow(4.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
+            Modifier.clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer).ring(RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),

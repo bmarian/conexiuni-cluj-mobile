@@ -38,6 +38,7 @@ import online.bus.bmarian.conexiuniclujmobile.R
 import online.bus.bmarian.conexiuniclujmobile.ui.Ticker
 import online.bus.bmarian.conexiuniclujmobile.ui.squishClickable
 import online.bus.bmarian.conexiuniclujmobile.ui.theme.Palette
+import online.bus.bmarian.conexiuniclujmobile.ui.theme.favoriteColor
 
 internal enum class StopMark { From, Nearest, Favorite, Terminal, Plain }
 
@@ -98,11 +99,13 @@ internal fun StopLine(
         )
     }
     val rail = MaterialTheme.colorScheme.outlineVariant
+    val heart = favoriteColor()
+    val nearest = MaterialTheme.colorScheme.tertiary
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val rowTint = when (mark) {
         StopMark.From -> Palette.Emerald.copy(alpha = 0.08f)
-        StopMark.Nearest -> Palette.Purple.copy(alpha = 0.08f)
-        StopMark.Favorite -> Palette.Rose.copy(alpha = 0.06f)
+        StopMark.Nearest -> nearest.copy(alpha = 0.08f)
+        StopMark.Favorite -> heart.copy(alpha = 0.06f)
         else -> Color.Transparent
     }
     Row(
@@ -121,8 +124,8 @@ internal fun StopLine(
             }
             val color = when (mark) {
                 StopMark.From -> Palette.Emerald
-                StopMark.Nearest -> Palette.Purple
-                StopMark.Favorite -> Palette.Rose
+                StopMark.Nearest -> nearest
+                StopMark.Favorite -> heart
                 StopMark.Terminal -> Palette.Slate400
                 StopMark.Plain -> null
             }
@@ -144,18 +147,18 @@ internal fun StopLine(
                 },
                 color = when (mark) {
                     StopMark.From -> Palette.Emerald
-                    StopMark.Nearest -> Palette.Purple
+                    StopMark.Nearest -> nearest
                     StopMark.Terminal -> MaterialTheme.colorScheme.onSurface
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
             when (mark) {
                 StopMark.From -> Icon(Icons.Rounded.Place, null, Modifier.size(14.dp), tint = Palette.Emerald)
-                StopMark.Nearest -> Icon(Icons.Rounded.MyLocation, null, Modifier.size(14.dp), tint = Palette.Purple)
+                StopMark.Nearest -> Icon(Icons.Rounded.MyLocation, null, Modifier.size(14.dp), tint = nearest)
                 else -> {}
             }
             if (favorite) {
-                Icon(Icons.Rounded.Favorite, null, Modifier.size(12.dp), tint = Palette.Rose)
+                Icon(Icons.Rounded.Favorite, null, Modifier.size(12.dp), tint = heart)
             }
             if (alerting) {
                 Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
